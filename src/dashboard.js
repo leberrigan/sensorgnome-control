@@ -195,6 +195,7 @@ class Dashboard {
         return {
             ctt: Object.values(HubMan.devs).filter(d => d.attr?.radio.startsWith("CTT")).length,
             vah: Object.values(HubMan.devs).filter(d => d.attr?.radio == "VAH").length,
+            gr: Object.values(HubMan.devs).filter(d => d.attr?.radio == "GnuRadio").length,
             all: Object.values(HubMan.devs).filter(d => d.attr?.radio).length,
             // bad: radios with invalid port
             bad: Object.keys(HubMan.devs).filter(p => (p < 0 || p > 10) && HubMan.devs[p].attr?.radio).length,

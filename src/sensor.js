@@ -51,24 +51,29 @@ getSensor = function(matron, dev, devPlan) {
 
     var rv;
 
-    switch(dev.attr.type) {
-    case "funcubePro":
-    case "funcubeProPlus":
-    case "usbAudio":
-        rv = new USBAudio.USBAudio(matron, dev, devPlan);
-        break;
-    case "rtlsdr":
-        rv = new RTLSDR.RTLSDR(matron, dev, devPlan);
-        break;
-    case "airspy":
-        rv = new AIRSPY.AIRSPY(matron, dev, devPlan);
-        break;
-    default:
-        rv = null;
-    }
+    if (self.dev?.pulseFinder == "gnuRadio")
+        rv = GR_SDR.GR_SDR(matron, dev, devPlan); // Device initialization is handled by gnuradio
+    else
+        switch(dev.attr.type) {
+            case "funcubePro":
+            case "funcubeProPlus":
+            case "usbAudio":
+                rv = new USBAudio.USBAudio(matron, dev, devPlan);
+                break;
+            case "rtlsdr":
+                rv = new RTLSDR.RTLSDR(matron, dev, devPlan);
+                break;
+            case "airspy":
+                rv = new AIRSPY.AIRSPY(matron, dev, devPlan);
+                break;
+            default:
+                rv = null;
+        }
+
     if (rv)
-        setTimeout(rv.this_init, 250);
-    return(rv);
+        setTimeout(rv.this_init, 250); // Trigger initialization after 250 ms
+    
+    return(rv); // the matron doesn't actually do anything with this
 };
 
 Sensor.prototype.devRemoved = function(dev) {
@@ -122,9 +127,17 @@ Sensor.prototype.init = function() {
 };
 
 Sensor.prototype.initDone = function() {
-    var cmd = "open " + this.dev.attr.port + " " + this.hw_devPath() + " " + this.plan.rate + " " + this.plan.channels;
-    console.log("Opening VAH: " + cmd);
-    this.matron.emit("vahSubmit", cmd, this.vahOpenReply, this);
+    if (this.dev?.plugins[0]?.name == "grPulseDetect") {
+        // Expects commands in this order: dev_type port device samp_rate target_rate freq, osmosdr_args
+        var cmd = `open ${this.dev.attr.type} ${this.dev.attr.port} ${this.getDeviceID()} ${this.plan.samp_rate} ${this.plan.rate} ${this.plan.frequency} ${this.plan.osmosdr_args}`
+        //"open " + this.dev.attr.port + " " + this.hw_devPath() + " " + this.plan.rate + " " + this.plan.channels;
+        console.log("Opening GRH: " + cmd);
+        this.matron.emit("grhSubmit", cmd, this.grOpenReply, this);
+    } else {
+        var cmd = "open " + this.dev.attr.port + " " + this.hw_devPath() + " " + this.plan.rate + " " + this.plan.channels;
+        console.log("Opening VAH: " + cmd);
+        this.matron.emit("vahSubmit", cmd, this.vahOpenReply, this);
+    }
 };
 
 Sensor.prototype.vahOpenReply = function (reply, self) {
@@ -170,6 +183,22 @@ Sensor.prototype.vahOpenReply = function (reply, self) {
     }
 };
 
+Sensor.prototype.grOpenReply = function (reply, self) {
+    if (reply.error) {
+        console.log(`sensor GnuRadio open reply port ${self.dev.attr?.port} got ${JSON.stringify(reply)}\n`);
+        // schedule a retry on this device (every 10 seconds up to 10 times)
+        self.matron.emit("devState", self.dev.attr.port, "error", "GnuRadio cannot open device");
+        if (++self.numOpenRetries < 3) {
+            setTimeout (self.this_init, 10000);
+        } else {
+            self.matron.emit("bad", "Unable to open GnuRadio device: " + self.dev.path, reply.error);
+            self.hw_stalled();
+        }
+        return;
+    }
+    self.isOpen = true;
+
+};
 Sensor.prototype.getPluginLabel = function(letter) {
     // for now, we assume only one plugin per port and just label
     // everything with the devLabel, which is "pX" (X = USB hub port
@@ -186,6 +215,15 @@ Sensor.prototype.vahAttachReply = function (reply, pars) {
         self.matron.emit("devState", self.dev.attr.port, "error", reply.error);
     } else {
         self.matron.emit("vahAccept", self.getPluginLabel(plugin.letter));
+    }
+};
+Sensor.prototype.grAttachReply = function (reply, pars) {
+    var self = pars.self, pno=pars.i, plugin = self.plan.plugins[pno];
+    if (reply.error) {
+        console.log(`Cannot attach plugin ${plugin.library}:${plugin.name}:${plugin.outputID} to ${JSON.stringify(self.dev)}: ${reply.error}`)
+        self.matron.emit("devState", self.dev.attr.port, "error", reply.error);
+    } else {
+        self.matron.emit("grhAccept", self.getPluginLabel(plugin.letter));
     }
 };
 

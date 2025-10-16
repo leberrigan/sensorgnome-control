@@ -155,8 +155,9 @@
                     "port": ".*",
                     "devType": "airspy"
                 },
-                "rate": 48000,
+                "rate": 50000,
                 "channels": 2,
+                "pulseFinder":"gnuradio",
                 "schedule": {
                     "type": "AlwaysOn"
                 },
@@ -196,37 +197,45 @@
                 },
                 "plugins": [
                     {
-                        "library": "lotek-plugins.so",
-                        "name": "findpulsefdbatch",
+                        "library": "detect_pulses.py",
+                        "name": "grPulseDetect",
                         "outputID": "pulses",
                         "params": [
                             {
-                                "name": "plen",
+                                "name": "pulse_len",
                                 "value": 2.5
                             },
                             {
-                                "name": "minfreq",
-                                "value": 2
+                                "name": "target_rate",
+                                "value": 5e4
                             },
                             {
-                                "name": "maxfreq",
-                                "value": 8
+                                "name": "samp_rate",
+                                "value": 3e6
                             },
                             {
-                                "name": "fftsize",
-                                "value": 24
+                                "name": "osmosdr_args",
+                                "value": "sensitivity=21"
                             },
                             {
-                                "name": "minsnr",
-                                "value": 8
+                                "name": "cutoff_freq",
+                                "value": 15e3
                             },
                             {
-                                "name": "noisesize",
+                                "name": "transition_width",
+                                "value": 1e4
+                            },
+                            {
+                                "name": "min_fft_size",
+                                "value": 64
+                            },
+                            {
+                                "name": "min_snr",
+                                "value": 6
+                            },
+                            {
+                                "name": "debounce_samples",
                                 "value": 5
-                            },
-                            {
-                                "name": "pulsesep",
-                                "value": 1
                             }
                         ]
                     }

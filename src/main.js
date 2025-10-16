@@ -63,6 +63,7 @@ GPS           = new (require('./gps.js'))(TheMatron);
 Chrony        = new (require('./chrony.js'))(TheMatron);
 HubMan        = new (require('./hubman.js'))(TheMatron, DEVROOT, PORTMAP);
 VAH           = new (require('./vah.js'))(TheMatron, "/usr/bin/vamp-alsa-host", "VAH.sock");
+GRH           = new (require('./grh.js'))(TheMatron, "python3 /usr/bin/gnu-radio-host.py", "gnuradio.sock");
 //WebServer     = new (require('./webserver.js'))(TheMatron);
 FlexDash      = new (require('./flexdash.js'))(TheMatron);
 Dashboard     = new (require('./dashboard.js'))(TheMatron);
@@ -74,6 +75,7 @@ Sensor        = require('./sensor.js');
 USBAudio      = require("./usbaudio.js");
 RTLSDR        = require("./rtlsdr.js");
 AIRSPY        = require("./airspy.js");
+GR_SDR        = require("./gr-sdr.js");
 CornellTagXCVR= require("./cornelltagxcvr.js");
 
 //WavMaker      = require('./wavmaker.js');
@@ -126,6 +128,11 @@ TheMatron.on("gotGPSFix", function(fix) {
 
 // Propagate input received from vamp-alsa-host, i.e. Lotek pulses, to data file
 TheMatron.on("vahData", (d) => {
+    const bf = Acquisition.burstfinder
+    if (!bf.filter_file) AllOut.write(d + '\n')
+})
+// Propagate input received from vamp-alsa-host, i.e. Lotek pulses, to data file
+TheMatron.on("grData", (d) => {
     const bf = Acquisition.burstfinder
     if (!bf.filter_file) AllOut.write(d + '\n')
 })
