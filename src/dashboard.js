@@ -35,7 +35,7 @@ class Dashboard {
         for (const ev of [
             // normal events funneled through matron (i.e. from app)
             'gotGPSFix', 'chrony', 'gotTag', 'setParam', 'setParamError', 'devAdded', 'devRemoved',
-            'df', 'sdcardUse', 'vahData', 'netDefaultRoute', 'netInet', 'netMotus', 'netWifiState',
+            'df', 'sdcardUse', 'vahData', 'grhData', 'netDefaultRoute', 'netInet', 'netMotus', 'netWifiState',
             'netHotspotState', 'netWifiConfig', 'portmapFile', 'tagDBInfo', 'motusRecv',
             'motusUploadResult', 'netDefaultGw', 'netDNS', 'lotekFreq', 'netCellState', 'netCellReason',
             'netCellInfo', 'netCellConfig', 'cttRadioVersion', 'vahRate', 'vahFrames', 'devState',
@@ -194,8 +194,8 @@ class Dashboard {
     updateNumRadios() {
         return {
             ctt: Object.values(HubMan.devs).filter(d => d.attr?.radio.startsWith("CTT")).length,
-            vah: Object.values(HubMan.devs).filter(d => d.attr?.radio == "VAH").length,
-            gr: Object.values(HubMan.devs).filter(d => d.attr?.radio == "GnuRadio").length,
+            vah: Object.values(HubMan.devs).filter(d => ["VAH", "GRH"].includes( d.attr?.radio) ).length,
+        //    grh: Object.values(HubMan.devs).filter(d => d.attr?.radio == "GRH").length,
             all: Object.values(HubMan.devs).filter(d => d.attr?.radio).length,
             // bad: radios with invalid port
             bad: Object.keys(HubMan.devs).filter(p => (p < 0 || p > 10) && HubMan.devs[p].attr?.radio).length,
@@ -758,6 +758,10 @@ class Dashboard {
             this.tsGotPulse(line.trim())
         }
         FlexDash.set('detections_5min', this.detections)
+    }
+
+    handle_grhData(line) {
+        this.handle_vahData(line);
     }
 
     handle_vahRate(port, now, rate) { this.tsGotRate(port, now, rate)}

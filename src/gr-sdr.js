@@ -16,10 +16,6 @@ GR_SDR = function(matron, dev, devPlan) {
     // i.e. find the smallest exact multiple of the desired rate that is in
     // the allowed range of hardware rates.
 
-    console.log("GnuRadio device attributes: ", JSON.stringify(dev.attr) )
-
-    console.log("GnuRadio: requested rate of: " + devPlan.plan.rate);
-
     var rate = devPlan.plan.rate;
     if (rate != 48e3 && rate != 3e6 && rate != 6e6 && rate != 10e6) {
         console.log("GnuRadio: requested rate not within hardware range; using 48000");
@@ -28,20 +24,22 @@ GR_SDR = function(matron, dev, devPlan) {
 
     this.hw_rate = 6e6; // Only rate that is a multiple of 48khz
 
+    console.log("GnuRadio: ", JSON.stringify(this))
+    console.log("GnuRadio binding: ", this.grhDied)
     // callback closures
-    this.this_gotCmdReply      = this.gotCmdReply.bind(this);
-    this.this_logServerError   = this.logServerError.bind(this);
+    // this.this_gotCmdReply      = this.gotCmdReply.bind(this);
+    // this.this_logServerError   = this.logServerError.bind(this);
     this.this_grhDied          = this.grhDied.bind(this);
     this.this_grhData          = this.grhData.bind(this);
-    this.this_serverDied       = this.serverDied.bind(this);
-    this.this_serverError      = this.serverError.bind(this);
-    this.this_cmdSockConnected = this.cmdSockConnected.bind(this);
-    this.this_connectCmd       = this.connectCmd.bind(this);
-    this.this_serverReady      = this.serverReady.bind(this);
-    //this.this_cmdSockError     = this.cmdSockError.bind(this);
-    this.this_cmdSockClose     = this.cmdSockClose.bind(this);
-    //this.this_cmdSockEnd       = this.cmdSockEnd.bind(this);
-    this.this_spawnServer      = this.spawnServer.bind(this);
+    // this.this_serverDied       = this.serverDied.bind(this);
+    // this.this_serverError      = this.serverError.bind(this);
+    // this.this_cmdSockConnected = this.cmdSockConnected.bind(this);
+    // this.this_connectCmd       = this.connectCmd.bind(this);
+    // this.this_serverReady      = this.serverReady.bind(this);
+    // this.this_cmdSockError     = this.cmdSockError.bind(this);
+    // this.this_cmdSockClose     = this.cmdSockClose.bind(this);
+    // this.this_cmdSockEnd       = this.cmdSockEnd.bind(this);
+    // this.this_spawnServer      = this.spawnServer.bind(this);
 
     // handle situation where program owning other connection to libairspy dies
     this.matron.on("grhDied", this.this_grhDied);
@@ -64,6 +62,9 @@ GR_SDR = function(matron, dev, devPlan) {
 
     console.log("GnuRadio: created");
 };
+
+GR_SDR.prototype = Object.create(Sensor.Sensor.prototype);
+GR_SDR.prototype.constructor = GR_SDR;
 
 
 GR_SDR.prototype.getDeviceID = function() {
@@ -112,17 +113,12 @@ GR_SDR.prototype.grhDied = function() {
 };
 
 
-GR_SDR.prototype = Object.create(Sensor.Sensor.prototype);
-GR_SDR.prototype.constructor = GR_SDR;
-
 GR_SDR.prototype.hw_init = function(callback) {
     // Get the serial number or device ID
     this.extractPluginParams();
     callback();   // immediately go to callback
 };
-
-GR_SDR.prototype.
-
+    
 GR_SDR.prototype.gnuRadioCmds = {
     // table of command recognized by airspy_tcp
     //

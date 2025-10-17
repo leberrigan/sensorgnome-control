@@ -29,6 +29,7 @@ Sensor = function(matron, dev, devPlan) {
     this.rawFiling = false;  // are we supposed to be recording raw files?
     this.restartTimeout = null; // timeout event for restarting device, e.g. after a stall
 
+    console.log("[sensor.js] Binding init fn: ", this.init)
     // callback closures
     this.this_init                   = this.init.bind(this);
     this.this_initDone               = this.initDone.bind(this);
@@ -38,6 +39,7 @@ Sensor = function(matron, dev, devPlan) {
     this.this_requestSetParam        = this.requestSetParam.bind(this);
     this.this_rawFileDone            = this.rawFileDone.bind(this);
 
+    console.log("[sensor.js] Binding matron fns...")
     this.matron.on("devRemoved", this.this_devRemoved);
     this.matron.on("quit", this.this_devRemoved);
     this.matron.on("devStalled", this.this_devStalled);
@@ -50,9 +52,11 @@ getSensor = function(matron, dev, devPlan) {
 // factory method
 
     var rv;
+    
+    // console.log("Device plan: ", JSON.stringify(devPlan?.plan))
 
-    if (self.dev?.pulseFinder == "gnuRadio")
-        rv = GR_SDR.GR_SDR(matron, dev, devPlan); // Device initialization is handled by gnuradio
+    if (devPlan?.plan?.pulseFinder == "gnuradio") 
+        rv = new GR_SDR.GR_SDR(matron, dev, devPlan); // Device initialization is handled by gnuradio
     else
         switch(dev.attr.type) {
             case "funcubePro":
@@ -127,9 +131,9 @@ Sensor.prototype.init = function() {
 };
 
 Sensor.prototype.initDone = function() {
-    if (this.dev?.plugins[0]?.name == "grPulseDetect") {
+    if (this.plan?.plugins[0]?.name == "grPulseDetect") {
         // Expects commands in this order: dev_type port device samp_rate target_rate freq, osmosdr_args
-        var cmd = `open ${this.dev.attr.type} ${this.dev.attr.port} ${this.getDeviceID()} ${this.plan.samp_rate} ${this.plan.rate} ${this.plan.frequency} ${this.plan.osmosdr_args}`
+        var cmd = `open ${this.dev.attr.type} ${this.dev.attr.port} ${this.getDeviceID()} ${this.plan.samp_rate} ${this.plan.rate} ${this.plan.frequency*1e6} "${this.plan.osmosdr_args}"`
         //"open " + this.dev.attr.port + " " + this.hw_devPath() + " " + this.plan.rate + " " + this.plan.channels;
         console.log("Opening GRH: " + cmd);
         this.matron.emit("grhSubmit", cmd, this.grOpenReply, this);
@@ -198,6 +202,24 @@ Sensor.prototype.grOpenReply = function (reply, self) {
     }
     self.isOpen = true;
 
+    
+    // if any schedules exist (because device was restarted, e.g.),
+    // don't set them up again.
+
+    if (self.schedules === undefined) {
+        // create schedules for the device and its parameters
+        self.schedules = [];
+
+        // a schedule for each device parameter
+        var dp = self.plan.devParams;
+        for (var i in dp) {
+            // create a callback to set the specific parameter
+            // to a value created in the schedule's state
+            self.schedules.push(Schedule.Make(dp[i].schedule, self.setParam, {self: self, par: dp[i].name}));
+        };
+        self.setupDevSchedule(self);
+    }
+//    self.startStop("on", "off", self); // Skip scheduler since it doesn't seem to ever be used. I can add it back in if we determine it to be useful.
 };
 Sensor.prototype.getPluginLabel = function(letter) {
     // for now, we assume only one plugin per port and just label
