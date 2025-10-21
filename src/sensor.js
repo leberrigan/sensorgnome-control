@@ -132,8 +132,8 @@ Sensor.prototype.init = function() {
 
 Sensor.prototype.initDone = function() {
     if (this.plan?.plugins[0]?.name == "grPulseDetect") {
-        // Expects commands in this order: dev_type port device samp_rate target_rate freq, osmosdr_args
-        var cmd = `open ${this.dev.attr.type} ${this.dev.attr.port} ${this.getDeviceID()} ${this.plan.samp_rate} ${this.plan.rate} ${this.plan.frequency*1e6} "${this.plan.osmosdr_args}"`
+        // Expects commands in this order: dev_type port device samp_rate target_rate freq gain additional_args
+        var cmd = `open ${this.dev.attr.type} ${this.dev.attr.port} ${this.getDeviceID()} ${this.plan.samp_rate} ${this.plan.rate} ${this.plan.frequency*1e6} ${this.plan.gain} ${this.plan.additional_args}`
         //"open " + this.dev.attr.port + " " + this.hw_devPath() + " " + this.plan.rate + " " + this.plan.channels;
         console.log("Opening GRH: " + cmd);
         this.matron.emit("grhSubmit", cmd, this.grOpenReply, this);

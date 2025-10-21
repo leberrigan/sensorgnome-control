@@ -68,7 +68,7 @@ GR_SDR.prototype.constructor = GR_SDR;
 
 
 GR_SDR.prototype.getDeviceID = function() {
-    if (this.dev.attr.type == "airspy") {
+    if (this.dev.attr.type == "airspy" || this.dev.attr.type == "airspyhf") {
             
         const [bus, device] = (this.dev.attr.usbPath || "0:0")
             .split(":")
@@ -93,7 +93,7 @@ GR_SDR.prototype.getDeviceID = function() {
         return serial;
 
     } else {
-        return this.dev.attr.usbPath;
+        return this.dev.attr.port;
     }
 }
 
