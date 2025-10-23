@@ -104,6 +104,7 @@ class HubMan {
         if (attr.type.includes("funcube")) attr.radio = "VAH"
         if (attr.type.includes("rtlsdr")) attr.radio = "VAH"
         if (attr.type.includes("airspy")) attr.radio = "GRH"
+        if (attr.type.includes("airspyhf")) attr.radio = "GRH"
 
         // munge port and path
         let port = attr.radio ? this.findPort(attr.port_path) : "0" // attr.port_path is usb device path        
@@ -220,6 +221,12 @@ class HubMan {
                 delete this.devs[i]
             }
         }
+    }
+
+    grhDied() {
+        // if GRH died, forget devices when GRH
+        // restarts, we'll re-enumerate
+      // Probably don't need to do anything
     }
 
 }

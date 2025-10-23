@@ -360,6 +360,7 @@ class Dashboard {
         case "funcubePro": prefix = "lotek"; break
         case "rtlsdr": prefix = "lotek"; break
         case "airspy": prefix = "lotek"; break
+        case "airspyhf": prefix = "lotek"; break
         default: return null
         }
         return `${prefix}-${dev.attr.port}`

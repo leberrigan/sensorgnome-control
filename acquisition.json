@@ -234,7 +234,7 @@
                             },
                             {
                                 "name": "target_rate",
-                                "value": 15e4
+                                "value": 100e3
                             },
                             {
                                 "name": "samp_rate",
@@ -254,7 +254,7 @@
                             },
                             {
                                 "name": "transition_width",
-                                "value": 4e3
+                                "value": 2e3
                             },
                             {
                                 "name": "min_fft_size",
@@ -266,7 +266,7 @@
                             },
                             {
                                 "name": "debounce_samples",
-                                "value": 5
+                                "value": 10
                             }
                         ]
                     }
@@ -320,7 +320,7 @@
                             },
                             {
                                 "name": "gain",
-                                "value": "{\"rf\":-24,\"lna\":6}"
+                                "value": "{\"rf\":0,\"lna\":6}"
                             },
                             {
                                 "name": "cutoff_freq",
@@ -340,7 +340,7 @@
                             },
                             {
                                 "name": "debounce_samples",
-                                "value": 5
+                                "value": 10
                             }
                         ]
                     }

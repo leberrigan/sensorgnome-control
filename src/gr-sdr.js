@@ -16,16 +16,10 @@ GR_SDR = function(matron, dev, devPlan) {
     // i.e. find the smallest exact multiple of the desired rate that is in
     // the allowed range of hardware rates.
 
-    var rate = devPlan.plan.rate;
-    if (rate != 48e3 && rate != 3e6 && rate != 6e6 && rate != 10e6) {
-        console.log("GnuRadio: requested rate not within hardware range; using 48000");
-        rate = 48e3;
-    }
+    this.hw_rate = devPlan.plan.rate; // Only rate that is a multiple of 48khz
 
-    this.hw_rate = 6e6; // Only rate that is a multiple of 48khz
-
-    console.log("GnuRadio: ", JSON.stringify(this))
-    console.log("GnuRadio binding: ", this.grhDied)
+//    console.log("GnuRadio: ", JSON.stringify(this))
+//   console.log("GnuRadio binding: ", this.grhDied)
     // callback closures
     // this.this_gotCmdReply      = this.gotCmdReply.bind(this);
     // this.this_logServerError   = this.logServerError.bind(this);
