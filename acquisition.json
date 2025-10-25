@@ -320,7 +320,7 @@
                             },
                             {
                                 "name": "gain",
-                                "value": "{\"rf\":0,\"lna\":6}"
+                                "value": "{\"rf\":-24,\"lna\":6}"
                             },
                             {
                                 "name": "cutoff_freq",
