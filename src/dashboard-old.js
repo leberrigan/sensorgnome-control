@@ -39,8 +39,8 @@ class Dashboard {
             'netHotspotState', 'netWifiConfig', 'portmapFile', 'tagDBInfo', 'motusRecv',
             'motusUploadResult', 'netDefaultGw', 'netDNS', 'lotekFreq', 'netCellState', 'netCellReason',
             'netCellInfo', 'netCellConfig', 'cttRadioVersion', 'vahRate', 'vahFrames', 'devState',
-            'rtlInfo',
-            "enpi_light_state", "enpi_air_state", "enpi_light_toggle", "enpi_air_toggle","enpi_air_gotData","enpi_light_gotData",
+            'rtlInfo', 'acquisition', 'gotBurst', 
+            "enpiLightState", "enpiAirState", "enpiLightToggle", "enpiAirToggle","enpi_air_gotData","enpi_light_gotData",
             // dashboard events triggered by a message from FlexDash
             'dash_download', 'dash_upload', 'dash_deployment_update', 'dash_enable_wifi',
             'dash_enable_hotspot', 'dash_config_wifi', 'dash_update_portmap', 'dash_creds_update',
@@ -49,7 +49,9 @@ class Dashboard {
             'dash_allow_shutdown', 'dash_software_shutdown', 'dash_software_restart',
             'dash_download_logs', 'dash_lotek_freq_change', 'dash_config_cell', 'dash_toggle_train',
             'dash_remote_cmds', 'dash_detection_range', 'dash_alter_bootCount', 'dash_enable_agc',
-            'dash_show_pulses',
+            'dash_show_pulses', 'dash_cellular_priority', 'dash_burstfinder_burst',
+            'dash_burstfinder_filter_file', 'dash_burstfinder_filter_ui',
+            'dash_burstfinder_method', 'dash_cell_debug', 'dash_cell_scan',
             "dash_enpi_air_toggle", "dash_enpi_light_toggle"
         ]) {
             this.matron.on(ev, (...args) => {
@@ -92,33 +94,19 @@ class Dashboard {
         // Environmental sensors
         this.enpi = {
             air: {
-                ts: {
-                    readings: new TimeSeries(ts_dir, "enpi-air-readings"),
-                    temp: new TimeSeries(ts_dir, "enpi-air-temp"),
-                    pressure: new TimeSeries(ts_dir, "enpi-air-pressure"),
-                    humidity: new TimeSeries(ts_dir, "enpi-air-humidity"),
-                    pm1: new TimeSeries(ts_dir, "enpi-air-pm1"),
-                    pm2_5: new TimeSeries(ts_dir, "enpi-air-pm2_5"),
-                    pm10: new TimeSeries(ts_dir, "enpi-air-pm10")
-                }
+                ts: {},
+                labels: {}
             },
             light: {
-                ts: {
-                    readings: new TimeSeries(ts_dir, "enpi-light-readings"),
-                    light_level: new TimeSeries(ts_dir, "enpi-light-light_level"),
-                    frequency: new TimeSeries(ts_dir, "enpi-light-frequency"),
-                    count: new TimeSeries(ts_dir, "enpi-light-count"),
-                    duration: new TimeSeries(ts_dir, "enpi-light-duration"),
-                    temp: new TimeSeries(ts_dir, "enpi-light-temp")
-                }
+                ts: [],
+                labels: []
             }
         }
-        this.ts_enpi_setup()
-        
         // prime some data
         setTimeout(() => {
             this.handle_motusRecv({})
             this.handle_devState()
+            this.handle_acquisition(Acquisition)
         }, 1000)
 
         console.log("Dashboard handlers registered")
@@ -291,6 +279,24 @@ class Dashboard {
         this.show_pulses = v == "on"
     }
 
+    handle_acquisition(config) {
+        // update burstfinder config elements
+        FlexDash.set('burstfinder',
+            Object.fromEntries(Object.entries(config.burstfinder).map((
+                [k,v]) => [k, v==true?"on":v==false?"off":v]
+        ))
+        )
+    }
+    handle_dash_burstfinder_method(v) { 
+        if (['burstfinder','pulsefilter'].includes(v)) this.updateBFConfig("method", v)
+    }
+    handle_dash_burstfinder_filter_file(v) { this.updateBFConfig("filter_file", v=="on") }
+    handle_dash_burstfinder_filter_ui(v) { this.updateBFConfig("filter_ui", v=="on") }
+    updateBFConfig(key, value) {
+        const burstfinder = { ...Acquisition.burstfinder, [key]: value }
+        Acquisition.update({ burstfinder })
+    }
+
     // ===== Network / Internet
 
     // events from WifiMan, propagate to the UI
@@ -319,12 +325,24 @@ class Dashboard {
         FlexDash.set('cellular/info', info || {})
         FlexDash.set('cellular/info_labels', Object.keys(info||{}))
     }
-    
+
+
     // events from the dashboard, change wifi/hotspot/cell state or settings
     handle_dash_enable_wifi(state) { WifiMan.enableWifi(state == "ON").then(() => {}) }
     handle_dash_enable_hotspot(state) { WifiMan.enableHotspot(state == "ON") }
     handle_dash_config_wifi(config) { WifiMan.setWifiConfig(config).then(() => {}) }
     handle_dash_config_cell(config) { CellMan.setCellConfig(config) }
+    handle_dash_cellular_priority(prio) {
+        CellMan.setCellPriority(prio)
+        setTimeout(()=>FlexDash.set('cellular/priority', CellMan.getCellPriority()), 5000)
+    }
+    handle_dash_cell_debug() {
+        CellMan.getCellDebug().then(dbg => FlexDash.set('cellular/debug', dbg))
+    }
+    handle_dash_cell_scan() {
+        FlexDash.set('cellular/debug', "Scan takes 10-20 seconds...")
+        CellMan.getCellScan().then(dbg => FlexDash.set('cellular/debug', dbg))
+    }
 
     // upload info
     handle_motusRecv(info) {
@@ -340,12 +358,11 @@ class Dashboard {
 
 
 
-
     // Light level and air quality sensors
-    handle_enpi_air_state(state) { FlexDash.set('enpi/air/state', state || "??") }
-    handle_enpi_air_toggle(value) { FlexDash.set('enpi/air/toggle', value) }
-    handle_enpi_light_state(state) { FlexDash.set('enpi/light/state', state || "??") }
-    handle_enpi_light_Toggle(value) { FlexDash.set('enpi/Light/toggle', value) }
+    handle_enpiAirState(state) { FlexDash.set('enpi/air/state', state || "??") }
+    handle_enpiAirToggle(value) { FlexDash.set('enpi/air/toggle', value) }
+    handle_enpiLightState(state) { FlexDash.set('enpi/light/state', state || "??") }
+    handle_enpiLightToggle(value) { FlexDash.set('enpi/Light/toggle', value) }
     handle_dash_enpi_air_toggle(toggle) { Enpi.set('light/toggle',toggle) }
     handle_dash_enpi_light_toggle(toggle) { Enpi.set('light/toggle',toggle) }
 
@@ -354,59 +371,45 @@ class Dashboard {
     handle_enpi_air_gotData(data) {
         // ts,temp,pressure,humidity,pm1,pm2.5,pm10, pc0.3, pc0.5,pc1,pc2.5,pc5,pc10
         try {
-            const f = typeof data === "string" ? data.split(',') : data
+            const f = info.split(',')
             if (f.length != 13) return
             const time = Math.round(parseFloat(f[0])*1000)
             const temp = parseFloat(f[1])
-            const pressure = parseFloat(f[2]) / 10 // hpa to kpa
+            const pressure = parseFloat(f[2])
             const humidity = parseFloat(f[3])
             const pm1 = parseInt(f[4])
             const pm2_5 = parseInt(f[5])
             const pm10 = parseInt(f[6])
-            if (this.enpi?.air?.ts?.readings) this.enpi.air.ts.readings.add(time, 1)
-            if (this.enpi?.air?.ts?.temp) this.enpi.air.ts.temp.avg(time, temp)
-            if (this.enpi?.air?.ts?.pressure) this.enpi.air.ts.pressure.avg(time, pressure)
-            if (this.enpi?.air?.ts?.humidity) this.enpi.air.ts.humidity.avg(time, humidity)
-            if (this.enpi?.air?.ts?.pm1) this.enpi.air.ts.pm1.avg(time, pm1)
-            if (this.enpi?.air?.ts?.pm2_5) this.enpi.air.ts.pm2_5.avg(time, pm2_5)
-            if (this.enpi?.air?.ts?.pm10) this.enpi.air.ts.pm10.avg(time, pm10)
+            if (this.enpi?.air?.temp) this.enpi?.air?.temp.add(time, temp)
+            if (this.enpi?.air?.pressure) this.enpi?.air?.pressure.add(time, pressure)
+            if (this.enpi?.air?.humidity) this.enpi?.air?.humidity.add(time, humidity)
+            if (this.enpi?.air?.pm1) this.enpi?.air?.pm1.add(time, pm1)
+            if (this.enpi?.air?.pm2_5) this.enpi?.air?.pm2_5.add(time, pm2_5)
+            if (this.enpi?.air?.pm10) this.enpi?.air?.pm10.add(time, pm10)
         } catch (e) {
-            console.warn("enpi: handle_enpi_air_gotData", e)
+            console.warn("ts_enpiAir_gotData", e)
         }
     }
     // process data from light level sensor
     handle_enpi_light_gotData(data) {
-        // ts,light_level,frequency,count,duration,temp
+        // ts,light_level,frequency,count,duration,temperature
         try {
-            const f = typeof data === "string" ? data.split(',') : data
+            const f = info.split(',')
             if (f.length != 6) return
             const time = Math.round(parseFloat(f[0])*1000)
             const light_level = parseFloat(f[1])
-            const frequency = parseInt(f[2]) / 1e3 // kHz
+            const frequency = parseInt(f[2])
             const count = parseInt(f[3])
             const duration = parseFloat(f[4])
-            const temp = parseFloat(f[5])
-            if (this.enpi?.light?.ts?.readings) this.enpi.light.ts.readings.add(time, 1)
-            if (this.enpi?.light?.ts?.light_level) this.enpi.light.ts.light_level.avg(time, light_level)
-            if (this.enpi?.light?.ts?.frequency) this.enpi.light.ts.frequency.avg(time, frequency)
-            if (this.enpi?.light?.ts?.count) this.enpi.light.ts.count.avg(time, count)
-            if (this.enpi?.light?.ts?.duration) this.enpi.light.ts.duration.avg(time, duration)
-            if (this.enpi?.light?.ts?.temp) this.enpi.light.ts.temp.avg(time, temp)
+            const temperature = parseFloat(f[5])
+            if (this.enpi?.light?.light_level) this.enpi?.light?.light_level.add(time, light_level)
+            if (this.enpi?.light?.frequency) this.enpi?.light?.frequency.add(time, frequency)
+            if (this.enpi?.light?.count) this.enpi?.light?.count.add(time, count)
+            if (this.enpi?.light?.duration) this.enpi?.light?.duration.add(time, duration)
+            if (this.enpi?.light?.temperature) this.enpi?.light?.temperature.add(time, temperature)
         } catch (e) {
-            console.warn("handle_enpi_light_gotData", e)
+            console.warn("ts_enpiLight_gotData", e)
         }
-    }
-    
-    ts_enpi_setup() {
-        
-        setInterval(() => this.ts_enpi_save(), 60000)
-
-        this.enpi_ix = 2 // Day 
-
-        this.ts_enpi_refresh()
-
-        if (this.tsEnpiRefreshInterval) clearInterval(this.tsEnpiRefreshInterval)
-        this.tsEnpiRefreshInterval = setInterval(() => this.ts_enpi_refresh(), TimeSeries.intervals[this.enpi_ix])
     }
 
     ts_enpi_show( sensor ) {
@@ -416,7 +419,7 @@ class Dashboard {
         const labels = []
 
         for (const dtype in this.enpi?.[sensor]?.ts) {
-            tsSet.push(this?.enpi?.[sensor]?.ts[dtype])
+            tsSet.push(this.ts[port][dtype])
             labels.push(`${dtype}`)
         }
         if (tsSet.length == 0) {
@@ -424,12 +427,11 @@ class Dashboard {
             return
         }
         const now = Date.now()
-        const range = TimeSeries.ranges[this.enpi_ix]
-        //console.log("enpi: tsSet:", JSON.stringify(tsSet))
+        const range = TimeSeries.ranges[this.ts_ix]
         const [times, values] = tsSet[0].get(range, now)
-        //console.log("enpi: Got:", values)
-        const interval = TimeSeries.intervals[this.enpi_ix]
-        const fct = v => v// == null ? null : v * 3600*1000 / interval
+        //console.log("Got:", values)
+        const interval = TimeSeries.intervals[this.ts_ix]
+        const fct = v => v == null ? null : v * 3600*1000 / interval
         const data = times.map((t, i) => [Math.floor(t/1000), fct(values[i])])
         for (let i = 1; i < tsSet.length; i++) {
             const [times, values] = tsSet[i].get(range, now)
@@ -440,40 +442,8 @@ class Dashboard {
         const title = sensor + " (" + range + ")" // can't set dynamic title :-(
 
         FlexDash.set(`enpi/${sensor}/detections`, { data, labels, title })
-        console.log(`enpi: ts_enpi_show: ${sensor} ${now} ${data.length} points, labels=${labels}`)
-        console.log('enpi: ',JSON.stringify(data))
-    }
-
-    // save all the environmental sensor time-series to file
-    ts_enpi_save() {
-        try {
-            for (const sensor in this.enpi) {
-                const ts = this.enpi[sensor]?.ts
-                for (const dtype in ts) {
-                    ts[dtype].save() // only does something if it's dirty
-                }
-            }
-        } catch (e) {
-            console.warn("tsRefresh", e)
-        }
-    }
-
-    ts_enpi_refresh() {
-        
-        try {
-            // catch up all the graphs
-            const now = Date.now()
-            for (const sensor in this.enpi) {
-                const ts = this.enpi?.[sensor]?.ts || {}
-                for (const dtype in ts) {
-                    const fill = dtype == "readings" ? 0 : null
-                    ts[dtype].append(now, fill, undefined)
-                }
-                this.ts_enpi_show(sensor)
-            }
-        } catch (e) {
-            console.warn("tsRefresh", e)
-        }
+        //console.log(`tsShow: ${what} ${now} ${data.length} points, labels=${labels}`)
+        //onsole.log(data)
     }
     // ===== Pulses and tag time-series
 
@@ -651,7 +621,8 @@ class Dashboard {
                 }
             }
             // display
-            for (const what of ['lotek-tags', 'lotek-pulses', 'lotek-noise', 'lotek-snr', 'lotek-rate', 'ctt-tags']) {
+            for (const what of ['lotek-tags', 'lotek-pulses', 'lotek-noise', 'lotek-snr',
+                    'lotek-rate', 'ctt-tags']) {
                 this.tsShow(what)
             }
         } catch (e) {
@@ -845,17 +816,32 @@ class Dashboard {
         }
     }
 
+    handle_gotBurst(burst) {
+        // { text, info, meanFreq, sdFreq, meanSig, sdSig, meanNoise, meanSnr }
+        // info: [ s0.port, s0.ts/1000, this.tagid, ...intv, ...tags[this.tagid] ]
+        const bf = Acquisition.burstfinder
+        if (burst.src == 'BF' && bf.method != 'burstfinder' && !bf.both_ui) return
+        if (burst.src == 'PF' && bf.method != 'pulsefilter' && !bf.both_ui) return
+
+        const ts = (new Date(burst.info[1]*1000)).toISOString().replace(/.*T/, '').replace(/\..*/, '')
+        const meanFreq = parseFloat(burst.meanFreq).toFixed(3)
+        const minSnr = parseFloat(burst.minSnr).toFixed(1)
+        this.detectionLogPush(
+            `BUR B${burst.info[0]} ${ts}: #${burst.info[2]} ${meanFreq}kHz snr:${minSnr}dB src=${burst.src}`
+        )
+    }
+
     handle_vahData(line) {
         //console.log(`vahData: ${data.toString().replace(/\n/g, '\\n').replace(/\r/g, '\\r')}`)
         if (line.startsWith("p")) {
             this.detections.lotek[this.detections.lotek.length-1]++
-            if (this.show_pulses) {
+            if (!Acquisition.burstfinder.filter_ui) {
                 // convert to something more readable
                 const ll = line.trim().split(',')
                 const port =parseInt(ll[0][1])
                 const last_ts = this.pulse_ts[port] || 0
                 const this_ts = parseFloat(ll[1])*1000
-                const delta_ms = this_ts - last_ts < 120_000 ? (this_ts-last_ts).toFixed(1)+"ms" : ""
+                const delta_ms = this_ts - last_ts < 120_000 ? "Δ"+(this_ts-last_ts).toFixed(1)+"ms" : ""
                 this.pulse_ts[port] = this_ts
                 const ts = (new Date(this_ts)).toISOString().replace(/.*T/, '').replace(/\..*/, '')
                 const snr = parseFloat(ll[5]).toFixed(1)
@@ -1008,15 +994,17 @@ class Dashboard {
     }
 
     // show and toggle release train
+    releasemap = {stable:'bookworm',testing:'booktest',bookworm:'stable',booktest:'testing'}
     handle_dash_toggle_train(value) {
         FlexDash.set('software/train', value)
         if (['stable','testing'].includes(value)) {
+            value = this.releasemap[value]
             Fs.readFile('/etc/apt/sources.list.d/sensorgnome.list', (err, data) => {
                 if (err) {
                     console.log("Error reading sensorgnome.list:", err)
                     return
                 }
-                data = data.toString().replace(/(stable|testing)/, value)
+                data = data.toString().replace(/(bookworm|booktest)/, value)
                 Fs.writeFile('/etc/apt/sources.list.d/sensorgnome.list', data, (err) => {
                     if (err) {
                         console.log("Error writing sensorgnome.list:", err)
@@ -1034,8 +1022,10 @@ class Dashboard {
                 console.log("Error reading sensorgnome.list:", err)
                 return
             }
-            let train = data.toString().match(/(stable|testing)/)
-            if (train) FlexDash.set('software/train', train[1])
+            let train = data.toString().match(/(bookworm|booktest)/)
+            if (train) {
+                FlexDash.set('software/train', this.releasemap[train[1]])
+            }
         })
     }
 
@@ -1194,6 +1184,8 @@ class Dashboard {
                 console.log(`${vnstat} parsing failed:`, e)
             }
         })
+
+        FlexDash.set('cellular/priority', CellMan.getCellPriority())
     }
 
     // ===== Return monitoring data in json format
