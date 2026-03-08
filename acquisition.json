@@ -32,7 +32,7 @@
                 "schedule": { 
                     "type": "AlwaysOn", 
                     "startTime": "sunset-2", 
-                    "stopTime": "sunrise+10" 
+                    "stopTime": "sunrise+2" 
                 },
                 "devParams": [
                     {
@@ -50,6 +50,30 @@
                         }
                     }
                 ],
+                "raw": {},
+                "plugins": []
+            },
+            {
+                "key": {
+                    "port": ".*",
+                    "devType": "enpi-upload"
+                },
+                "schedule": {
+                    "type": "AlwaysOn"
+                },
+                "devParams": [],
+                "raw": {},
+                "plugins": []
+            },
+            {
+                "key": {
+                    "port": ".*",
+                    "devType": "enpi-aws"
+                },
+                "schedule": {
+                    "type": "AlwaysOn"
+                },
+                "devParams": [],
                 "raw": {},
                 "plugins": []
             },

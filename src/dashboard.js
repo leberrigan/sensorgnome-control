@@ -40,8 +40,13 @@ class Dashboard {
             'motusUploadResult', 'netDefaultGw', 'netDNS', 'lotekFreq', 'netCellState', 'netCellReason',
             'netCellInfo', 'netCellConfig', 'cttRadioVersion', 'vahRate', 'vahFrames', 'devState',
             'rtlInfo',
-            "enpi_light_state", "enpi_air_state", "enpi_light_toggle", "enpi_air_toggle","enpi_air_gotData","enpi_light_gotData",
+            "enpi_light_status", "enpi_air_status", "enpi_light_toggle", "enpi_air_toggle","enpi_air_gotData","enpi_light_gotData",
+            'enpi_status', 'enpi_sample_rate','enpi_sample_schedule','enpi_aws_bucket_name','enpi_aws_secrets','enpi_aws_status', 'enpi_upload_status',
+            'enpi_upload_log','enpi_upload_gotData','enpi_upload_config_status',
+            
             // dashboard events triggered by a message from FlexDash
+            'dash_enpi_toggle','dash_enpi_sample_rate','dash_enpi_sample_schedule','dash_enpi_aws_secrets','dash_enpi_download',
+            'dash_enpi_force_upload','dash_enpi_upload_config',
             'dash_download', 'dash_upload', 'dash_deployment_update', 'dash_enable_wifi',
             'dash_enable_hotspot', 'dash_config_wifi', 'dash_update_portmap', 'dash_creds_update',
             'dash_upload_tagdb', 'dash_df_enable', 'dash_df_tags', 'dash_software_reboot',
@@ -340,13 +345,44 @@ class Dashboard {
 
 
 
+    ////////////////////////
+    // ENPI
+
+    handle_enpi_status(status) {FlexDash.set('enpi/status', status || "??")}
+    handle_enpi_sample_rate(sample_rate) {FlexDash.set('enpi/sample_rate', sample_rate || "??")}
+    handle_enpi_sample_schedule(sample_schedule) {FlexDash.set('enpi/sample_schedule', sample_schedule || "??")}
+    handle_enpi_aws_bucket_name(bucket_name) {FlexDash.set('enpi/aws/bucket_name', bucket_name || "??")}
+    handle_enpi_aws_secrets(secrets) {FlexDash.set('enpi/aws/secrets', secrets || "??")}
+    handle_enpi_aws_status(status) {FlexDash.set('enpi/aws/status', status || "??")}
+    handle_enpi_upload_status(status) {FlexDash.set('enpi/upload/status', status || "??")}
+    handle_enpi_upload_log(text) {FlexDash.set('enpi/upload/log', text || "??")}
+    handle_enpi_upload_gotData(data) {FlexDash.set('enpi/upload/info', data?.[1] || {})}
+    handle_enpi_upload_config_status(errors) {
+        if (!errors) {
+            FlexDash.set('enpi/upload/config/status/value',"validating...")
+            return
+        }
+        if (errors.length > 0) 
+            FlexDash.set('enpi/upload/config/status/value',"error")
+        else
+            FlexDash.set('enpi/upload/config/status/value',"validated")
+        FlexDash.set('enpi/upload/config/status/popup',errors.join('\n'))
+    }
+
+    handle_dash_enpi_toggle(toggle) {Enpi.set('toggle',toggle)}
+    handle_dash_enpi_sample_rate(sample_rate) {Enpi.set('sample_rate',sample_rate)}
+    handle_dash_enpi_sample_schedule(sample_schedule) {Enpi.set('sample_schedule',sample_schedule)}
+    handle_dash_enpi_upload_config(config) {Enpi.set('upload/config',config)}
+    handle_dash_enpi_download(download) {Enpi.set('download',download)}
+    handle_dash_enpi_force_upload(force) {Enpi.set('upload/force', force)}
 
     // Light level and air quality sensors
-    handle_enpi_air_state(state) { FlexDash.set('enpi/air/state', state || "??") }
+    handle_enpi_air_status(status) { FlexDash.set('enpi/air/status', status || "??") }
     handle_enpi_air_toggle(value) { FlexDash.set('enpi/air/toggle', value) }
-    handle_enpi_light_state(state) { FlexDash.set('enpi/light/state', state || "??") }
+    handle_enpi_light_status(status) { FlexDash.set('enpi/light/status', status || "??") }
     handle_enpi_light_Toggle(value) { FlexDash.set('enpi/Light/toggle', value) }
-    handle_dash_enpi_air_toggle(toggle) { Enpi.set('light/toggle',toggle) }
+
+    handle_dash_enpi_air_toggle(toggle) { Enpi.set('air/toggle',toggle) }
     handle_dash_enpi_light_toggle(toggle) { Enpi.set('light/toggle',toggle) }
 
     
@@ -406,10 +442,10 @@ class Dashboard {
         this.ts_enpi_refresh()
 
         if (this.tsEnpiRefreshInterval) clearInterval(this.tsEnpiRefreshInterval)
-        this.tsEnpiRefreshInterval = setInterval(() => this.ts_enpi_refresh(), TimeSeries.intervals[this.enpi_ix])
+        this.tsEnpiRefreshInterval = setInterval(() => this.ts_enpi_refresh(), TimeSeries.intervals[this.ts_ix])
     }
 
-    ts_enpi_show( sensor ) {
+    ts_enpi_show( sensor, combinedData ) {
         
         // assemble the set of time-series to show
         const tsSet = []
@@ -424,11 +460,11 @@ class Dashboard {
             return
         }
         const now = Date.now()
-        const range = TimeSeries.ranges[this.enpi_ix]
+        const range = TimeSeries.ranges[this.ts_ix]
         //console.log("enpi: tsSet:", JSON.stringify(tsSet))
         const [times, values] = tsSet[0].get(range, now)
         //console.log("enpi: Got:", values)
-        const interval = TimeSeries.intervals[this.enpi_ix]
+        const interval = TimeSeries.intervals[this.ts_ix]
         const fct = v => v// == null ? null : v * 3600*1000 / interval
         const data = times.map((t, i) => [Math.floor(t/1000), fct(values[i])])
         for (let i = 1; i < tsSet.length; i++) {
@@ -437,11 +473,52 @@ class Dashboard {
             if (Math.floor(times[0]/1000) != data[0][0]) throw new Error("tsShow: data start mismatch")
             for (let j=0; j<data.length; j++) data[j].push(fct(values[j]))
         }
-        const title = sensor + " (" + range + ")" // can't set dynamic title :-(
+        var pmData = times.map((t, i) => [Math.floor(t/1000)])
+        var pmLabels = []
+        if (!combinedData.temp)
+            combinedData.temp = {
+                data: times.map((t, i) => [Math.floor(t/1000)]),
+                labels: [],
+                title: `Temperature (${range})`
+            }
+        if (!combinedData.readings)
+            combinedData.readings = {
+                data: times.map((t, i) => [Math.floor(t/1000)]),
+                labels: [],
+                title: `Readings (${range})`
+            }
+        for (const dtype in this.enpi?.[sensor]?.ts) {
+            const dtypeData = this?.enpi?.[sensor]?.ts[dtype].data[range]
+            if (dtype.startsWith("pm")) {
+                // Plot particulates together
+                pmData.map( (d,i) => d.push(dtypeData[i]) )
+                pmLabels.push(dtype)
+            } else if (dtype.startsWith("temp") || dtype == "readings") {
+                // Plot temperature together
+                combinedData[dtype].data.map( (d,i) => d.push(dtypeData[i]) )
+                combinedData[dtype].labels.push(sensor)
+            } else {
+                var dtypeTimedData = times.map((t, i) => [Math.floor(t/1000), fct(dtypeData[i])])
+                var dtypeLabels = [dtype]
+                var dtypeTitle = dtype + " (" + range + ")"
+                FlexDash.set(`enpi/${sensor}/${dtype}`, { data: dtypeTimedData, labels: dtypeLabels, title: dtypeTitle})
+            }
+        }
+        if (pmLabels.length > 0) 
+            FlexDash.set(`enpi/${sensor}/pm`, { data: pmData, labels: pmLabels, title: `Particulates (${range})`})
+        
+        if (combinedData.temp.labels.length > 0) 
+            FlexDash.set(`enpi/temp`, combinedData.temp)
+        if (combinedData.temp.labels.length > 0) 
+            FlexDash.set(`enpi/readings`, combinedData.readings)
+        
 
+
+        const title = sensor + " (" + range + ")" // can't set dynamic title :-(
         FlexDash.set(`enpi/${sensor}/detections`, { data, labels, title })
         console.log(`enpi: ts_enpi_show: ${sensor} ${now} ${data.length} points, labels=${labels}`)
         console.log('enpi: ',JSON.stringify(data))
+        return combinedData
     }
 
     // save all the environmental sensor time-series to file
@@ -463,18 +540,25 @@ class Dashboard {
         try {
             // catch up all the graphs
             const now = Date.now()
+            var combinedData = {temp: false, readings: false}
             for (const sensor in this.enpi) {
                 const ts = this.enpi?.[sensor]?.ts || {}
                 for (const dtype in ts) {
                     const fill = dtype == "readings" ? 0 : null
                     ts[dtype].append(now, fill, undefined)
                 }
-                this.ts_enpi_show(sensor)
+                combinedData = this.ts_enpi_show(sensor, combinedData)
             }
         } catch (e) {
             console.warn("tsRefresh", e)
         }
     }
+
+
+
+
+
+
     // ===== Pulses and tag time-series
 
     // generate a filename for a device's time-series

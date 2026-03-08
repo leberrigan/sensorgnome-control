@@ -2114,14 +2114,16 @@
     },
     "w10000": {
       "kind": "Panel",
-      "rows": 6,
+      "rows": 10,
       "cols": 3,
       "static": {
         "title": "Air Quality",
         "widgets": [
           "w10001",
           "w10002",
-          "w10003"
+          "w06951",
+          "w06773",
+          "w07556"
         ],
         "solid": true
       },
@@ -2130,14 +2132,16 @@
     },
     "w10010": {
       "kind": "Panel",
-      "rows": 6,
+      "rows": 10,
       "cols": 3,
       "static": {
         "title": "Light Level",
         "widgets": [
           "w10011",
           "w10012",
-          "w10013"
+          "w09800",
+          "w06451",
+          "w03944"
         ]
       },
       "dynamic": {},
@@ -2149,16 +2153,16 @@
       "cols": 3,
       "static": {
         "title": "State",
-        "low_color": "#9E9E9E",
-        "low_regexp": "no-dev",
-        "high_color": "#4CAF50",
+        "low_color": "#C62828",
+        "low_regexp": "^(no-|error)",
+        "high_color": "#2E7D32",
         "high_regexp": "connected",
-        "color": "#FF5722",
-        "zoom": 0.8,
+        "color": "#000000",
+        "zoom": 0.6,
         "popup_info": "Air quality sensor states:\n\n- no-dev: SG software does not detect the sensor, it may not be connected or there may be a hardware issue\n- detected: SG software detects the sensor but it is not providing readings, this may indicate a problem with the sensor or that it needs time to warm up\n- connected: SG software detects the sensor and is receiving readings from it"
       },
       "dynamic": {
-        "value": "enpi/air/state"
+        "value": "enpi/air/status"
       },
       "id": "w10001"
     },
@@ -2178,42 +2182,22 @@
       "id": "w10002",
       "output": "enpi_air_toggle"
     },
-    "w10003": {
-      "kind": "TimePlot",
-      "rows": 4,
-      "cols": 6,
-      "static": {
-        "title": "Air Quality Measurements",
-        "axes": [
-          "left"
-        ],
-        "popup_info": "Display Air Quality Measurements.",
-        "left_unit": "",
-        "left_min": 0
-      },
-      "dynamic": {
-        "data": "enpi/air/detections/data",
-        "labels": "enpi/air/detections/labels"
-      },
-      "id": "w10003",
-      "output": null
-    },
     "w10011": {
       "kind": "Stat",
       "rows": 1,
       "cols": 3,
       "static": {
         "title": "State",
-        "low_color": "#9E9E9E",
-        "low_regexp": "no-dev",
-        "high_color": "#4CAF50",
-        "high_regexp": "connected",
-        "color": "#FF5722",
-        "zoom": 0.8,
+        "low_color": "#C62828",
+        "low_regexp": "^(no-|error)",
+        "high_color": "#2E7D32",
+        "high_regexp": "^connected",
+        "color": "#000000",
+        "zoom": 0.6,
         "popup_info": "Light level sensor states:\n\n- no-dev: SG software does not detect the sensor, it may not be connected or there may be a hardware issue\n- detected: SG software detects the sensor but it is not providing readings, this may indicate a problem with the sensor or that it needs time to warm up\n- connected: SG software detects the sensor and is receiving readings from it"
       },
       "dynamic": {
-        "value": "enpi/light/state"
+        "value": "enpi/light/status"
       },
       "id": "w10011"
     },
@@ -2233,25 +2217,356 @@
       "id": "w10012",
       "output": "enpi_light_toggle"
     },
-    "w10013": {
-      "kind": "TimePlot",
-      "rows": 4,
+    "w09520": {
+      "kind": "Panel",
+      "rows": 3,
+      "cols": 3,
+      "static": {
+        "title": "AWS info",
+        "widgets": [
+          "w09904",
+          "w05310"
+        ]
+      },
+      "dynamic": {},
+      "id": "w09520"
+    },
+    "w09904": {
+      "kind": "PropsTable",
+      "rows": 3,
       "cols": 6,
       "static": {
-        "title": "Light Level Measurements",
-        "axes": [
-          "left"
+        "title": "AWS Config",
+        "fields": [
+          "bucket_name",
+          "bucket_key",
+          "auth_key"
         ],
-        "popup_info": "Display Light Level Measurements.",
-        "left_unit": "",
-        "left_min": 0
+        "data": {
+          "bucket_name": "value1",
+          "key2": "value2"
+        },
+        "send_all": true,
+        "editable": true
       },
       "dynamic": {
-        "data": "enpi/light/detections/data",
-        "labels": "enpi/light/detections/labels"
+        "data": "enpi/upload/info"
       },
-      "id": "w10013",
+      "id": "w09904",
+      "output": "enpi_upload_config"
+    },
+    "w00862": {
+      "kind": "Panel",
+      "rows": 4,
+      "cols": 3,
+      "static": {
+        "title": "Data files",
+        "widgets": [
+          "w04033",
+          "w08648",
+          "w03080",
+          "w07251"
+        ]
+      },
+      "dynamic": {},
+      "id": "w00862"
+    },
+    "w07251": {
+      "kind": "TextView",
+      "rows": 3,
+      "cols": 6,
+      "static": {
+        "title": "Upload history",
+        "text": "/enpi/upload/log"
+      },
+      "dynamic": {
+        "text": "enpi/upload/log"
+      },
+      "id": "w07251",
       "output": null
+    },
+    "w04033": {
+      "kind": "PushButton",
+      "rows": 1,
+      "cols": 1,
+      "static": {
+        "title": "Download",
+        "color": "#CDDC39"
+      },
+      "dynamic": {},
+      "id": "w04033",
+      "output": null
+    },
+    "w08648": {
+      "kind": "PushButton",
+      "rows": 1,
+      "cols": 1,
+      "static": {
+        "title": "Upload",
+        "output_value": "true",
+        "color": "#CDDC39"
+      },
+      "dynamic": {},
+      "id": "w08648",
+      "output": "enpi_force_upload"
+    },
+    "w03080": {
+      "kind": "Stat",
+      "rows": 1,
+      "cols": 4,
+      "static": {
+        "title": "AWS Status",
+        "zoom": 0.5,
+        "high_regexp": "^(connected|done)",
+        "low_regexp": "^(no|error)",
+        "low_color": "#C62828",
+        "color": "#000000",
+        "high_color": "#2E7D32"
+      },
+      "dynamic": {
+        "value": "enpi/upload/status"
+      },
+      "id": "w03080"
+    },
+    "w02739": {
+      "kind": "Panel",
+      "rows": 2,
+      "cols": 3,
+      "static": {
+        "title": "Chart controls",
+        "widgets": [
+          "w00924",
+          "w02156",
+          "w09074",
+          "w00423",
+          "w03317",
+          "w02547"
+        ]
+      },
+      "dynamic": {},
+      "id": "w02739"
+    },
+    "w00924": {
+      "kind": "PushButton",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "5 mins",
+        "output_value": "5mins",
+        "color": "#CDDC39"
+      },
+      "dynamic": {},
+      "id": "w00924",
+      "output": "detection_range"
+    },
+    "w02156": {
+      "kind": "PushButton",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Hour",
+        "output_value": "hour",
+        "color": "#CDDC39"
+      },
+      "dynamic": {},
+      "id": "w02156",
+      "output": "detection_range"
+    },
+    "w09074": {
+      "kind": "PushButton",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Day",
+        "output_value": "day",
+        "color": "#CDDC39"
+      },
+      "dynamic": {},
+      "id": "w09074",
+      "output": "detection_range"
+    },
+    "w00423": {
+      "kind": "PushButton",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Month",
+        "output_value": "month",
+        "color": "#CDDC39"
+      },
+      "dynamic": {},
+      "id": "w00423",
+      "output": "detection_range"
+    },
+    "w03317": {
+      "kind": "PushButton",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "year",
+        "output_value": "year",
+        "color": "#CDDC39"
+      },
+      "dynamic": {},
+      "id": "w03317",
+      "output": "detection_range"
+    },
+    "w02547": {
+      "kind": "Stat",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Chart interval",
+        "zoom": 0.8
+      },
+      "dynamic": {
+        "value": "detections/interval"
+      },
+      "id": "w02547"
+    },
+    "w06951": {
+      "kind": "TimePlot",
+      "rows": 3,
+      "cols": 6,
+      "static": {
+        "title": "Pressure"
+      },
+      "dynamic": {
+        "data": "enpi/air/pressure/data",
+        "labels": "enpi/air/pressure/labels"
+      },
+      "id": "w06951",
+      "output": null
+    },
+    "w06773": {
+      "kind": "TimePlot",
+      "rows": 3,
+      "cols": 6,
+      "static": {
+        "title": "Particulates"
+      },
+      "dynamic": {
+        "data": "enpi/air/pm/data",
+        "labels": "enpi/air/pm/labels"
+      },
+      "id": "w06773",
+      "output": null
+    },
+    "w07556": {
+      "kind": "TimePlot",
+      "rows": 3,
+      "cols": 6,
+      "static": {
+        "title": "Humidity"
+      },
+      "dynamic": {
+        "data": "enpi/air/humidity/data",
+        "labels": "enpi/air/humidity/labels"
+      },
+      "id": "w07556",
+      "output": null
+    },
+    "w09800": {
+      "kind": "TimePlot",
+      "rows": 3,
+      "cols": 6,
+      "static": {
+        "title": "Light level"
+      },
+      "dynamic": {
+        "data": "enpi/light/light_level/data",
+        "labels": "enpi/light/light_level/labels"
+      },
+      "id": "w09800",
+      "output": null
+    },
+    "w01720": {
+      "kind": "Panel",
+      "rows": 6,
+      "cols": 3,
+      "static": {
+        "title": "Sensors",
+        "widgets": [
+          "w02646",
+          "w00722"
+        ]
+      },
+      "dynamic": {},
+      "id": "w01720"
+    },
+    "w02646": {
+      "kind": "TimePlot",
+      "rows": 3,
+      "cols": 6,
+      "static": {
+        "title": "Readings"
+      },
+      "dynamic": {
+        "labels": "enpi/readings/labels",
+        "data": "enpi/readings/data"
+      },
+      "id": "w02646",
+      "output": null
+    },
+    "w00722": {
+      "kind": "TimePlot",
+      "rows": 3,
+      "cols": 6,
+      "static": {
+        "title": "Temperature"
+      },
+      "dynamic": {
+        "labels": "enpi/temp/labels",
+        "data": "enpi/temp/data"
+      },
+      "id": "w00722",
+      "output": null
+    },
+    "w06451": {
+      "kind": "TimePlot",
+      "rows": 3,
+      "cols": 6,
+      "static": {
+        "title": "Count"
+      },
+      "dynamic": {
+        "data": "enpi/light/count/data",
+        "labels": "enpi/light/count/labels"
+      },
+      "id": "w06451",
+      "output": null
+    },
+    "w03944": {
+      "kind": "TimePlot",
+      "rows": 3,
+      "cols": 6,
+      "static": {
+        "title": "Duration"
+      },
+      "dynamic": {
+        "data": "enpi/light/duration/data",
+        "labels": "enpi/light/duration/labels"
+      },
+      "id": "w03944",
+      "output": null
+    },
+    "w05310": {
+      "kind": "Stat",
+      "rows": 2,
+      "cols": 2,
+      "static": {
+        "title": "Bucket config",
+        "high_regexp": "validated",
+        "high_color": "#2E7D32",
+        "low_regexp": "error",
+        "low_color": "#C62828",
+        "color": "#000000"
+      },
+      "dynamic": {
+        "value": "enpi/upload/config/status/value",
+        "popup_info": "enpi/upload/config/status/popup"
+      },
+      "id": "w05310"
     }
   },
   "grids": {
@@ -2358,6 +2673,10 @@
       "kind": "FixedGrid",
       "title": "",
       "widgets": [
+        "w00862",
+        "w09520",
+        "w02739",
+        "w01720",
         "w10000",
         "w10010"
       ],

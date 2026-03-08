@@ -12,6 +12,8 @@ class Enpi {
         this.lon = null
         this.gpsFixed = false
         this.pendingDailyStarts = [] // sensors waiting for a GPS fix
+        this.uploadsLogFile = '/var/log/enpi/uploader.log'
+        
 
         console.log("ENPI: Starting enpi.js...")
         this.sensors = {
@@ -28,6 +30,15 @@ class Enpi {
                 CMD_ARGS: [ this.prog + "/enpi-light.py"],
                 quitting: false,
                 schedule: null
+            },
+            upload: {
+                child: null,
+                lineBuffer: "",
+                CMD_ARGS: [ this.prog + "/enpi-upload.py"],
+                quitting: false,
+                schedule: null,
+                // If alwaysOn, do you want to run it at a certain frequency?
+                frequency: 1, // Times per hour
             }
         }
 
@@ -51,10 +62,24 @@ class Enpi {
         this.CMD_PATH = `${this.prog}/env/bin/python3`
         this.CMD_ARGS = [ this.prog + "/enpi-air.py"] // stdin->stdout is default
         this.CMD_ENV = { ...process.env, PYTHONUNBUFFERED: 1 } // ensure stdout is unbuffered
+        this.UPLOADS_POLL = [ this.prog + "/enpi-upload.py", "-p"] // stdin->stdout is default
+        this.UPLOADS_PATH = [ this.prog + "/enpi-upload.py"] // stdin->stdout is default
+        this.SECRETS_PATH = `${this.prog}/secrets.env` //
         console.log("ENPI: enpi.js initiated.")
         
-        this.configure(Acquisition.lookup("1", "enpi-light")?.plan)
-        this.configure(Acquisition.lookup("1", "enpi-air")?.plan)
+        for (const sensor in this.sensors) {
+            this.configure(Acquisition.lookup("1", `enpi-${sensor}`)?.plan)
+        }
+
+        this.matron.emit(`enpi_upload_config_status`, false)
+        setTimeout(()=>this.validateSecrets(this.SECRETS_PATH),1000)
+        
+    }
+
+    get_upload_logs() {
+        const text = ChildProcess.execSync('tail -50 '+this.uploadsLogFile).toString();
+        this.matron.emit(`enpi_upload_log`, text)
+        console.log(`enpi-upload: read log text (${text.length} lines)`)
     }
     
     configure(cfg) {
@@ -109,6 +134,13 @@ class Enpi {
         } else {
             // AlwaysOn etc. don't need GPS — start immediately
             s.schedule.start()
+            if (s.frequency) {
+                const sleep_secs = 60*60 / s.frequency
+                console.log(`enpi-${sensorName}: Waiting for ${sleep_secs} seconds before running again.`)
+                setTimeout(()=>{
+                    s.schedule.start()
+                },sleep_secs*1e3)
+            }
         }
     }
 
@@ -167,6 +199,7 @@ class Enpi {
         if (!s || s.quitting || s.child) return
 
         console.log("Starting", this.CMD_PATH, s.CMD_ARGS.join(' '))
+        this.matron.emit(`enpi_${sensor}_status`, 'starting')
         s.child = ChildProcess.spawn(this.CMD_PATH, s.CMD_ARGS, { env: this.CMD_ENV })
             .on("exit", () => this.childDied(sensor))
             .on("error", () => this.childDied(sensor))
@@ -182,11 +215,12 @@ class Enpi {
                     const data = JSON.parse(line)
                     if (data[0] == "status") {
                         console.log(`enpi-${sensor}: status:`, data[1])
-                        this.matron.emit(`enpi_${sensor}_state`, data[1])
+                        this.matron.emit(`enpi_${sensor}_status`, data[1])
                     } else {
                         console.log(`enpi-${sensor}: got data:`, line)
                         this.matron.emit(`enpi_${sensor}_gotData`, data)
                     }
+                    if (sensor == "upload") this.get_upload_logs()
                 } catch(e) {
                     console.log(`enpi-${sensor}: bad JSON:`, line)
                 }
@@ -224,12 +258,92 @@ class Enpi {
             this.stop(sensor)
         }
     }
+    sensorConfig(sensor, config) {
+
+        switch(sensor) {
+            case "upload":
+                this.updateSecrets(this.SECRETS_PATH, config)
+                break
+        }
+
+    }
+    updateSecrets(filepath, updates) {
+        const errors = Object.entries(updates).map(([key, value]) => {
+            if (key == "secret_key" && value.replace(/\**/g,'').length == 40 )
+                return updateSecret(filepath, key, value);
+        }).filter(error => typeof error === "string");
+
+        this.matron.emit(`enpi_upload_config_status`, errors)
+    }
+
+    updateSecret(filepath, key, value) {
+
+        const error = this.validateSecret(key, value)
+        if (error)
+            return error
+
+        let content = Fs.readFileSync(filepath, 'utf8');
+        
+        const regex = new RegExp(`^${key}=.*$`, 'm');
+        
+        if (regex.test(content)) {
+            // Key exists, replace it
+            content = content.replace(regex, `${key}=${value}`);
+        } else {
+            // Key doesn't exist, append it
+            content += `\n${key}=${value}`;
+        }
+        
+        Fs.writeFileSync(filepath, content, 'utf8');
+
+        return false
+    }
+    validateSecrets(filepath) {
+        
+        console.log("enpi: validating secrets...")
+        let content = Fs.readFileSync(filepath, 'utf8');
+        
+        const entries = content.match(/^([A-z]|_|[0-9])+=.*$/gm)
+
+        const errors = entries.map( entry => {
+            const key = entry.match(/([A-z]|_|[0-9])+(?=\=)/gm)
+            const value = entry.replace(`${key}=`, '')
+            return this.validateSecret(key, value)
+        }).filter(error => typeof error === "string")
+        console.log(`enpi: Done. Found ${errors.length} errors.`)
+        
+        this.matron.emit(`enpi_upload_config_status`, errors)
+        
+    }
+    validateSecret(key, value) {
+        switch(key) {
+            case "AWS_ACCESS_KEY_ID":
+                if (!/^AKIA[A-Z0-9]{16}$/.test(secrets.AWS_ACCESS_KEY_ID))
+                    return 'AWS_ACCESS_KEY_ID must be 20 characters and start with AKIA'
+            case "AWS_SECRET_ACCESS_KEY":
+                if (!/^[A-Za-z0-9/+=]{40}$/.test(secrets.AWS_SECRET_ACCESS_KEY)) 
+                    return 'AWS_SECRET_ACCESS_KEY must be 40 characters'
+            case "BUCKET_NAME":
+                if (!/^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]$/.test(secrets.BUCKET_NAME))
+                    return 'BUCKET_NAME must be 3-63 characters, lowercase letters, numbers and hyphens only';
+        }
+        
+        return false;
+    }
+
 
     set(setting_path, value) {
+        console.log(`enpi: received setting: ${setting_path} -> ${value}`)
         const [sensor, setting] = setting_path.split('/')
         switch (setting) {
             case "toggle":
                 this.toggle(sensor, value)
+                break
+            case "force":
+                this.start(sensor)
+                break
+            case "config":
+                this.sensorConfig(sensor, value)
                 break
         }
     }
