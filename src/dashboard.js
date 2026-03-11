@@ -55,7 +55,7 @@ class Dashboard {
             'dash_download_logs', 'dash_lotek_freq_change', 'dash_config_cell', 'dash_toggle_train',
             'dash_remote_cmds', 'dash_detection_range', 'dash_alter_bootCount', 'dash_enable_agc',
             'dash_show_pulses',
-            "dash_enpi_air_toggle", "dash_enpi_light_toggle"
+            "dash_enpi_air_toggle", "dash_enpi_light_toggle", "dash_enpi_detection_range"
         ]) {
             this.matron.on(ev, (...args) => {
                 let fn = 'handle_'+ev
@@ -88,6 +88,7 @@ class Dashboard {
         // time-series
         this.ts = {}
         this.tsRefreshInterval = null
+        this.enpiTSRefreshInterval = null
         Fs.mkdirSync(ts_dir, {recursive: true})
         this.handle_dash_detection_range(TimeSeries.ranges[0])
         setInterval(() => this.tsSave(), 60000)
@@ -380,7 +381,7 @@ class Dashboard {
     handle_enpi_air_status(status) { FlexDash.set('enpi/air/status', status || "??") }
     handle_enpi_air_toggle(value) { FlexDash.set('enpi/air/toggle', value) }
     handle_enpi_light_status(status) { FlexDash.set('enpi/light/status', status || "??") }
-    handle_enpi_light_Toggle(value) { FlexDash.set('enpi/Light/toggle', value) }
+    handle_enpi_light_toggle(value) { FlexDash.set('enpi/light/toggle', value) }
 
     handle_dash_enpi_air_toggle(toggle) { Enpi.set('air/toggle',toggle) }
     handle_dash_enpi_light_toggle(toggle) { Enpi.set('light/toggle',toggle) }
@@ -418,15 +419,9 @@ class Dashboard {
             if (f.length != 6) return
             const time = Math.round(parseFloat(f[0])*1000)
             const light_level = parseFloat(f[1])
-            const frequency = parseInt(f[2]) / 1e3 // kHz
-            const count = parseInt(f[3])
-            const duration = parseFloat(f[4])
             const temp = parseFloat(f[5])
             if (this.enpi?.light?.ts?.readings) this.enpi.light.ts.readings.add(time, 1)
             if (this.enpi?.light?.ts?.light_level) this.enpi.light.ts.light_level.avg(time, light_level)
-            if (this.enpi?.light?.ts?.frequency) this.enpi.light.ts.frequency.avg(time, frequency)
-            if (this.enpi?.light?.ts?.count) this.enpi.light.ts.count.avg(time, count)
-            if (this.enpi?.light?.ts?.duration) this.enpi.light.ts.duration.avg(time, duration)
             if (this.enpi?.light?.ts?.temp) this.enpi.light.ts.temp.avg(time, temp)
         } catch (e) {
             console.warn("handle_enpi_light_gotData", e)
@@ -437,12 +432,9 @@ class Dashboard {
         
         setInterval(() => this.ts_enpi_save(), 60000)
 
-        this.enpi_ix = 2 // Day 
-
+        this.enpi_ts_ix = 2 // Day 
+        this.handle_dash_enpi_detection_range(TimeSeries.ranges[this.enpi_ts_ix])
         this.ts_enpi_refresh()
-
-        if (this.tsEnpiRefreshInterval) clearInterval(this.tsEnpiRefreshInterval)
-        this.tsEnpiRefreshInterval = setInterval(() => this.ts_enpi_refresh(), TimeSeries.intervals[this.ts_ix])
     }
 
     ts_enpi_show( sensor, combinedData ) {
@@ -460,11 +452,12 @@ class Dashboard {
             return
         }
         const now = Date.now()
-        const range = TimeSeries.ranges[this.ts_ix]
+        const range = TimeSeries.ranges[this.enpi_ts_ix]
         //console.log("enpi: tsSet:", JSON.stringify(tsSet))
         const [times, values] = tsSet[0].get(range, now)
         //console.log("enpi: Got:", values)
-        const interval = TimeSeries.intervals[this.ts_ix]
+        const interval = TimeSeries.intervals[this.enpi_ts_ix]
+        console.log("enpi: this.enpi_ts_ix=", this.enpi_ts_ix)
         const fct = v => v// == null ? null : v * 3600*1000 / interval
         const data = times.map((t, i) => [Math.floor(t/1000), fct(values[i])])
         for (let i = 1; i < tsSet.length; i++) {
@@ -768,6 +761,7 @@ class Dashboard {
             else if (intv < 7200) intv = Math.round(intv/60) + "m"
             else if (intv < 2*86400) intv = Math.round(intv/3600) + "h"
             else intv = Math.round(intv/86400) + "d"
+            
             FlexDash.set("detections/interval", intv)
 
             this.ts_ix = ix
@@ -775,6 +769,29 @@ class Dashboard {
 
             if (this.tsRefreshInterval) clearInterval(this.tsRefreshInterval)
             this.tsRefreshInterval = setInterval(() => this.tsRefresh(), TimeSeries.intervals[ix])
+        } catch (e) {
+            console.warn("tsRefresh", e)
+        }
+    }
+    handle_dash_enpi_detection_range(range) {
+        try {
+            const ix = TimeSeries.ranges.indexOf(range)
+            if (ix < 0) { console.log("handle_dash_enpi_detection_range: bad range", range); return }
+
+            let intv = TimeSeries.intervals[ix]/1000 // in seconds
+            if (intv < 120) intv += "s"
+            else if (intv < 7200) intv = Math.round(intv/60) + "m"
+            else if (intv < 2*86400) intv = Math.round(intv/3600) + "h"
+            else intv = Math.round(intv/86400) + "d"
+                        
+            FlexDash.set("enpi/detections/interval", intv)
+
+            this.enpi_ts_ix = ix
+            this.ts_enpi_refresh()
+
+            if (this.enpiTSRefreshInterval) clearInterval(this.enpiTSRefreshInterval)
+            this.enpiTSRefreshInterval = setInterval(() => this.ts_enpi_refresh(), TimeSeries.intervals[ix])
+        
         } catch (e) {
             console.warn("tsRefresh", e)
         }

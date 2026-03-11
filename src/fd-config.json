@@ -2132,16 +2132,14 @@
     },
     "w10010": {
       "kind": "Panel",
-      "rows": 10,
+      "rows": 4,
       "cols": 3,
       "static": {
         "title": "Light Level",
         "widgets": [
           "w10011",
           "w10012",
-          "w09800",
-          "w06451",
-          "w03944"
+          "w09800"
         ]
       },
       "dynamic": {},
@@ -2357,7 +2355,7 @@
       },
       "dynamic": {},
       "id": "w00924",
-      "output": "detection_range"
+      "output": "enpi_detection_range"
     },
     "w02156": {
       "kind": "PushButton",
@@ -2370,7 +2368,7 @@
       },
       "dynamic": {},
       "id": "w02156",
-      "output": "detection_range"
+      "output": "enpi_detection_range"
     },
     "w09074": {
       "kind": "PushButton",
@@ -2383,7 +2381,7 @@
       },
       "dynamic": {},
       "id": "w09074",
-      "output": "detection_range"
+      "output": "enpi_detection_range"
     },
     "w00423": {
       "kind": "PushButton",
@@ -2396,7 +2394,7 @@
       },
       "dynamic": {},
       "id": "w00423",
-      "output": "detection_range"
+      "output": "enpi_detection_range"
     },
     "w03317": {
       "kind": "PushButton",
@@ -2420,7 +2418,7 @@
         "zoom": 0.8
       },
       "dynamic": {
-        "value": "detections/interval"
+        "value": "enpi/detections/interval"
       },
       "id": "w02547"
     },
@@ -2471,7 +2469,17 @@
       "rows": 3,
       "cols": 6,
       "static": {
-        "title": "Light level"
+        "title": "Light level",
+        "left_min": 0,
+        "left_max": 23,
+        "left_unit": "mag/arcsec^2",
+        "axes": [
+          "Dark sky quality"
+        ],
+        "colors": [],
+        "right_min": null,
+        "right_max": null,
+        "left_decimals": 1
       },
       "dynamic": {
         "data": "enpi/light/light_level/data",
@@ -2520,34 +2528,6 @@
         "data": "enpi/temp/data"
       },
       "id": "w00722",
-      "output": null
-    },
-    "w06451": {
-      "kind": "TimePlot",
-      "rows": 3,
-      "cols": 6,
-      "static": {
-        "title": "Count"
-      },
-      "dynamic": {
-        "data": "enpi/light/count/data",
-        "labels": "enpi/light/count/labels"
-      },
-      "id": "w06451",
-      "output": null
-    },
-    "w03944": {
-      "kind": "TimePlot",
-      "rows": 3,
-      "cols": 6,
-      "static": {
-        "title": "Duration"
-      },
-      "dynamic": {
-        "data": "enpi/light/duration/data",
-        "labels": "enpi/light/duration/labels"
-      },
-      "id": "w03944",
       "output": null
     },
     "w05310": {
