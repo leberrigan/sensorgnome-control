@@ -1,0 +1,835 @@
+
+<style>
+  body {
+    --color-text-secondary: #555;
+    --color-background-secondary: #DFDFDF;
+    --color-border-secondary: #999;
+    --color-text-tertiary: #777;
+    --color-background-tertiary: #EFEFEF;
+    --color-border-tertiary: #AAA;
+    --font-sans: 'roboto', sans-serif;
+    --color-border-primary: #000;
+    --color-background-primary: #FFF;
+    background-color: var(--color-background-tertiary)
+  }
+  * { box-sizing: border-box; }
+  .wrap { font-family: var(--font-sans); }
+  .controls { height:3rem; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-bottom: 14px; }
+  .view-toggle { display: flex; background: var(--color-background-secondary); border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-tertiary); overflow: hidden; }
+  .view-toggle button { border: none; background: transparent; padding: 6px 14px; font-size: 13px; color: var(--color-text-secondary); cursor: pointer; transition: all .15s; }
+  .view-toggle button.active { background: var(--color-background-primary); color: var(--color-text-primary); font-weight: 500; }
+  .freq-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { border: 0.5px solid; border-radius: 20px; padding: 4px 10px; font-size: 12px; cursor: pointer; transition: opacity .15s; user-select: none; }
+  .chip.off { opacity: 0.35; }
+  svg { width: 100%; height:100%; display: block; }
+  .ant-group { cursor: pointer; }
+  .ant-group:hover { opacity: 0.82; }
+  .tooltip { position: absolute; background: var(--color-background-primary); border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); padding: 8px 12px; font-size: 12px; line-height: 1.6; pointer-events: none; color: var(--color-text-primary); z-index: 10; white-space: nowrap; display: none; }
+</style>
+
+<div class="wrap">
+  <div class="controls">
+    <div class="view-toggle">
+      <button class="active" onclick="setView('top')">Top-down</button>
+      <button onclick="setView('side')">Side view</button>
+    </div>
+    <button id="add-antenna-btn">Add Antenna</button>
+    <div class="freq-chips" id="freq-chips"></div>
+    <span style="font-size:12px;color:var(--color-text-secondary);margin-left:4px">click antenna for details</span>
+  </div>
+  <div style="position:relative;height:calc(100vh - 3rem);">
+    <svg id="diagram" viewBox="0 0 680 420"></svg>
+    <div class="tooltip" id="tooltip"></div>
+  </div>
+</div>
+<div id="editor" style="
+  position:absolute;
+  top:3.2rem;
+  right:0;
+  width:260px;
+  background:white;
+  border-left:1px solid #ccc;
+  padding:14px;
+  display:none;
+  height:calc(100vh - 3.2rem);
+  overflow-y:auto;
+  font-family:var(--font-sans);
+  box-shadow:-4px 0 8px rgba(0,0,0,0.05);
+">
+  <h3 style="margin-top:0;font-size:15px;">Edit Antenna</h3>
+
+  <label>Frequency<br>
+    <select id="ed-freq" style="width:100%;">
+      <option value="150.1">150.100 MHz</option>
+      <option value="151.5">151.500 MHz</option>
+      <option value="166.38">166.380 MHz</option>
+      <option value="434">434 MHz</option>
+      <option value="2400">2400 MHz</option>
+    </select>
+  </label><br><br>
+
+  <label>Port<br>
+    <input id="ed-port" type="text" style="width:100%;">
+  </label><br><br>
+
+  <label>Type<br>
+    <select id="ed-type" style="width:100%;">
+      <option value="yagi">Yagi</option>
+      <option value="omni">Omni</option>
+    </select>
+  </label><br><br>
+
+  <label>Height (m)<br>
+    <input id="ed-height" type="range" min="0" max="20" step="0.1" style="width:100%;">
+    <input id="ed-height-num" type="number" step="0.1" style="width:100%;margin-top:4px;">
+  </label><br><br>
+
+  <label>Bearing (°)<br>
+    <input id="ed-bearing" type="range" min="0" max="359" step="1" style="width:100%;">
+    <input id="ed-bearing-num" type="number" step="1" style="width:100%;margin-top:4px;">
+  </label><br><br>
+
+  <button id="ed-close" style="width:100%;padding:6px;">Close</button>
+  <button id="ed-delete" style="margin-top:1rem;width:100%;padding:6px;background:#FBEAEA;border-color:#E68C8C;color:#4A0C0C;">Delete</button>
+</div>
+<script>
+const antennas = [
+  {port:1,    bearing:123, frequency:166.380, height:10, type:"yagi-9", id: 1},
+  {port:'12', bearing:null,frequency:166.380, height:10.2, type:"omni", id: 2},
+  {port:3,    bearing:123, frequency:434,     height:9.5,  type:"yagi-7", id: 3},
+  {port:4,    bearing:60,  frequency:434,     height:6.9,  type:"yagi-7", id: 4},
+  {port:'L3', bearing:0,   frequency:434,     height:9, type:"yagi-7", id: 5},
+  {port:'L4', bearing:270, frequency:434,     height:null, type:"yagi-7", id: 6},
+  {port:'L1', bearing:310, frequency:434,     height:null, type:"yagi-7", id: 7}
+];
+
+const FREQ_COLORS = {};
+const PALETTE = [
+  {fill:'#378ADD', text:'#042C53', chipBg:'#E6F1FB', chipBorder:'#85B7EB'},
+  {fill:'#2E8A9E', text:'#07333C', chipBg:'#E3F4F7', chipBorder:'#6BBAC9'}, // teal-blue
+  {fill:'#1D9E75', text:'#04342C', chipBg:'#E1F5EE', chipBorder:'#5DCAA5'},
+  {fill:'#BA7517', text:'#412402', chipBg:'#FAEEDA', chipBorder:'#EF9F27'},
+  {fill:'#7A3EC8', text:'#2A0A52', chipBg:'#F0E8FB', chipBorder:'#B89AE6'}, // violet
+  {fill:'#D4537E', text:'#4B1528', chipBg:'#FBEAF0', chipBorder:'#ED93B1'},
+  {fill:'#C83E3E', text:'#4A0C0C', chipBg:'#FBEAEA', chipBorder:'#E68C8C'},
+  // grey
+  {fill:'#6E6E6E', text:'#1F1F1F', chipBg:'#F2F2F2', chipBorder:'#BEBEBE'}
+];
+
+let pi = 0;
+const freqs = [150.1,151.5,166.38,434,2400];//[...new Set(antennas.map(a => a.frequency))];
+freqs.forEach(f => { FREQ_COLORS[f] = PALETTE[pi++ % PALETTE.length]; });
+
+let hiddenFreqs = new Set();
+let currentView = 'top';
+let dragging = null; // { ant, mode }
+
+const rectHeight = 16; // Height of label rects
+var mToPx = 16; // For height measurements in side view
+
+const svg = document.getElementById('diagram');
+const NS = 'http://www.w3.org/2000/svg';
+
+function el(tag, attrs={}, parent=null) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k,v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function txt(content, attrs={}, parent=null) {
+  const e = el('text', attrs, parent);
+  e.textContent = content;
+  return e;
+}
+
+function buildChips() {
+  const wrap = document.getElementById('freq-chips');
+  wrap.innerHTML = '';
+  [...new Set(antennas.map(d => d.frequency))].forEach(f => {
+    const c = FREQ_COLORS[f];
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.style.cssText = `background:${c.chipBg};color:${c.text};border-color:${c.chipBorder}`;
+    chip.textContent = f >= 1000 ? (f/1000).toFixed(3)+' GHz' : f+' MHz';
+    chip.onclick = () => {
+      if (hiddenFreqs.has(f)) hiddenFreqs.delete(f); else hiddenFreqs.add(f);
+      chip.classList.toggle('off', hiddenFreqs.has(f));
+      render();
+    };
+    wrap.appendChild(chip);
+  });
+}
+
+function setView(v) {
+  currentView = v;
+  document.querySelectorAll('.view-toggle button').forEach((b,i) => {
+    b.classList.toggle('active', (i===0 && v==='top') || (i===1 && v==='side'));
+  });
+  render();
+}
+
+function showTooltip(evt, ant) {
+  if (dragging) return;
+  const tt = document.getElementById('tooltip');
+  const bearingStr = ant.bearing !== null ? ant.bearing+'°' : 'omnidirectional';
+  const heightStr = ant.height !== null ? ant.height+' m' : 'unknown';
+  const freqStr = ant.frequency >= 1000 ? (ant.frequency/1000).toFixed(3)+' GHz' : ant.frequency+' MHz';
+  tt.innerHTML = `<strong>Port ${ant.port}</strong> — ${ant.type}<br>Freq: ${freqStr}<br>Bearing: ${bearingStr}<br>Height: ${heightStr}`;
+  tt.style.display = 'block';
+  moveTip(evt);
+}
+function moveTip(evt) {
+  if (dragging) return;
+  const tt = document.getElementById('tooltip');
+  const rect = tt.parentElement.getBoundingClientRect();
+  let x = evt.clientX - rect.left + 10;
+  let y = evt.clientY - rect.top + 10;
+  if (x + 180 > rect.width) x -= 200;
+  tt.style.left = x+'px';
+  tt.style.top = y+'px';
+}
+function hideTip() { document.getElementById('tooltip').style.display='none'; }
+
+// ─── TOP DOWN ───
+function drawTopDown() {
+  svg.innerHTML = '';
+  svg.setAttribute('viewBox','0 0 680 420');
+
+  const cx = 310, cy = 210, R = 150;
+  const innerR = R - 8;
+  const outerR = R + 18;
+
+  // compass ring
+  const ring = el('g', {}, svg);
+  el('circle', {cx, cy, r: outerR, fill:'none', stroke:'var(--color-border-tertiary)', 'stroke-width':'0.5', class:"antenna-diagram-top-mast"}, ring);
+  // el('circle', {cx, cy, r: innerR,  fill:'none', stroke:'var(--color-border-tertiary)', 'stroke-width':'0.5', 'stroke-dasharray':'1 2'}, ring);
+
+  const dirs = {N:0, E:90, S:180, W:270};
+  for (const [label, deg] of Object.entries(dirs)) {
+    const rad = (deg-90)*Math.PI/180;
+    const x = cx + (R+30)*Math.cos(rad);
+    const y = cy + (R+30)*Math.sin(rad);
+    txt(label, {x, y, 'text-anchor':'middle', 'dominant-baseline':'central', 'font-size':'12', 'font-weight':'700', fill: label==='N'?'#E24B4A':'var(--color-text-secondary)'}, ring);
+
+    el('line', {
+      x1: cx+innerR*Math.cos(rad), y1: cy+innerR*Math.sin(rad),
+      x2: cx+outerR*Math.cos(rad), y2: cy+outerR*Math.sin(rad),
+      stroke:'var(--color-border-secondary)', 'stroke-width':'0.5'
+    }, ring);
+  }
+  for (let d=0; d<360; d+=45) {
+    if (d%90===0) continue;
+    const rad = (d-90)*Math.PI/180;
+    el('line', {
+      x1: cx+innerR*Math.cos(rad), y1: cy+innerR*Math.sin(rad),
+      //x2: cx+outerR*Math.cos(rad), y2: cy+outerR*Math.sin(rad),
+      // x2: cx+R*Math.cos(rad), y2: cy+R*Math.sin(rad),
+      x2: cx+((R + (outerR-innerR)/2))*Math.cos(rad), y2: cy+((R + (outerR-innerR)/2))*Math.sin(rad),
+      stroke:'var(--color-border-tertiary)', 'stroke-width':'0.5'
+    }, ring);
+  }
+
+  // mast dot only
+  el('circle', {cx, cy, r:5, fill:'var(--color-background-secondary)', stroke:'var(--color-border-primary)', 'stroke-width':'1'}, svg);
+  el('circle', {cx, cy, r:2, fill:'var(--color-text-secondary)'}, svg);
+  
+  // antennas
+  const visible = antennas.filter(a => !hiddenFreqs.has(a.frequency));
+  
+  // group visible yagis by bearing
+  const byBearing = {};
+  visible.forEach(a => {
+    const roundedBearing = Math.round(a.bearing/15)*15;
+    if (a.type !== 'omni' && roundedBearing !== null) {
+      if (!byBearing[roundedBearing]) byBearing[roundedBearing] = [];
+      byBearing[roundedBearing].push(a);
+    } if (a.type == 'omni') {
+      if (!byBearing.omni) byBearing.omni = [];
+      byBearing.omni.push(a);
+    }
+    
+  });
+
+  for (layer of ["antenna","label-bg", "label"]) {
+
+    visible.sort((a,b)=>(a.type == "omni")).forEach(ant => {
+      const c = FREQ_COLORS[ant.frequency];
+      const g = el('g', {class:'ant-group'}, svg);
+      g.addEventListener('mouseenter', e => showTooltip(e, ant));
+      g.addEventListener('mousedown', e => startDrag(e, ant));
+      g.addEventListener('mousemove', moveTip);
+      g.addEventListener('mouseleave', hideTip);
+      g.addEventListener('click', () => openEditor(ant));
+
+      if (ant.type === 'omni') {
+        const r = 36;
+        const rectWidth = 12 + `${ant.port}`.length * 6; // adjust width for port number;
+        const spacing = 4;
+        byBearing.omni.length
+        const idx = byBearing.omni.indexOf(ant);
+        const offsetY = -( ((rectHeight+spacing) * (byBearing.omni.length - 1))) / 2 + idx * (rectHeight+spacing);
+        const tx = cx;
+        const ty = cy + offsetY;
+        if (layer == "antenna")
+          el('circle', {cx, cy, r, fill:c.fill+'22', stroke:c.fill, 'stroke-width':'1.5', opacity: 0.5}, g);
+        if (layer == "label") {
+          el('rect', {
+            x: tx - rectWidth/2, y: ty - rectHeight/2, width: rectWidth, height: rectHeight, rx: '4',
+            fill: c.chipBg, stroke: c.chipBorder, 'stroke-width': '0.5'
+          }, g);
+          txt(`${ant.port}`, {x:tx, y:ty, 'text-anchor':'middle', 'dominant-baseline':'middle', 'font-size':'11', 'font-weight':'500', fill:c.fill}, g);
+        }
+      } else {
+        if (ant.bearing === null) return;
+        const bearRad = (ant.bearing - 90) * Math.PI / 180;
+        const len = innerR;
+        const lx = cx + len * Math.cos(bearRad);
+        const ly = cy + len * Math.sin(bearRad);
+
+        const defs = el('defs',{},g);
+        const mid = `arr-${ant.port}`;
+        const mk = el('marker',{id:mid,viewBox:'0 0 10 10',refX:'8',refY:'5',markerWidth:'6',markerHeight:'6',orient:'auto-start-reverse'},defs);
+        el('path',{d:'M2 1L8 5L2 9',fill:'none',stroke:c.fill,'stroke-width':'1.8','stroke-linecap':'round','stroke-linejoin':'round'},mk);
+
+        el('line', {x1:cx, y1:cy, x2:lx, y2:ly, stroke:c.fill, 'stroke-width':'2', 'marker-end':`url(#${mid})`}, g);
+
+        const lblR = len - 18 - 10;//+ 16;
+        // compute tangent offset for label stacking
+        const roundedBearing = Math.round(ant.bearing/15)*15;
+        const group = byBearing[roundedBearing];
+        const idx = group.indexOf(ant);
+
+        const tangentAngle = bearRad + Math.PI/2; // perpendicular
+        const offset = idx * 16 - (group.length - 1) * 8; // center them
+
+        const ox = offset * Math.cos(tangentAngle);
+        const oy = offset * Math.sin(tangentAngle);
+
+        const rectWidth = 12 + `${ant.port}`.length * 6; // adjust width for port number;
+        const tx = cx + lblR*Math.cos(bearRad) + ox;
+        const ty = cy + lblR*Math.sin(bearRad) + oy;
+
+        if (layer == "label") {
+          el('rect', {
+            x: tx - rectWidth/2, y: ty - rectHeight/2, width: rectWidth, height: rectHeight, rx: '4',
+            fill: c.chipBg, stroke: c.chipBorder, 'stroke-width': '0.5'
+          }, g);
+          txt(`${ant.port}`, {
+            x: tx,
+            y: ty,
+            'text-anchor':'middle',
+            'dominant-baseline':'central',
+            'font-size':'11',
+            'font-weight':'500',
+            fill: c.fill
+          }, g);
+        }
+    
+        if (layer == "label-bg") {
+          // dashed guide line from arrow tip inward
+          const innerR = R - 10; // move inward from mast
+
+          el("path", {
+            d: annularArcPath(
+              cx,
+              cy,
+              innerR+2,
+              outerR,
+              ant.bearing - 4,
+              ant.bearing + 4
+            ),
+            fill: 'var(--color-background-primary)'
+          }, g);
+        }
+        if (layer == "label") {
+          // el('line', {x1:cx + innerR * Math.cos(bearRad), y1:cy + innerR * Math.sin(bearRad), x2:cx + (innerR+3) * Math.cos(bearRad), y2:cy + (innerR+3) * Math.sin(bearRad), stroke:'var(--color-border-primary)', 'stroke-width':'2'}, g);
+          // bearing text on inner ring
+          txt(`${ant.bearing}°`, {
+            x: cx + (innerR + 16) * Math.cos(bearRad),
+            y: cy + (innerR + 16) * Math.sin(bearRad),
+            'text-anchor': 'middle',
+            'dominant-baseline': 'central',
+            'font-size': '10',
+            fill: 'var(--color-text-secondary)'
+          }, g);
+        }
+      }
+    });
+  }
+
+  // Draw the smallest ticks on top
+  for (let d=0; d<360; d+=5) {
+    const rad = (d-90)*Math.PI/180;
+    el('line', {
+      x1: cx+innerR*Math.cos(rad), y1: cy+innerR*Math.sin(rad),
+      //x2: cx+outerR*Math.cos(rad), y2: cy+outerR*Math.sin(rad),
+      // x2: cx+R*Math.cos(rad), y2: cy+R*Math.sin(rad),
+      x2: cx+((R))*Math.cos(rad), y2: cy+((R))*Math.sin(rad),
+      stroke:'var(--color-border-tertiary)', 'stroke-width':'0.5'
+    }, svg);
+  }
+  for (let d=0; d<360; d+=1) {
+    if (d%5===0) continue;
+    const rad = (d-90)*Math.PI/180;
+    el('line', {
+      x1: cx+innerR*Math.cos(rad), y1: cy+innerR*Math.sin(rad),
+      //x2: cx+outerR*Math.cos(rad), y2: cy+outerR*Math.sin(rad),
+      // x2: cx+R*Math.cos(rad), y2: cy+R*Math.sin(rad),
+      x2: cx+(innerR + 2)*Math.cos(rad), y2: cy+(innerR + 2)*Math.sin(rad),
+      stroke:'var(--color-border-tertiary)', 'stroke-width':'0.5'
+    }, svg);
+  }
+
+  // legend
+  let lx = 520, ly = 100;
+  txt('Frequencies', {x:lx, y:ly-14, 'font-size':'11', 'font-weight':'500', fill:'var(--color-text-secondary)'}, svg);
+  [...new Set(antennas.map(d => d.frequency))].forEach(f => {
+    const c = FREQ_COLORS[f];
+    const label = f >= 1000 ? (f/1000).toFixed(3)+' GHz' : f+' MHz';
+    el('rect', {x:lx, y:ly-6, width:12, height:12, rx:'2', fill:c.fill, opacity: hiddenFreqs.has(f)?'0.3':'1'}, svg);
+    txt(label, {x:lx+17, y:ly+1, 'dominant-baseline':'central', 'font-size':'11', fill:'var(--color-text-primary)', opacity: hiddenFreqs.has(f)?'0.4':'1'}, svg);
+    ly += 20;
+  });
+  ly += 8;
+  el('circle', {cx:lx+6, cy:ly+2, r:5, fill:'none', stroke:'var(--color-text-secondary)', 'stroke-width':'1'}, svg);
+  txt('Omni', {x:lx+17, y:ly+2, 'dominant-baseline':'central', 'font-size':'11', fill:'var(--color-text-primary)'}, svg);
+  ly += 18;
+  const defs2 = el('defs',{},svg);
+  const lmk = el('marker',{id:'leg-arr',viewBox:'0 0 10 10',refX:'8',refY:'5',markerWidth:'5',markerHeight:'5',orient:'auto-start-reverse'},defs2);
+  el('path',{d:'M2 1L8 5L2 9',fill:'none',stroke:'var(--color-text-secondary)','stroke-width':'1.8','stroke-linecap':'round','stroke-linejoin':'round'},lmk);
+  el('line',{x1:lx,y1:ly+2,x2:lx+12,y2:ly+2,stroke:'var(--color-text-secondary)','stroke-width':'1.5','marker-end':'url(#leg-arr)'},svg);
+  txt('Yagi', {x:lx+17, y:ly+2, 'dominant-baseline':'central', 'font-size':'11', fill:'var(--color-text-primary)'}, svg);
+}
+
+function annularArcPath(cx, cy, rInner, rOuter, startDeg, endDeg) {
+  const rad = Math.PI / 180;
+
+  // Convert angles so 0° is north and increases clockwise
+  const a0 = (startDeg - 90) * rad;
+  const a1 = (endDeg - 90) * rad;
+
+  // Outer arc endpoints
+  const x0o = cx + rOuter * Math.cos(a0);
+  const y0o = cy + rOuter * Math.sin(a0);
+  const x1o = cx + rOuter * Math.cos(a1);
+  const y1o = cy + rOuter * Math.sin(a1);
+
+  // Inner arc endpoints
+  const x0i = cx + rInner * Math.cos(a0);
+  const y0i = cy + rInner * Math.sin(a0);
+  const x1i = cx + rInner * Math.cos(a1);
+  const y1i = cy + rInner * Math.sin(a1);
+
+  const largeArc = Math.abs(endDeg - startDeg) > 180 ? 1 : 0;
+
+  return `
+    M ${x0o} ${y0o}
+    A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x1o} ${y1o}
+    L ${x1i} ${y1i}
+    A ${rInner} ${rInner} 0 ${largeArc} 0 ${x0i} ${y0i}
+    Z
+  `;
+}
+
+// ─── SIDE VIEW ───
+function drawSide() {
+  svg.innerHTML = '';
+  svg.setAttribute('viewBox','0 0 680 420');
+
+  const visible = antennas.filter(a => !hiddenFreqs.has(a.frequency));
+  const gnd = 370, mastX = 200, mastW = 8;
+  const maxHeight = gnd - 50;
+  const mastHeight = Math.max(...visible.map(a => a.height || 0));
+  const axisUpperLimit = Math.ceil(mastHeight);
+  const scale = maxHeight / axisUpperLimit; // Pixels per meter
+  mToPx = scale;
+  const rulerX = mastX - 50;
+  
+  // ground
+  el('line', {x1:40, y1:gnd, x2:640, y2:gnd, stroke:'var(--color-border-secondary)', 'stroke-width':'1'}, svg);
+  txt('Receiver GPS height = 0 m', {x:46, y:gnd+14, 'font-size':'11', fill:'var(--color-text-secondary)'}, svg);
+
+  // height ruler
+  const step = Math.ceil(axisUpperLimit / 5);
+  const start = axisUpperLimit%step == 0 ? step : axisUpperLimit%step;
+  for (let h=start; h<=axisUpperLimit; h+=step) {
+    const y = gnd - h*scale;
+    el('line', {x1:rulerX-2, y1:y, x2:rulerX+4, y2:y, stroke:'var(--color-border-secondary)', 'stroke-width':'0.5'}, svg);
+    txt(`${h} m`, {x:rulerX-6, y:y, 'text-anchor':'end', 'dominant-baseline':'central', 'font-size':'10', fill:'var(--color-text-secondary)'}, svg);
+  }
+  el('line', {x1:rulerX+1, y1:gnd-axisUpperLimit*scale, x2:rulerX+1, y2:gnd, stroke:'var(--color-border-tertiary)', 'stroke-width':'0.5'}, svg);
+
+  // mast pole 
+  el('rect', {x:mastX-mastW/2, y:gnd-mastHeight*scale, width:mastW, height:mastHeight*scale,
+    fill:'var(--color-background-secondary)', stroke:'var(--color-border-secondary)', 'stroke-width':'1', rx:'2'}, svg);
+
+
+  // separate known-height from unknown
+  const known   = visible.filter(a => a.height !== null);
+  const unknown = visible.filter(a => a.height === null);
+
+  // group known antennas by height
+  const byHeight = {};
+  known.forEach(a => {
+    const scaleFactor = scale / rectHeight; // meters
+    console.log("Scale factor: ", scaleFactor);
+    // console.log(`Scale factor: ${scaleFactor}, Axis upper limit: ${axisUpperLimit}, Scale: ${scale}`);
+    const roundedHeight = Math.round(a.height * scaleFactor) / scaleFactor;
+    if (!byHeight[roundedHeight]) byHeight[roundedHeight] = [];
+    byHeight[roundedHeight].push(a);
+  });
+
+  const antLen = 50; // Length of each antenna
+  const axr = 24; // Antenna x radius
+  const ayr = 15; // Antenna y radius
+
+  // draw known antennas — base on mast
+  known.forEach(ant => {
+    const c = FREQ_COLORS[ant.frequency];
+    const g = el('g', {class:'ant-group'}, svg);
+    g.addEventListener('mouseenter', e => showTooltip(e, ant));
+    g.addEventListener('mousedown', e => startDrag(e, ant));
+    g.addEventListener('mousemove', moveTip);
+    g.addEventListener('mouseleave', hideTip);
+    g.addEventListener('click', () => openEditor(ant));
+
+    const ay = gnd - ant.height * scale;
+
+    if (ant.type === 'omni') {
+      // omni: ellipse centred on mast
+      el('ellipse', {cx:mastX, cy:ay-20, rx:axr, ry:ayr,
+        fill:c.fill+'22', stroke:c.fill, 'stroke-width':'1.5'}, g);
+      el('line', {x1:mastX, y1:ay-40, x2:mastX, y2:ay, stroke:c.fill, 'stroke-width':'1.5'}, g);
+      el('circle', {cx: mastX, cy: ay, r:3, fill:'var(--color-background-primary)', stroke:c.fill, 'stroke-width':'1.5'}, g);
+      txt(`${ant.height.toFixed(1)} m`, {x:mastX-10, y:ay+3, 'font-size':'10', fill:c.fill, opacity:'0.8', 'text-anchor': 'end'}, g);
+      // txt(`${ant.height} m`, {x:mastX+mastW/2+antLen-28, y:ay-17, 'font-size':'10', fill:c.fill, opacity:'0.8', 'text-anchor': 'start'}, g);
+
+    } else {
+      // yagi: simple arrow extending from mast
+      const defs = el('defs',{},g);
+      const mid = `sarr-${ant.port}`;
+      const mk = el('marker',{id:mid,viewBox:'0 0 10 10',refX:'8',refY:'5',markerWidth:'5',markerHeight:'5',orient:'auto-start-reverse'},defs);
+      el('path',{d:'M2 1L8 5L2 9',fill:'none',stroke:c.fill,'stroke-width':'1.8','stroke-linecap':'round','stroke-linejoin':'round'},mk);
+      el('line', {x1:mastX+mastW/2, y1:ay, x2:mastX+mastW/2+antLen, y2:ay,
+        stroke:c.fill, 'stroke-width':'2', 'marker-end':`url(#${mid})`}, g);
+      el('circle', {cx: mastX+mastW/2, cy: ay, r:3, fill:'var(--color-background-primary)', stroke:c.fill, 'stroke-width':'1.5'}, g);
+          
+      // height guide
+      txt(`${ant.height.toFixed(1)} m`, {x:mastX+mastW/2+antLen-10, y:ay-4, 'font-size':'10', fill:c.fill, opacity:'0.8', 'text-anchor': 'end'}, g);
+
+    }
+
+    // instead of drawing the label above the antenna, we defer label placement
+  });
+  // draw port labels after arrow tips, grouped by height
+  Object.entries(byHeight).forEach(([h, ants]) => {
+    const ay = gnd - h * scale;
+    const baseX = mastX + mastW/2 + antLen; // arrow tip
+    const spacing = 6;
+    var prevRectWidth = 0;
+    var prevX = baseX;
+    ants.forEach((ant, i) => {
+      const c = FREQ_COLORS[ant.frequency];
+      const g = el('g', {class:'ant-group'}, svg);
+
+      g.addEventListener('mouseenter', e => showTooltip(e, ant));
+      g.addEventListener('mousedown', e => startDrag(e, ant));
+      g.addEventListener('mousemove', moveTip);
+      g.addEventListener('mouseleave', hideTip);
+      g.addEventListener('click', () => openEditor(ant));
+      const x = prevX + prevRectWidth + spacing * (i > 0); // horizontal stacking
+      const y = gnd - ant.height * scale - 6;
+      const rectWidth = 12 + `${ant.port}`.length * 6; // adjust width for port number;
+      if (ant.type == "omni") {
+        // port label on top of omni
+        const ty = ay - 20 - ayr - 10; // Text y
+
+        el('rect', {
+          x: mastX - rectWidth/2, y: ty - rectHeight/2, width: rectWidth, height: rectHeight, rx: '4',
+          fill: c.chipBg, stroke: c.chipBorder, 'stroke-width': '0.5'
+        }, g);
+
+        txt(`${ant.port}`, {
+          x: mastX,
+          y: ay - 20 - ayr - 10,
+          'text-anchor': 'middle',
+          'dominant-baseline': 'central',
+          'font-size': '11',
+          'font-weight': '500',
+          fill: c.text
+        }, g);
+      } else {
+        el('rect', {
+          x: x + 5, y: y - 10 + rectHeight/2, width: rectWidth, height: rectHeight, rx: '4',
+          fill: c.chipBg, stroke: c.chipBorder, 'stroke-width': '0.5'
+        }, g);
+
+        txt(`${ant.port}`, {
+          x:x+10, y:y - 2 + rectHeight/2,
+          'text-anchor': 'start',
+          'dominant-baseline': 'central',
+          'font-size': '11',
+          'font-weight': '500',
+          fill: c.text
+        }, g);
+      }
+      prevRectWidth = rectWidth;
+      prevX = x;
+    });
+  });
+  const sidebarX = 500;//16;
+  // unknown-height antennas: off to the right, detached from mast
+  // --- unknown-height box ---
+  if (unknown.length > 0) {
+    const listX = sidebarX + 30;
+    const listY = 260;
+    const rowH = 22;
+    const boxW = 180;
+    const boxH = 20 + unknown.length * rowH;
+
+    // List of antennas with unknown height
+    txt('Unknown height', {
+      x: listX,
+      y: listY,
+      'font-size': '12',
+      'font-weight': '500',
+      fill: 'var(--color-text-secondary)'
+    }, svg);
+
+    unknown.forEach((ant, i) => {
+      const c = FREQ_COLORS[ant.frequency];
+      const y = listY + (i + 1) * rowH;
+
+      // small arrow icon
+      const g = el('g', {class:'ant-group'}, svg);
+      g.addEventListener('mouseenter', e => showTooltip(e, ant));
+      g.addEventListener('mousemove', moveTip);
+      g.addEventListener('mouseleave', hideTip);
+      g.addEventListener('click', () => openEditor(ant));
+
+      const ax = listX;
+      const ay = y - 6;
+
+      const defs = el('defs',{},g);
+      const mid = `uarr-${ant.port}`;
+      const mk = el('marker',{id:mid,viewBox:'0 0 10 10',refX:'8',refY:'5',markerWidth:'5',markerHeight:'5',orient:'auto-start-reverse'},defs);
+      el('path',{d:'M2 1L8 5L2 9',fill:'none',stroke:c.fill,'stroke-width':'1.8','stroke-linecap':'round','stroke-linejoin':'round'},mk);
+
+      el('line', {
+        x1: ax, y1: ay,
+        x2: ax + 20, y2: ay,
+        stroke: c.fill,
+        'stroke-width': 2,
+        'marker-end': `url(#${mid})`
+      }, g);
+
+      txt(`P${ant.port}`, {
+        x: ax + 30,
+        y: ay + 1,
+        'font-size': '11',
+        'dominant-baseline': 'central',
+        fill: c.text
+      }, g);
+    });
+  }
+  // legend
+  let lx2 = 530, ly2 = 60;
+  txt('Frequencies', {x:lx2, y:ly2-14, 'font-size':'11', 'font-weight':'500', fill:'var(--color-text-secondary)'}, svg);
+  [...new Set(antennas.map(d => d.frequency))].forEach(f => {
+    const c = FREQ_COLORS[f];
+    const label = f >= 1000 ? (f/1000).toFixed(3)+' GHz' : f+' MHz';
+    el('rect', {x:lx2, y:ly2-6, width:12, height:12, rx:'2', fill:c.fill, opacity: hiddenFreqs.has(f)?'0.3':'1'}, svg);
+    txt(label, {x:lx2+17, y:ly2+1, 'dominant-baseline':'central', 'font-size':'11', fill:'var(--color-text-primary)', opacity: hiddenFreqs.has(f)?'0.4':'1'}, svg);
+    ly2 += 20;
+  });
+}
+
+let selectedAntenna = null;
+
+function openEditor(ant) {
+  selectedAntenna = ant;
+
+  const ed = document.getElementById('editor');
+  ed.style.display = 'block';
+
+  // populate fields
+  document.getElementById('ed-freq').value = ant.frequency;
+  document.getElementById('ed-port').value = ant.port;
+  document.getElementById('ed-type').value = ant.type.includes("omni") ? "omni" : "yagi";
+
+  document.getElementById('ed-height').value = ant.height ?? 0;
+  document.getElementById('ed-height-num').value = ant.height ?? '';
+
+  document.getElementById('ed-bearing').value = ant.bearing ?? 0;
+  document.getElementById('ed-bearing-num').value = ant.bearing ?? '';
+
+  // disable bearing for omni
+  const disabled = ant.type === 'omni';
+  document.getElementById('ed-bearing').disabled = disabled;
+  document.getElementById('ed-bearing-num').disabled = disabled;
+}
+
+function closeEditor() {
+  selectedAntenna = null;
+  document.getElementById('editor').style.display = 'none';
+}
+document.getElementById('ed-close').onclick = closeEditor;
+document.getElementById('ed-delete').onclick = deleteAntenna;
+
+// FREQUENCY
+document.getElementById('ed-freq').addEventListener('change', e => {
+  if (!selectedAntenna) return;
+  selectedAntenna.frequency = e.target.value;
+
+  const isOmni = selectedAntenna.frequency === 'omni';
+  document.getElementById('ed-bearing').disabled = isOmni;
+  document.getElementById('ed-bearing-num').disabled = isOmni;
+
+  render();
+  buildChips();
+});
+// PORT
+document.getElementById('ed-port').addEventListener('input', e => {
+  if (!selectedAntenna) return;
+  selectedAntenna.port = e.target.value;
+  render();
+});
+
+
+// TYPE
+document.getElementById('ed-type').addEventListener('change', e => {
+  if (!selectedAntenna) return;
+  selectedAntenna.type = e.target.value;
+
+  const isOmni = selectedAntenna.type === 'omni';
+  document.getElementById('ed-bearing').disabled = isOmni;
+  document.getElementById('ed-bearing-num').disabled = isOmni;
+
+  render();
+});
+
+// HEIGHT
+function updateHeight(val) {
+  if (!selectedAntenna) return;
+  selectedAntenna.height = parseFloat(val) || null;
+  document.getElementById('ed-height').value = val;
+  document.getElementById('ed-height-num').value = val;
+  render();
+}
+document.getElementById('ed-height').addEventListener('input', e => updateHeight(e.target.value));
+document.getElementById('ed-height-num').addEventListener('input', e => updateHeight(e.target.value));
+
+// BEARING
+function updateBearing(val) {
+  if (!selectedAntenna) return;
+  selectedAntenna.bearing = parseInt(val) || 0;
+  document.getElementById('ed-bearing').value = val || 0;
+  document.getElementById('ed-bearing-num').value = val || 0;
+  render();
+}
+document.getElementById('ed-bearing').addEventListener('input', e => updateBearing(e.target.value));
+document.getElementById('ed-bearing-num').addEventListener('input', e => updateBearing(e.target.value));
+
+// DRAGGING
+function startDrag(evt, ant) {
+  evt.preventDefault();
+  dragging = { ant, mode: currentView };
+}
+
+function endDrag() {
+  dragging = null;
+}
+
+svg.addEventListener('mouseup', endDrag);
+svg.addEventListener('mouseleave', endDrag);
+svg.addEventListener('mousemove', onDrag);
+
+function updateBearingFromMouse(evt, ant) {
+  const rect = svg.getBoundingClientRect();
+  const mast = svg.querySelector(".antenna-diagram-top-mast");
+  const cx = mast.getAttribute("cx"), cy = mast.getAttribute("cy"); // your mast center
+
+  const scaleX = rect.width / svg.viewBox.baseVal.width;
+  const scaleY = rect.height / svg.viewBox.baseVal.height;
+
+  const mx = (evt.clientX - rect.left)/scaleX;
+  const my = (evt.clientY - rect.top)/scaleY;
+
+  const dx = mx - cx;
+  const dy = my - cy;
+  
+  console.log(`Mouse: (${mx}, ${my}), Mast: (${cx}, ${cy}), dx: ${dx}, dy: ${dy}` );
+
+  // Convert to degrees, rotate so 0° = north
+  let deg = Math.atan2(dy, dx) * 180 / Math.PI + 90;
+  if (deg < 0) deg += 360;
+
+  ant.bearing = Math.round(deg);
+}
+function updateHeightFromMouse(evt, ant) {
+  const rect = svg.getBoundingClientRect();
+  const gnd = 370;
+
+  const scaleY = rect.height / svg.viewBox.baseVal.height;
+
+  const my = (evt.clientY - rect.top)/scaleY;
+
+  let h = (gnd - my) / mToPx;
+
+  // clamp
+  if (h < 0) h = 0;
+  if (h > 20) h = 20;
+
+  ant.height = parseFloat(h.toFixed(1));
+}
+function onDrag(evt) {
+  if (!dragging) return;
+
+  const ant = dragging.ant;
+
+  if (dragging.mode === 'top' && ant.type !== 'omni') {
+    updateBearingFromMouse(evt, ant);
+  }
+
+  if (dragging.mode === 'side' && ant.height !== null) {
+    updateHeightFromMouse(evt, ant);
+  }
+
+  render();
+}
+
+// NEW ANTENNA
+function createNewAntenna() {
+  return {
+    port: "New",
+    bearing: Math.round(Math.random() * 360),
+    frequency: antennas[antennas.length - 1].frequency,   // default to first known frequency
+    height: antennas[antennas.length - 1].height,
+    type: "yagi-9",
+    id: crypto.randomUUID()
+  };
+}
+document.getElementById("add-antenna-btn").onclick = () => {
+  const ant = createNewAntenna();
+  antennas.push(ant);
+  openEditor(ant);
+  render();
+};
+
+// DELETE ANTENNA
+
+function deleteAntenna() {
+  if (!selectedAntenna) return;
+  delete antennas[antennas.indexOf(selectedAntenna)];
+  render();
+}
+
+// STARTUP
+function render() {
+  if (currentView === 'top') drawTopDown(); else drawSide();
+}
+
+buildChips();
+render();
+
+</script>

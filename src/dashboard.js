@@ -39,7 +39,7 @@ class Dashboard {
             'netHotspotState', 'netWifiConfig', 'portmapFile', 'tagDBInfo', 'motusRecv',
             'motusUploadResult', 'netDefaultGw', 'netDNS', 'lotekFreq', 'netCellState', 'netCellReason',
             'netCellInfo', 'netCellConfig', 'cttRadioVersion', 'vahRate', 'vahFrames', 'devState',
-            'rtlInfo', 'acquisition', 'gotBurst',
+            'rtlInfo', 'acquisition', 'gotBurst', 'antennaConfig',
             // dashboard events triggered by a message from FlexDash
             'dash_download', 'dash_upload', 'dash_deployment_update', 'dash_enable_wifi',
             'dash_enable_hotspot', 'dash_config_wifi', 'dash_update_portmap', 'dash_creds_update',
@@ -50,7 +50,8 @@ class Dashboard {
             'dash_remote_cmds', 'dash_detection_range', 'dash_alter_bootCount', 'dash_enable_agc',
             'dash_show_pulses', 'dash_cellular_priority', 'dash_burstfinder_burst',
             'dash_burstfinder_filter_file', 'dash_burstfinder_filter_ui',
-            'dash_burstfinder_method', 'dash_cell_debug', 'dash_cell_scan'
+            'dash_burstfinder_method', 'dash_cell_debug', 'dash_cell_scan',
+            'dash_get_station_info'
         ]) {
             this.matron.on(ev, (...args) => {
                 let fn = 'handle_'+ev
