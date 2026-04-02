@@ -902,7 +902,7 @@
     "w03109": {
       "kind": "TextView",
       "rows": 3,
-      "cols": 4,
+      "cols": 6,
       "static": {
         "title": "Tag database content"
       },
@@ -1497,29 +1497,12 @@
           "w04606",
           "w07289",
           "w03595",
-          "w05350",
-          "w03999"
+          "w05350"
         ],
         "solid": false
       },
       "dynamic": {},
       "id": "w07599"
-    },
-    "w04002": {
-      "kind": "Panel",
-      "rows": 5,
-      "cols": 3,
-      "static": {
-        "title": "Cellular carriers",
-        "widgets": [
-          "w04001",
-          "w04003",
-          "w04000"
-        ],
-        "solid": false
-      },
-      "dynamic": {},
-      "id": "w04002"
     },
     "w04606": {
       "kind": "Stat",
@@ -1589,63 +1572,6 @@
         "value": "cellular/reason"
       },
       "id": "w03595"
-    },
-    "w03999": {
-      "kind": "Stat",
-      "rows": 1,
-      "cols": 2,
-      "static": {
-        "title": "Carrier",
-        "zoom": 0.6
-      },
-      "dynamic": {
-        "value": "cellular/carrier"
-      },
-      "id": "w03999"
-    },
-    "w04000": {
-      "kind": "SimpleTable",
-      "rows": 4,
-      "cols": 6,
-      "static": {
-        "title": "Cellular Carriers",
-        "popup_info": "Available network carriers.",
-        "columns": [],
-        "labels": null
-      },
-      "dynamic": {
-        "data": "cellular/carriers_data",
-        "columns": "null",
-        "labels": "cellular/carriers_columns"
-      },
-      "id": "w04000"
-    },
-    "w04001": {
-      "kind": "PushButton",
-      "rows": 1,
-      "cols": 2,
-      "static": {
-        "title": "Scan carriers"
-      },
-      "dynamic": {
-        "enabled": "scan_carriers/enable"
-      },
-      "id": "w04001",
-      "output": "scan_carriers"
-    },
-    "w04003": {
-      "kind": "Stat",
-      "rows": 1,
-      "cols": 4,
-      "static": {
-        "title": "Scan status",
-        "zoom": 0.6
-      },
-      "dynamic": {
-        "value": "cellular/scan_status",
-        "popup_info": "cellular/scan_status_detailed"
-      },
-      "id": "w04003"
     },
     "w05350": {
       "kind": "PropsTable",
@@ -1763,8 +1689,6 @@
           "w01745",
           "w04712",
           "w03109",
-          "w03243",
-          "w03402",
           "w06470"
         ],
         "solid": false
@@ -2101,45 +2025,216 @@
       "rows": 1,
       "cols": 2,
       "static": {
-        "title": "Show pulses",
+        "title": "Filter pulses",
         "on_value": "on",
         "off_value": "off",
         "popup_info": "Toggle the display of detected Lotek pulses in the tags and pulses panel on/off. Tags are always shown."
       },
       "dynamic": {
-        "value": "lotek_show_pulses"
+        "value": "burstfinder/filter_ui"
       },
       "id": "w04712",
-      "output": "show_pulses"
+      "output": "burstfinder_filter_ui"
+    },
+    "w02187": {
+      "kind": "Markdown",
+      "rows": 2,
+      "cols": 3,
+      "static": {
+        "title": "! WARNING !",
+        "text": "**WARNING this tab contains experimental features that can cause malfunction of your Sensorgnome and corrupt your data! Please do not use unless you understand what the feature does.**\n\nYou're welcome to ask about anything here in the Motus forum..."
+      },
+      "dynamic": {},
+      "id": "w02187"
+    },
+    "w05065": {
+      "kind": "Panel",
+      "rows": 6,
+      "cols": 3,
+      "static": {
+        "title": "Cellular",
+        "widgets": [
+          "w09114",
+          "w03046",
+          "w06416",
+          "w09838"
+        ],
+        "solid": false
+      },
+      "dynamic": {},
+      "id": "w05065"
+    },
+    "w09114": {
+      "kind": "Toggle",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Route Priority",
+        "on_value": "high",
+        "off_value": "low",
+        "popup_info": "Normally the cellular connection has lower priority than ethernet and wifi so those (cheaper) networks are used if available. Toggling to \"high\" here raises the cellular priority _above_ ethernet and wifi it's it's always used. This is useful to force-test the cellular connection while being locally connected for troubleshooting. Note that the \"local connection\" has to be on the same subnet."
+      },
+      "dynamic": {
+        "value": "cellular/priority"
+      },
+      "id": "w09114",
+      "output": "cellular_priority"
+    },
+    "w03097": {
+      "kind": "Panel",
+      "rows": 2,
+      "cols": 3,
+      "static": {
+        "title": "RTL-SDR",
+        "widgets": [
+          "w05984",
+          "w03402",
+          "w03243"
+        ],
+        "solid": false
+      },
+      "dynamic": {},
+      "id": "w03097"
+    },
+    "w05984": {
+      "kind": "Markdown",
+      "rows": 1,
+      "cols": 4,
+      "static": {
+        "title": "",
+        "text": "Experimental controls for RTL-SDR dongles used for Lotek detections."
+      },
+      "dynamic": {},
+      "id": "w05984"
+    },
+    "w09838": {
+      "kind": "TextView",
+      "rows": 5,
+      "cols": 6,
+      "static": {
+        "title": ""
+      },
+      "dynamic": {
+        "text": "cellular/debug"
+      },
+      "id": "w09838",
+      "output": ""
+    },
+    "w03046": {
+      "kind": "PushButton",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Debug dump",
+        "popup_info": "Generate a debug dump",
+        "color": "#EEEEEE"
+      },
+      "dynamic": {},
+      "id": "w03046",
+      "output": "cell_debug"
+    },
+    "w06416": {
+      "kind": "PushButton",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Scan",
+        "popup_info": "Scan for available carriers, takes 10-20 seconds",
+        "color": "#EEEEEE"
+      },
+      "dynamic": {},
+      "id": "w06416",
+      "output": "cell_scan"
+    },
+    "w01195": {
+      "kind": "Panel",
+      "rows": 2,
+      "cols": 3,
+      "static": {
+        "title": "Burst Finder",
+        "widgets": [
+          "w07178",
+          "w06111",
+          "w04346"
+        ]
+      },
+      "dynamic": {},
+      "id": "w01195"
+    },
+    "w04346": {
+      "kind": "Toggle",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Method",
+        "on_value": "burstfinder",
+        "off_value": "pulsefilter",
+        "popup_info": "There are two methods for processing pulses into bursts in the Sensorgnome: 'burstfinder' is the same as used in Motus servers while 'pulsefilter' is a simpler, slightly more lenient method. In general, 'burstfinder' should be used. Pulsefilter is available for dev&test reasons.",
+        "show_value": true
+      },
+      "dynamic": {
+        "value": "burstfinder/method"
+      },
+      "id": "w04346",
+      "output": "burstfinder_method"
+    },
+    "w07178": {
+      "kind": "Toggle",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Filter file output",
+        "on_value": "on",
+        "off_value": "off",
+        "popup_info": "When \"filter file output\" is enabled only bursts are output to data files, when disabled both raw unfiltered pulses and bursts are output. Until burstfinder is fully validated (late 2025??) disable this setting except for Sensorgnomes on satellite or very expensive cellular links."
+      },
+      "dynamic": {
+        "value": "burstfinder/filter_file"
+      },
+      "id": "w07178",
+      "output": "burstfinder_filter_file"
+    },
+    "w06111": {
+      "kind": "Toggle",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Filter UI output",
+        "on_value": "on",
+        "off_value": "off",
+        "popup_info": "When \"filter UI output\" is enabled the Pulses and Tags panel on the Radios tab of the UI only shows bursts and tags. When disabled it also shows raw pulses."
+      },
+      "dynamic": {
+        "value": "burstfinder/filter_ui"
+      },
+      "id": "w06111",
+      "output": "burstfinder_filter_ui"
     },
     "w10000": {
       "kind": "Panel",
-      "rows": 10,
+      "rows": 5,
       "cols": 3,
       "static": {
         "title": "Air Quality",
         "widgets": [
           "w10001",
           "w10002",
-          "w06951",
-          "w06773",
-          "w07556"
-        ],
-        "solid": true
+          "w10003"
+        ]
       },
       "dynamic": {},
       "id": "w10000"
     },
     "w10010": {
       "kind": "Panel",
-      "rows": 4,
+      "rows": 5,
       "cols": 3,
       "static": {
         "title": "Light Level",
         "widgets": [
           "w10011",
           "w10012",
-          "w09800"
+          "w10013"
         ]
       },
       "dynamic": {},
@@ -2148,26 +2243,26 @@
     "w10001": {
       "kind": "Stat",
       "rows": 1,
-      "cols": 3,
+      "cols": 2,
       "static": {
         "title": "State",
-        "low_color": "#C62828",
-        "low_regexp": "^(no-|error)",
-        "high_color": "#2E7D32",
+        "low_color": "#9E9E9E",
+        "low_regexp": "no-dev",
+        "high_color": "#4CAF50",
         "high_regexp": "connected",
-        "color": "#000000",
-        "zoom": 0.6,
+        "color": "#FF5722",
+        "zoom": 0.8,
         "popup_info": "Air quality sensor states:\n\n- no-dev: SG software does not detect the sensor, it may not be connected or there may be a hardware issue\n- detected: SG software detects the sensor but it is not providing readings, this may indicate a problem with the sensor or that it needs time to warm up\n- connected: SG software detects the sensor and is receiving readings from it"
       },
       "dynamic": {
-        "value": "enpi/air/status"
+        "value": "enpi/air/state"
       },
       "id": "w10001"
     },
     "w10002": {
       "kind": "Toggle",
       "rows": 1,
-      "cols": 3,
+      "cols": 1,
       "static": {
         "title": "Toggle Sensor",
         "on_value": "on",
@@ -2180,29 +2275,49 @@
       "id": "w10002",
       "output": "enpi_air_toggle"
     },
+    "w10003": {
+      "kind": "TimePlot",
+      "rows": 3,
+      "cols": 3,
+      "static": {
+        "title": "Air Quality Measurements",
+        "axes": [
+          "left"
+        ],
+        "popup_info": "Display Air Quality Measurements.",
+        "left_unit": "/hr",
+        "left_min": 0
+      },
+      "dynamic": {
+        "data": "enpi/air/data",
+        "labels": "enpi/air/labels"
+      },
+      "id": "w10003",
+      "output": null
+    },
     "w10011": {
       "kind": "Stat",
       "rows": 1,
-      "cols": 3,
+      "cols": 2,
       "static": {
         "title": "State",
-        "low_color": "#C62828",
-        "low_regexp": "^(no-|error)",
-        "high_color": "#2E7D32",
-        "high_regexp": "^connected",
-        "color": "#000000",
-        "zoom": 0.6,
+        "low_color": "#9E9E9E",
+        "low_regexp": "no-dev",
+        "high_color": "#4CAF50",
+        "high_regexp": "connected",
+        "color": "#FF5722",
+        "zoom": 0.8,
         "popup_info": "Light level sensor states:\n\n- no-dev: SG software does not detect the sensor, it may not be connected or there may be a hardware issue\n- detected: SG software detects the sensor but it is not providing readings, this may indicate a problem with the sensor or that it needs time to warm up\n- connected: SG software detects the sensor and is receiving readings from it"
       },
       "dynamic": {
-        "value": "enpi/light/status"
+        "value": "enpi/light/state"
       },
       "id": "w10011"
     },
     "w10012": {
       "kind": "Toggle",
       "rows": 1,
-      "cols": 3,
+      "cols": 1,
       "static": {
         "title": "Toggle Sensor",
         "on_value": "on",
@@ -2215,338 +2330,25 @@
       "id": "w10012",
       "output": "enpi_light_toggle"
     },
-    "w09520": {
-      "kind": "Panel",
+    "w10013": {
+      "kind": "TimePlot",
       "rows": 3,
       "cols": 3,
       "static": {
-        "title": "AWS info",
-        "widgets": [
-          "w09904",
-          "w05310"
-        ]
-      },
-      "dynamic": {},
-      "id": "w09520"
-    },
-    "w09904": {
-      "kind": "PropsTable",
-      "rows": 3,
-      "cols": 6,
-      "static": {
-        "title": "AWS Config",
-        "fields": [
-          "bucket_name",
-          "bucket_key",
-          "auth_key"
-        ],
-        "data": {
-          "bucket_name": "value1",
-          "key2": "value2"
-        },
-        "send_all": true,
-        "editable": true
-      },
-      "dynamic": {
-        "data": "enpi/upload/info"
-      },
-      "id": "w09904",
-      "output": "enpi_upload_config"
-    },
-    "w00862": {
-      "kind": "Panel",
-      "rows": 4,
-      "cols": 3,
-      "static": {
-        "title": "Data files",
-        "widgets": [
-          "w04033",
-          "w08648",
-          "w03080",
-          "w07251"
-        ]
-      },
-      "dynamic": {},
-      "id": "w00862"
-    },
-    "w07251": {
-      "kind": "TextView",
-      "rows": 3,
-      "cols": 6,
-      "static": {
-        "title": "Upload history",
-        "text": "/enpi/upload/log"
-      },
-      "dynamic": {
-        "text": "enpi/upload/log"
-      },
-      "id": "w07251",
-      "output": null
-    },
-    "w04033": {
-      "kind": "PushButton",
-      "rows": 1,
-      "cols": 1,
-      "static": {
-        "title": "Download",
-        "color": "#CDDC39"
-      },
-      "dynamic": {},
-      "id": "w04033",
-      "output": null
-    },
-    "w08648": {
-      "kind": "PushButton",
-      "rows": 1,
-      "cols": 1,
-      "static": {
-        "title": "Upload",
-        "output_value": "true",
-        "color": "#CDDC39"
-      },
-      "dynamic": {},
-      "id": "w08648",
-      "output": "enpi_force_upload"
-    },
-    "w03080": {
-      "kind": "Stat",
-      "rows": 1,
-      "cols": 4,
-      "static": {
-        "title": "AWS Status",
-        "zoom": 0.5,
-        "high_regexp": "^(connected|done)",
-        "low_regexp": "^(no|error)",
-        "low_color": "#C62828",
-        "color": "#000000",
-        "high_color": "#2E7D32"
-      },
-      "dynamic": {
-        "value": "enpi/upload/status"
-      },
-      "id": "w03080"
-    },
-    "w02739": {
-      "kind": "Panel",
-      "rows": 2,
-      "cols": 3,
-      "static": {
-        "title": "Chart controls",
-        "widgets": [
-          "w00924",
-          "w02156",
-          "w09074",
-          "w00423",
-          "w03317",
-          "w02547"
-        ]
-      },
-      "dynamic": {},
-      "id": "w02739"
-    },
-    "w00924": {
-      "kind": "PushButton",
-      "rows": 1,
-      "cols": 2,
-      "static": {
-        "title": "5 mins",
-        "output_value": "5mins",
-        "color": "#CDDC39"
-      },
-      "dynamic": {},
-      "id": "w00924",
-      "output": "enpi_detection_range"
-    },
-    "w02156": {
-      "kind": "PushButton",
-      "rows": 1,
-      "cols": 2,
-      "static": {
-        "title": "Hour",
-        "output_value": "hour",
-        "color": "#CDDC39"
-      },
-      "dynamic": {},
-      "id": "w02156",
-      "output": "enpi_detection_range"
-    },
-    "w09074": {
-      "kind": "PushButton",
-      "rows": 1,
-      "cols": 2,
-      "static": {
-        "title": "Day",
-        "output_value": "day",
-        "color": "#CDDC39"
-      },
-      "dynamic": {},
-      "id": "w09074",
-      "output": "enpi_detection_range"
-    },
-    "w00423": {
-      "kind": "PushButton",
-      "rows": 1,
-      "cols": 2,
-      "static": {
-        "title": "Month",
-        "output_value": "month",
-        "color": "#CDDC39"
-      },
-      "dynamic": {},
-      "id": "w00423",
-      "output": "enpi_detection_range"
-    },
-    "w03317": {
-      "kind": "PushButton",
-      "rows": 1,
-      "cols": 2,
-      "static": {
-        "title": "year",
-        "output_value": "year",
-        "color": "#CDDC39"
-      },
-      "dynamic": {},
-      "id": "w03317",
-      "output": "detection_range"
-    },
-    "w02547": {
-      "kind": "Stat",
-      "rows": 1,
-      "cols": 2,
-      "static": {
-        "title": "Chart interval",
-        "zoom": 0.8
-      },
-      "dynamic": {
-        "value": "enpi/detections/interval"
-      },
-      "id": "w02547"
-    },
-    "w06951": {
-      "kind": "TimePlot",
-      "rows": 3,
-      "cols": 6,
-      "static": {
-        "title": "Pressure"
-      },
-      "dynamic": {
-        "data": "enpi/air/pressure/data",
-        "labels": "enpi/air/pressure/labels"
-      },
-      "id": "w06951",
-      "output": null
-    },
-    "w06773": {
-      "kind": "TimePlot",
-      "rows": 3,
-      "cols": 6,
-      "static": {
-        "title": "Particulates"
-      },
-      "dynamic": {
-        "data": "enpi/air/pm/data",
-        "labels": "enpi/air/pm/labels"
-      },
-      "id": "w06773",
-      "output": null
-    },
-    "w07556": {
-      "kind": "TimePlot",
-      "rows": 3,
-      "cols": 6,
-      "static": {
-        "title": "Humidity"
-      },
-      "dynamic": {
-        "data": "enpi/air/humidity/data",
-        "labels": "enpi/air/humidity/labels"
-      },
-      "id": "w07556",
-      "output": null
-    },
-    "w09800": {
-      "kind": "TimePlot",
-      "rows": 3,
-      "cols": 6,
-      "static": {
-        "title": "Light level",
-        "left_min": 0,
-        "left_max": 23,
-        "left_unit": "mag/arcsec^2",
+        "title": "Light Level Measurements",
         "axes": [
-          "Dark sky quality"
+          "left"
         ],
-        "colors": [],
-        "right_min": null,
-        "right_max": null,
-        "left_decimals": 1
+        "popup_info": "Display Light Level Measurements.",
+        "left_unit": "/hr",
+        "left_min": 0
       },
       "dynamic": {
-        "data": "enpi/light/light_level/data",
-        "labels": "enpi/light/light_level/labels"
+        "data": "enpi/light/data",
+        "labels": "enpi/light/labels"
       },
-      "id": "w09800",
+      "id": "w10013",
       "output": null
-    },
-    "w01720": {
-      "kind": "Panel",
-      "rows": 6,
-      "cols": 3,
-      "static": {
-        "title": "Sensors",
-        "widgets": [
-          "w02646",
-          "w00722"
-        ]
-      },
-      "dynamic": {},
-      "id": "w01720"
-    },
-    "w02646": {
-      "kind": "TimePlot",
-      "rows": 3,
-      "cols": 6,
-      "static": {
-        "title": "Readings"
-      },
-      "dynamic": {
-        "labels": "enpi/readings/labels",
-        "data": "enpi/readings/data"
-      },
-      "id": "w02646",
-      "output": null
-    },
-    "w00722": {
-      "kind": "TimePlot",
-      "rows": 3,
-      "cols": 6,
-      "static": {
-        "title": "Temperature"
-      },
-      "dynamic": {
-        "labels": "enpi/temp/labels",
-        "data": "enpi/temp/data"
-      },
-      "id": "w00722",
-      "output": null
-    },
-    "w05310": {
-      "kind": "Stat",
-      "rows": 2,
-      "cols": 2,
-      "static": {
-        "title": "Bucket config",
-        "high_regexp": "validated",
-        "high_color": "#2E7D32",
-        "low_regexp": "error",
-        "low_color": "#C62828",
-        "color": "#000000"
-      },
-      "dynamic": {
-        "value": "enpi/upload/config/status/value",
-        "popup_info": "enpi/upload/config/status/popup"
-      },
-      "id": "w05310"
     }
   },
   "grids": {
@@ -2595,8 +2397,7 @@
         "w01975",
         "w00701",
         "w07599",
-        "w06057",
-        "w04002"
+        "w06057"
       ],
       "id": "g03307",
       "min_cols": 3,
@@ -2625,6 +2426,7 @@
         "w08547"
       ],
       "id": "g05782",
+      "min_cols": 3,
       "max_cols": 6
     },
     "g08970": {
@@ -2640,23 +2442,26 @@
         "w07258"
       ],
       "id": "g08970",
+      "min_cols": 3,
       "max_cols": 6
     },
-    "g05783": {
+    "g05117": {
       "kind": "FixedGrid",
       "title": "",
-      "widgets": [],
-      "id": "g05783",
-      "max_cols": 2
+      "widgets": [
+        "w02187",
+        "w03097",
+        "w05065",
+        "w01195"
+      ],
+      "id": "g05117",
+      "min_cols": 3,
+      "max_cols": 6
     },
     "g10000": {
       "kind": "FixedGrid",
       "title": "",
       "widgets": [
-        "w00862",
-        "w09520",
-        "w02739",
-        "w01720",
         "w10000",
         "w10010"
       ],
@@ -2673,8 +2478,9 @@
       "t06560",
       "t06959",
       "t08355",
-      "t10000",
-      "t09219"
+      "t09219",
+      "t05656",
+      "t10000"
     ]
   },
   "tabs": {
@@ -2724,6 +2530,14 @@
       "id": "t09219",
       "grids": [
         "g05782"
+      ]
+    },
+    "t05656": {
+      "icon": "flask",
+      "title": "lab",
+      "id": "t05656",
+      "grids": [
+        "g05117"
       ]
     },
     "t10000": {
