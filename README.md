@@ -11,12 +11,12 @@ Testing instructions:
 
 1. Clone the repo to the home folder: 
     ```
-    cd /home/
+    cd /home/gnome/
     sudo git clone --branch cell_options --single-branch https://github.com/leberrigan/sensorgnome-control-enpi.git
     ```
 2. Change directory to the repo folder 
     ```
-    cd /home/sensorgnome-control
+    cd /home/gnome/sensorgnome-control
     ```
 3. Copy rules file to `/etc/udev/rules.d/`
     ```
@@ -26,9 +26,16 @@ Testing instructions:
     ```
     sudo systemctl stop sg-control
     ```
-5. Run the wrapper shell script
+
+5. Install node packages
     ```
-    sudo mon.sh
+    cd /src
+    sudo npm install
+    cd ..
+    ```
+6. Run the wrapper shell script
+    ```
+    sudo ./mon.sh
     ```
 
 

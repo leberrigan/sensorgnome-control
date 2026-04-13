@@ -178,7 +178,7 @@ class CellMan {
         info["number"] = modem?.generic?.["own-numbers"]?.join(" ")
 
         // Need to run a different command to get SIM ID
-        getSimICCID();
+        this.getSimICCID();
 
 		    this.matron.emit("netCellCarrier", info["carrier"])
         // see what to query next
