@@ -178,7 +178,7 @@ class CellMan {
         info["number"] = modem?.generic?.["own-numbers"]?.join(" ")
 
         // Need to run a different command to get SIM ID
-        this.getSimICCID();
+        this.getSimICCID( modem?.sim );
 
 		    this.matron.emit("netCellCarrier", info["carrier"])
         // see what to query next
@@ -313,10 +313,9 @@ class CellMan {
   }
   
 
-  getSimICCID() {
+  getSimICCID(simPath) {
 
     // Get SIM ICCID
-    const simPath = modem?.sim
     if (simPath) {
       const simId = simPath.replace(/.*\//, "")
       this.execMMCli(null, ["-i", simId], true)
