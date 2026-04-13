@@ -177,6 +177,9 @@ class CellMan {
         info["imei"] = modem?.["3gpp"]?.["imei"]
         info["number"] = modem?.generic?.["own-numbers"]?.join(" ")
 
+        // Need to run a different command to get SIM ID
+        getSimICCID();
+
 		    this.matron.emit("netCellCarrier", info["carrier"])
         // see what to query next
         const bearer = modem?.generic?.bearers?.length > 0 && modem?.generic?.bearers[0]
@@ -309,6 +312,28 @@ class CellMan {
 	  
   }
   
+
+  getSimICCID() {
+
+    // Get SIM ICCID
+    const simPath = modem?.sim
+    if (simPath) {
+      const simId = simPath.replace(/.*\//, "")
+      this.execMMCli(null, ["-i", simId], true)
+        .then(simData => {
+          const iccid = simData?.sim?.properties?.iccid
+          if (iccid) {
+            info["sim-iccid"] = iccid
+          }
+          this.matron.emit("netCellInfo", info)
+        })
+        .catch(err => {
+          console.log("SIM query failed:", err.message.trim())
+          this.matron.emit("netCellInfo", info)
+        })
+    }
+  }
+
   listCarriers( data, info ) {
 
     const nets = data.modem?.["3gpp"]?.["scan-networks"]
