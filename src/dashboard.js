@@ -37,7 +37,7 @@ class Dashboard {
             'gotGPSFix', 'chrony', 'gotTag', 'setParam', 'setParamError', 'devAdded', 'devRemoved',
             'df', 'sdcardUse', 'vahData', 'netDefaultRoute', 'netInet', 'netMotus', 'netWifiState',
             'netHotspotState', 'netWifiConfig', 'portmapFile', 'tagDBInfo', 'motusRecv',
-            'motusUploadResult', 'netDefaultGw', 'netDNS', 'lotekFreq', 'netCellState', 'netCellReason',
+            'motusUploadResult', 'netDefaultGw', 'netDNS', 'lotekFreq', 'netCellState', 'netCellReason', "netScanStatus",
             'netCellInfo', 'netCellConfig', 'cttRadioVersion', 'vahRate', 'vahFrames', 'devState',
             'rtlInfo', 'acquisition', 'gotBurst',
             // dashboard events triggered by a message from FlexDash
@@ -50,7 +50,8 @@ class Dashboard {
             'dash_remote_cmds', 'dash_detection_range', 'dash_alter_bootCount', 'dash_enable_agc',
             'dash_show_pulses', 'dash_cellular_priority', 'dash_burstfinder_burst',
             'dash_burstfinder_filter_file', 'dash_burstfinder_filter_ui',
-            'dash_burstfinder_method', 'dash_cell_debug', 'dash_cell_scan'
+            'dash_burstfinder_method', 'dash_cell_debug', 'dash_cell_scan',
+            'dash_scan_carriers', 'dash_scan_carriers_enable'
         ]) {
             this.matron.on(ev, (...args) => {
                 let fn = 'handle_'+ev
@@ -88,7 +89,7 @@ class Dashboard {
         setInterval(() => this.tsSave(), 60000)
 
         this.pulse_ts = [] // timestamp of last pulse per port
-
+        
         // prime some data
         setTimeout(() => {
             this.handle_motusRecv({})
@@ -304,6 +305,16 @@ class Dashboard {
     }
     handle_netCellState(state) { FlexDash.set('cellular/state', state || "??") }
     handle_netCellReason(reason) { FlexDash.set('cellular/reason', reason || "") }
+    handle_netScanStatus(status) { 
+		status = typeof status === "object" ? status : typeof status === "string" ? [status,""] : ["",""]
+		FlexDash.set('cellular/scan_status', status[0] || "")
+		FlexDash.set('cellular/scan_status_detailed', status[1] || "")
+	}
+    handle_netCellCarrier(carrier) { FlexDash.set('cellular/carrier', carrier || "Any") }
+    handle_netCellCarriers(carriers) { 
+		FlexDash.set('cellular/carriers_data', carriers || []) 
+		FlexDash.set('cellular/carriers_columns', ["Carrier Code", "Carrier Name", "Technology", "Availability"]) 
+	}
     handle_netCellConfig(data) {
         FlexDash.set('cellular/config', data || {})
         FlexDash.set('cellular/config_labels', Object.keys(data||{}))
@@ -318,6 +329,8 @@ class Dashboard {
     handle_dash_enable_hotspot(state) { WifiMan.enableHotspot(state == "ON") }
     handle_dash_config_wifi(config) { WifiMan.setWifiConfig(config).then(() => {}) }
     handle_dash_config_cell(config) { CellMan.setCellConfig(config) }
+    handle_dash_scan_carriers() { CellMan.scanCarriers() }
+    handle_dash_scan_carriers_enable(enabled) { FlexDash.set('scan_carriers/enable',enabled) }
     handle_dash_cellular_priority(prio) {
         CellMan.setCellPriority(prio)
         setTimeout(()=>FlexDash.set('cellular/priority', CellMan.getCellPriority()), 5000)
@@ -930,7 +943,7 @@ class Dashboard {
     handle_dash_software_reboot() { Upgrader.reboot() }
     handle_dash_software_shutdown() {
         if (this.allow_poweroff) Upgrader.shutdown()
-    }
+            }
     handle_dash_software_check() { Upgrader.check() }
     handle_dash_software_upgrade(what) { Upgrader.upgrade(what) }
 

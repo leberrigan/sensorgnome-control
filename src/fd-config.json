@@ -1497,12 +1497,29 @@
           "w04606",
           "w07289",
           "w03595",
-          "w05350"
+          "w05350",
+          "w03999"
         ],
         "solid": false
       },
       "dynamic": {},
       "id": "w07599"
+    },
+    "w04002": {
+      "kind": "Panel",
+      "rows": 5,
+      "cols": 3,
+      "static": {
+        "title": "Cellular carriers",
+        "widgets": [
+          "w04001",
+          "w04003",
+          "w04000"
+        ],
+        "solid": false
+      },
+      "dynamic": {},
+      "id": "w04002"
     },
     "w04606": {
       "kind": "Stat",
@@ -1572,6 +1589,63 @@
         "value": "cellular/reason"
       },
       "id": "w03595"
+    },
+    "w03999": {
+      "kind": "Stat",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Carrier",
+        "zoom": 0.6
+      },
+      "dynamic": {
+        "value": "cellular/carrier"
+      },
+      "id": "w03999"
+    },
+    "w04000": {
+      "kind": "SimpleTable",
+      "rows": 4,
+      "cols": 6,
+      "static": {
+        "title": "Cellular Carriers",
+        "popup_info": "Available network carriers.",
+        "columns": [],
+        "labels": null
+      },
+      "dynamic": {
+        "data": "cellular/carriers_data",
+        "columns": "null",
+        "labels": "cellular/carriers_columns"
+      },
+      "id": "w04000"
+    },
+    "w04001": {
+      "kind": "PushButton",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Scan carriers"
+      },
+      "dynamic": {
+        "enabled": "scan_carriers/enable"
+      },
+      "id": "w04001",
+      "output": "scan_carriers"
+    },
+    "w04003": {
+      "kind": "Stat",
+      "rows": 1,
+      "cols": 4,
+      "static": {
+        "title": "Scan status",
+        "zoom": 0.6
+      },
+      "dynamic": {
+        "value": "cellular/scan_status",
+        "popup_info": "cellular/scan_status_detailed"
+      },
+      "id": "w04003"
     },
     "w05350": {
       "kind": "PropsTable",
@@ -2063,7 +2137,7 @@
       },
       "dynamic": {},
       "id": "w05065"
-    },
+      },
     "w09114": {
       "kind": "Toggle",
       "rows": 1,
@@ -2079,7 +2153,7 @@
       },
       "id": "w09114",
       "output": "cellular_priority"
-    },
+      },
     "w03097": {
       "kind": "Panel",
       "rows": 2,
@@ -2257,7 +2331,8 @@
         "w01975",
         "w00701",
         "w07599",
-        "w06057"
+        "w06057",
+        "w04002"
       ],
       "id": "g03307",
       "min_cols": 3,

@@ -60,6 +60,7 @@ class CellMan {
     this.cell_state = ""
     this.config = null
     this.setInter
+	  this.modemID = null
   }
 
   start(configPath) {
@@ -75,6 +76,7 @@ class CellMan {
         apn: config.apn,
         'ip-type': config["ip-type"] || "ipv4v6",
         'allow-roaming': config["allow-roaming"] || "yes",
+        'carrier': config["carrier"] || "any",
       })
       this.matron.emit("netCellConfig", this.config.data)
       ChildProcess.execFile(CHECK_MODEM, ["-r"], (code, stdout, stderr) => {
@@ -132,6 +134,7 @@ class CellMan {
       .then(modems => {
         if (modems && "modem-list" in modems && modems["modem-list"].length > 0) {
           m = modems["modem-list"][0].replace(/.*\//, "")
+		      this.modemID = m
           return this.execMMCli(m, [], true)
         } else return "no-modem"
       })
@@ -140,6 +143,8 @@ class CellMan {
           this.cell_state = data
           this.matron.emit("netCellState", data)
           this.matron.emit("netCellReason", "")
+          this.matron.emit("netCellCarrier", "Checking...")
+          this.matron.emit("netCellCarriers", [])
           this.matron.emit("netCellInfo", {})
           this.getCellStatusSoon(30000)
           return
@@ -163,6 +168,7 @@ class CellMan {
         info = {}
         info["power state"] = modem?.generic?.["power-state"]
         info["operator name"] = modem?.["3gpp"]?.["operator-name"]
+        info["carrier"] = this.getCarrier( modem?.["3gpp"]?.["operator-code"] )
         info["registration state"] = modem?.["3gpp"]?.["registration-state"]
         info["packet service"] = modem?.["3gpp"]?.["packet-service-state"]
         info["capabilities"] = modem?.generic?.["current-capabilities"].join(" ")
@@ -170,6 +176,8 @@ class CellMan {
         info["firmware"] = modem?.generic?.revision
         info["imei"] = modem?.["3gpp"]?.["imei"]
         info["number"] = modem?.generic?.["own-numbers"]?.join(" ")
+
+		    this.matron.emit("netCellCarrier", info["carrier"])
         // see what to query next
         const bearer = modem?.generic?.bearers?.length > 0 && modem?.generic?.bearers[0]
         if (bearer) return this.execMMCli(m, ["-b", bearer.replace(/.*\//, "")], true)
@@ -214,18 +222,7 @@ class CellMan {
             }
           }
         } else if (data.modem?.["3gpp"]?.["scan-networks"]) {
-          const nets = data.modem?.["3gpp"]?.["scan-networks"]
-          //console.log("nets:", nets)
-          info["scan"] = nets.length + " networks"
-          for (let i = 0; i < nets.length && i < 10; i++) {
-            const op = nets[i]["operator-name"] + " (" + nets[i]["operator-code"] + ")"
-            const tech = nets[i]["access-technologies"]
-            const avail = nets[i]["availability"]
-            // const op = nets[i].match(/operator-name: *([^,]*)/)?.[1]
-            // const tech = nets[i].match(/access-technologies: *([^,]*)/)?.[1]
-            // const avail = nets[i].match(/availability: *([^,]*)/)?.[1]
-            if (op) info[op] = tech + ", " + avail
-          }
+			    info = listCarriers(data, info);
           if (reason == "") {
             reason = "Searching for carrier"
             this.matron.emit("netCellReason", reason)
@@ -258,6 +255,101 @@ class CellMan {
       })
   }
 
+  scanCarriers() {
+	  
+	  let scanStatus = ""
+	  if (!["no-sim", "disabled", "failed"].includes(this.cell_state)) {
+		
+		scanStatus = `Disconnecting modem ${this.modemID}...`
+		console.log("scanCellCarriers:", scanStatus)
+		this.matron.emit("netScanStatus", scanStatus)
+		this.matron.emit("dash_scan_carriers_enable", false)
+		this.execMMCli(this.modemID, ["--simple-disconnect"]).then( data => {
+			scanStatus = "Setting mode to 2g|3g"
+			console.log("scanCellCarriers:", scanStatus)
+			this.matron.emit("netScanStatus", scanStatus)
+			return this.execMMCli(this.modemID, ["--set-allowed-modes=2g|3g","--set-preferred-mode=3g"])
+		}).then( data => {
+			scanStatus = "Sleeping for 20 seconds"
+			console.log("scanCellCarriers:", scanStatus)
+			this.matron.emit("netScanStatus", scanStatus)
+			return this.execFile("sleep", ["20"]) // Sleep for 20 seconds
+		}).then( data => {
+			scanStatus = "Scanning..."
+			console.log("scanCellCarriers:", scanStatus)
+			this.matron.emit("netScanStatus", scanStatus)
+			return this.execMMCli(this.modemID, ["--3gpp-scan"])
+		}).then( data => {
+			scanStatus = "Listing carriers"
+			console.log("scanCellCarriers:", scanStatus)
+			this.matron.emit("netScanStatus", scanStatus)
+			return this.listCarriers(data, {})
+		}).then( data => {
+			scanStatus = "Setting mode to 2g|3g|4g"
+			console.log("scanCellCarriers:", scanStatus)
+			this.matron.emit("netScanStatus", scanStatus)
+			return this.execMMCli(this.modemID, ["--set-allowed-modes=2g|3g|4g", "--set-preferred-mode=4g"])
+		}).then( data => {
+			scanStatus = "Done"
+			console.log("scanCellCarriers:", scanStatus)
+			this.matron.emit("netScanStatus", scanStatus)
+			this.matron.emit("dash_scan_carriers_enable", true)
+		}).catch(err => {
+			scanStatus = [`Error (${scanStatus})`, err.message.trim()]
+			console.log("scanCellCarriers:", err.message.trim())
+			this.matron.emit("netScanStatus", scanStatus)
+			this.matron.emit("dash_scan_carriers_enable", true)
+			return this.execMMCli(this.modemID, ["--set-allowed-modes=2g|3g|4g", "--set-preferred-mode=4g"])
+		})
+	  } else {
+		this.matron.emit("netCellCarrier", this.cell_state)
+		this.matron.emit("netScanStatus", "Scan failed")
+	  }
+	  
+	  
+  }
+  
+  listCarriers( data, info ) {
+
+    const nets = data.modem?.["3gpp"]?.["scan-networks"]
+    //console.log("nets:", nets)
+    info["scan"] = nets.length + " networks"
+    let carriers = [];
+    for (let i = 0; i < nets.length && i < 10; i++) {
+      const code = nets[i].match(/operator-code: *([^,]*)/)?.[1]
+      const op = nets[i].match(/operator-name: *([^,]*)/)?.[1]
+      const tech = nets[i].match(/access-technologies: *([^,]*)/)?.[1]
+      const avail = nets[i].match(/availability: *([^,]*)/)?.[1]
+      if (op) {
+        info[op] = tech + ", " + avail
+        carriers.push([
+          code,
+          op,
+          tech,
+          avail
+        ]);
+      }
+    }
+    this.matron.emit("netCellCarriers", carriers)
+    
+    return info;
+  }
+  
+  getCarrier( operatorCode ) {
+    switch (operatorCode) {
+      case "302610":
+        return "Canada-Bell";
+      case "302720":
+        return "Canada-Rogers";
+      case "302220":
+        return "Canada-Telus";
+      case "302270":
+        return "Canada-Eastlink";
+      default:
+        return operatorCode;
+    }
+  }
+  
   async getCellDebug() {
     try {
       const res1 = await this.execFile(MMCLI, ["-m", "a"])
