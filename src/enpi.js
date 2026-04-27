@@ -22,6 +22,8 @@ class Enpi {
 
         console.log("enpi: Starting enpi.js...")
 
+        // Have to set GPIO 24 to an INPUT
+        ChildProcess.execSync('raspi-gpio set 24 ip')
 
         // Update lat/lon whenever GPS gets a fix
         matron.on("gotGPSFix", (fix) => {

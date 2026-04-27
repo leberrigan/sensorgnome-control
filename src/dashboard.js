@@ -509,8 +509,8 @@ class Dashboard {
 
         const title = sensor + " (" + range + ")" // can't set dynamic title :-(
         FlexDash.set(`enpi/${sensor}/detections`, { data, labels, title })
-        console.log(`enpi: ts_enpi_show: ${sensor} ${now} ${data.length} points, labels=${labels}`)
-        console.log('enpi: ',JSON.stringify(data))
+        // console.log(`enpi: ts_enpi_show: ${sensor} ${now} ${data.length} points, labels=${labels}`)
+        // console.log('enpi: ',JSON.stringify(data))
         return combinedData
     }
 
