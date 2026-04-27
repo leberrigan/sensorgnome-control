@@ -55,7 +55,7 @@ class Dashboard {
             'dash_download_logs', 'dash_lotek_freq_change', 'dash_config_cell', 'dash_toggle_train',
             'dash_remote_cmds', 'dash_detection_range', 'dash_alter_bootCount', 'dash_enable_agc',
             'dash_show_pulses',
-            "dash_enpi_air_toggle", "dash_enpi_light_toggle", "dash_enpi_detection_range"
+            "dash_enpi_air_toggle", "dash_enpi_light_toggle", "dash_enpi_detection_range", "dash_enpi_secrets_file"
         ]) {
             this.matron.on(ev, (...args) => {
                 let fn = 'handle_'+ev
@@ -374,6 +374,15 @@ class Dashboard {
     handle_dash_enpi_sample_rate(sample_rate) {Enpi.set('sample_rate',sample_rate)}
     handle_dash_enpi_sample_schedule(sample_schedule) {Enpi.set('sample_schedule',sample_schedule)}
     handle_dash_enpi_upload_config(config) {Enpi.set('upload/config',config)}
+    handle_dash_enpi_secrets_file(phase, info, resp) {
+        if (phase === 'begin' && resp) {
+            console.log("Enpi: starting upload for secrets file: ", info)
+            resp(info.size > 0 && info.size < 10*1024*1024 && Enpi.SECRETS_PATH )
+        } else if (phase === 'done') {
+            console.log("Enpi: secrets file upload done:", info)
+            Enpi.validateSecrets(Enpi.SECRETS_PATH)
+        }
+    }
     handle_dash_enpi_download(download) {Enpi.set('download',download)}
     handle_dash_enpi_force_upload(force) {Enpi.set('upload/force', force)}
 

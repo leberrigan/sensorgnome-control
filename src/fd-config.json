@@ -2223,7 +2223,8 @@
         "title": "AWS info",
         "widgets": [
           "w09904",
-          "w05310"
+          "w05310",
+          "w00811"
         ]
       },
       "dynamic": {},
@@ -2547,6 +2548,19 @@
         "popup_info": "enpi/upload/config/status/popup"
       },
       "id": "w05310"
+    },
+    "w00811": {
+      "kind": "UploadButton",
+      "rows": 2,
+      "cols": 4,
+      "static": {
+        "title": "Upload Secrets",
+        "accept": "",
+        "icon": ""
+      },
+      "dynamic": {},
+      "id": "w00811",
+      "output": "enpi_secrets_file"
     }
   },
   "grids": {

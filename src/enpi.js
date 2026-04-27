@@ -2,7 +2,7 @@
 var Fs = require("fs")
 
 class Enpi {
-    constructor(matron, prog) {
+    constructor(matron, prog, secrets_file) {
         this.matron = matron
         this.prog = prog
         this.child = null
@@ -16,7 +16,7 @@ class Enpi {
         this.enpiConfigFile = `${this.prog}/enpi-config.json`
         this.CMD_PATH = `${this.prog}/env/bin/python3`
         this.CMD_ENV = { ...process.env, PYTHONUNBUFFERED: 1 } // ensure stdout is unbuffered
-        this.SECRETS_PATH = `${this.prog}/secrets.env` //
+        this.SECRETS_PATH = secrets_file //
         
         this.sensors = this.loadConfig(this.enpiConfigFile)
 
@@ -320,16 +320,31 @@ class Enpi {
     validateSecrets(filepath) {
         
         console.log("enpi: validating secrets...")
-        let content = Fs.readFileSync(filepath, 'utf8');
+        let content
+        
+        try {
+            content = Fs.readFileSync(filepath, 'utf8')
+        } catch (err) {
+            if (err.code === "ENOENT") {
+                console.log("enpi: Secrets file does not exist")
+            } else {
+                throw err // real error, re‑throw
+            }
+            return false
+        }
         
         const entries = content.match(/^([A-z]|_|[0-9])+=.*$/gm)
-
-        const errors = entries.map( entry => {
-            const key = entry.match(/([A-z]|_|[0-9])+(?=\=)/gm)
-            const value = entry.replace(`${key}=`, '')
-            return this.validateSecret(key, value)
-        }).filter(error => typeof error === "string")
-        console.log(`enpi: Done. Found ${errors.length} errors.`)
+        let errors = ["No entries"]
+        if (entries && entries.length > 0) {
+            errors = entries.map( entry => {
+                const key = entry.match(/([A-z]|_|[0-9])+(?=\=)/gm)
+                const value = entry.replace(`${key}=`, '')
+                return this.validateSecret(key, value)
+            }).filter(error => typeof error === "string")
+            console.log(`enpi: Done. Found ${errors.length} errors.`)
+        } else {
+            console.log("enpi: found empty secrets file")
+        }
         
         this.matron.emit(`enpi_upload_config_status`, errors)
         
