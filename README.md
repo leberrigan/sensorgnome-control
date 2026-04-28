@@ -31,3 +31,20 @@ With internet connection, run: curl -sSL https://raw.githubusercontent.com/senso
 - Mods to flexdash
     -- download button
         
+
+---
+
+## Scripts
+
+### Get enpi version
+
+```
+
+python3 - << "EOF"
+import sys
+sys.path.insert(0, "/opt/sensorgnome/enpi")
+from enpi import __version__
+print(__version__)
+EOF
+
+```

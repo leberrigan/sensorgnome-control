@@ -2117,12 +2117,11 @@
       "rows": 10,
       "cols": 3,
       "static": {
-        "title": "Air Quality",
+        "title": ".",
         "widgets": [
-          "w10001",
-          "w10002",
-          "w06951",
+          "w09015",
           "w06773",
+          "w06951",
           "w07556"
         ],
         "solid": true
@@ -2135,85 +2134,14 @@
       "rows": 4,
       "cols": 3,
       "static": {
-        "title": "Light Level",
+        "title": ".",
         "widgets": [
-          "w10011",
-          "w10012",
+          "w09395",
           "w09800"
         ]
       },
       "dynamic": {},
       "id": "w10010"
-    },
-    "w10001": {
-      "kind": "Stat",
-      "rows": 1,
-      "cols": 3,
-      "static": {
-        "title": "State",
-        "low_color": "#C62828",
-        "low_regexp": "^(no-|error)",
-        "high_color": "#2E7D32",
-        "high_regexp": "connected",
-        "color": "#000000",
-        "zoom": 0.6,
-        "popup_info": "Air quality sensor states:\n\n- no-dev: SG software does not detect the sensor, it may not be connected or there may be a hardware issue\n- detected: SG software detects the sensor but it is not providing readings, this may indicate a problem with the sensor or that it needs time to warm up\n- connected: SG software detects the sensor and is receiving readings from it"
-      },
-      "dynamic": {
-        "value": "enpi/air/status"
-      },
-      "id": "w10001"
-    },
-    "w10002": {
-      "kind": "Toggle",
-      "rows": 1,
-      "cols": 3,
-      "static": {
-        "title": "Toggle Sensor",
-        "on_value": "on",
-        "off_value": "off",
-        "popup_info": "Toggle data acquisition scripts for this sensor."
-      },
-      "dynamic": {
-        "value": "enpi/air/toggle"
-      },
-      "id": "w10002",
-      "output": "enpi_air_toggle"
-    },
-    "w10011": {
-      "kind": "Stat",
-      "rows": 1,
-      "cols": 3,
-      "static": {
-        "title": "State",
-        "low_color": "#C62828",
-        "low_regexp": "^(no-|error)",
-        "high_color": "#2E7D32",
-        "high_regexp": "^connected",
-        "color": "#000000",
-        "zoom": 0.6,
-        "popup_info": "Light level sensor states:\n\n- no-dev: SG software does not detect the sensor, it may not be connected or there may be a hardware issue\n- detected: SG software detects the sensor but it is not providing readings, this may indicate a problem with the sensor or that it needs time to warm up\n- connected: SG software detects the sensor and is receiving readings from it"
-      },
-      "dynamic": {
-        "value": "enpi/light/status"
-      },
-      "id": "w10011"
-    },
-    "w10012": {
-      "kind": "Toggle",
-      "rows": 1,
-      "cols": 3,
-      "static": {
-        "title": "Toggle Sensor",
-        "on_value": "on",
-        "off_value": "off",
-        "popup_info": "Toggle data acquisition scripts for this sensor."
-      },
-      "dynamic": {
-        "value": "enpi/light/toggle"
-      },
-      "id": "w10012",
-      "output": "enpi_light_toggle"
     },
     "w09520": {
       "kind": "Panel",
@@ -2425,7 +2353,7 @@
     },
     "w06951": {
       "kind": "TimePlot",
-      "rows": 3,
+      "rows": 5,
       "cols": 6,
       "static": {
         "title": "Pressure"
@@ -2439,7 +2367,7 @@
     },
     "w06773": {
       "kind": "TimePlot",
-      "rows": 3,
+      "rows": 5,
       "cols": 6,
       "static": {
         "title": "Particulates"
@@ -2453,7 +2381,7 @@
     },
     "w07556": {
       "kind": "TimePlot",
-      "rows": 3,
+      "rows": 5,
       "cols": 6,
       "static": {
         "title": "Humidity"
@@ -2467,7 +2395,7 @@
     },
     "w09800": {
       "kind": "TimePlot",
-      "rows": 3,
+      "rows": 5,
       "cols": 6,
       "static": {
         "title": "Light level",
@@ -2491,11 +2419,12 @@
     },
     "w01720": {
       "kind": "Panel",
-      "rows": 6,
+      "rows": 7,
       "cols": 3,
       "static": {
-        "title": "Sensors",
+        "title": ".",
         "widgets": [
+          "w04684",
           "w02646",
           "w00722"
         ]
@@ -2505,7 +2434,7 @@
     },
     "w02646": {
       "kind": "TimePlot",
-      "rows": 3,
+      "rows": 5,
       "cols": 6,
       "static": {
         "title": "Readings"
@@ -2519,7 +2448,7 @@
     },
     "w00722": {
       "kind": "TimePlot",
-      "rows": 3,
+      "rows": 5,
       "cols": 6,
       "static": {
         "title": "Temperature"
@@ -2556,11 +2485,281 @@
       "static": {
         "title": "Upload Secrets",
         "accept": "",
-        "icon": ""
+        "icon": "",
+        "tooltip": "Upload secrets file (\"secrets.env\").",
+        "popup_info": "Contact Motus administrator for details."
       },
       "dynamic": {},
       "id": "w00811",
       "output": "enpi_secrets_file"
+    },
+    "w05761": {
+      "kind": "Panel",
+      "rows": 2,
+      "cols": 3,
+      "static": {
+        "title": "Sensors",
+        "widgets": [
+          "w06518",
+          "w03740"
+        ]
+      },
+      "dynamic": {},
+      "id": "w05761"
+    },
+    "w06518": {
+      "kind": "Panel",
+      "rows": 2,
+      "cols": 3,
+      "static": {
+        "title": "Air Quality",
+        "widgets": [
+          "w07726",
+          "w01520"
+        ],
+        "solid": false
+      },
+      "dynamic": {},
+      "id": "w06518"
+    },
+    "w07726": {
+      "kind": "Stat",
+      "rows": 1,
+      "cols": 6,
+      "static": {
+        "title": "",
+        "popup_info": "Air quality sensor states:- no-dev: SG software does not detect the sensor, it may not be connected or there may be a hardware issue- detected: SG software detects the sensor but it is not providing readings, this may indicate a problem with the sensor or that it needs time to warm up- connected: SG software detects the sensor and is receiving readings from it",
+        "low_regexp": "^(no-|error)",
+        "high_regexp": "connected",
+        "zoom": 0.6,
+        "color": "#000000",
+        "high_color": "#2E7D32",
+        "low_color": "#C62828"
+      },
+      "dynamic": {
+        "value": "enpi/air/status"
+      },
+      "id": "w07726"
+    },
+    "w01520": {
+      "kind": "Toggle",
+      "rows": 1,
+      "cols": 6,
+      "static": {
+        "title": "",
+        "on_value": "on",
+        "off_value": "off",
+        "popup_info": "Toggle data acquisition from air sensors"
+      },
+      "dynamic": {
+        "value": "enpi/air/toggle"
+      },
+      "id": "w01520",
+      "output": "enpi_air_toggle"
+    },
+    "w03740": {
+      "kind": "Panel",
+      "rows": 2,
+      "cols": 3,
+      "static": {
+        "title": "Light level",
+        "widgets": [
+          "w02204",
+          "w00938"
+        ],
+        "solid": false
+      },
+      "dynamic": {},
+      "id": "w03740"
+    },
+    "w00938": {
+      "kind": "Toggle",
+      "rows": 1,
+      "cols": 6,
+      "static": {
+        "title": "",
+        "on_value": "on",
+        "off_value": "off",
+        "popup_info": "Toggle data acquisition from light sensors"
+      },
+      "dynamic": {
+        "value": "enpi/light/toggle"
+      },
+      "id": "w00938",
+      "output": "enpi_light_toggle"
+    },
+    "w02204": {
+      "kind": "Stat",
+      "rows": 1,
+      "cols": 6,
+      "static": {
+        "title": "",
+        "low_regexp": "^(no-|error)",
+        "high_regexp": "^connected",
+        "popup_info": "Light level sensor states:- no-dev: SG software does not detect the sensor, it may not be connected or there may be a hardware issue- detected: SG software detects the sensor but it is not providing readings, this may indicate a problem with the sensor or that it needs time to warm up- connected: SG software detects the sensor and is receiving readings from it",
+        "zoom": 0.6,
+        "low_color": "#C62828",
+        "color": "#000000",
+        "high_color": "#2E7D32"
+      },
+      "dynamic": {
+        "value": "enpi/light/status"
+      },
+      "id": "w02204"
+    },
+    "w05239": {
+      "kind": "Stat",
+      "rows": 1,
+      "cols": 6,
+      "static": {
+        "title": "Stat"
+      },
+      "dynamic": {
+        "value": "$demo_random"
+      },
+      "id": "w05239"
+    },
+    "w08840": {
+      "kind": "PushButton",
+      "rows": 1,
+      "cols": 4,
+      "static": {
+        "title": "Download"
+      },
+      "dynamic": {},
+      "id": "w08840",
+      "output": null
+    },
+    "w06938": {
+      "kind": "PushButton",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Upload"
+      },
+      "dynamic": {},
+      "id": "w06938",
+      "output": null
+    },
+    "w06034": {
+      "kind": "Stat",
+      "rows": 1,
+      "cols": 4,
+      "static": {
+        "title": "Stat"
+      },
+      "dynamic": {
+        "value": "$demo_random"
+      },
+      "id": "w06034"
+    },
+    "w08091": {
+      "kind": "UploadButton",
+      "rows": 1,
+      "cols": 8,
+      "static": {
+        "title": "UploadButton"
+      },
+      "dynamic": {},
+      "id": "w08091",
+      "output": null
+    },
+    "w09395": {
+      "kind": "Label",
+      "rows": 1,
+      "cols": 6,
+      "static": {
+        "title": " ",
+        "label": "Light Level",
+        "size": "150%",
+        "weight": "600"
+      },
+      "dynamic": {},
+      "id": "w09395"
+    },
+    "w09015": {
+      "kind": "Label",
+      "rows": 1,
+      "cols": 6,
+      "static": {
+        "title": "",
+        "size": "150%",
+        "label": "Air Quality",
+        "padding": "0px",
+        "weight": "600"
+      },
+      "dynamic": {},
+      "id": "w09015"
+    },
+    "w04684": {
+      "kind": "Label",
+      "rows": 1,
+      "cols": 6,
+      "static": {
+        "title": "",
+        "weight": "600",
+        "size": "150%",
+        "label": "Combined"
+      },
+      "dynamic": {
+        "label": "Combined"
+      },
+      "id": "w04684"
+    },
+    "w00402": {
+      "kind": "Panel",
+      "rows": 4,
+      "cols": 3,
+      "static": {
+        "title": "Software",
+        "widgets": [
+          "w04582",
+          "w01712",
+          "w07443"
+        ]
+      },
+      "dynamic": {},
+      "id": "w00402"
+    },
+    "w07443": {
+      "kind": "TextView",
+      "rows": 3,
+      "cols": 6,
+      "static": {
+        "title": "Update log"
+      },
+      "dynamic": {
+        "text": "enpi/update/log"
+      },
+      "id": "w07443",
+      "output": null
+    },
+    "w04582": {
+      "kind": "Label",
+      "rows": 1,
+      "cols": 4,
+      "static": {
+        "title": "Version",
+        "label": "0.2.5",
+        "weight": "600",
+        "size": "150%",
+        "justify": "center"
+      },
+      "dynamic": {
+        "label": "enpi/version"
+      },
+      "id": "w04582"
+    },
+    "w01712": {
+      "kind": "PushButton",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Update"
+      },
+      "dynamic": {},
+      "id": "w01712",
+      "output": "enpi_update"
     }
   },
   "grids": {
@@ -2667,12 +2866,14 @@
       "kind": "FixedGrid",
       "title": "",
       "widgets": [
+        "w05761",
         "w00862",
         "w09520",
         "w02739",
-        "w01720",
         "w10000",
-        "w10010"
+        "w10010",
+        "w01720",
+        "w00402"
       ],
       "id": "g10000",
       "min_cols": 3,

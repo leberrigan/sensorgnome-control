@@ -20,6 +20,7 @@ class Enpi {
         
         this.sensors = this.loadConfig(this.enpiConfigFile)
 
+
         console.log("enpi: Starting enpi.js...")
 
         // Have to set GPIO 24 to an INPUT
@@ -57,7 +58,7 @@ class Enpi {
 
         this.matron.emit(`enpi_upload_config_status`, false)
         setTimeout(()=>this.validateSecrets(this.SECRETS_PATH),1000)
-        
+        this.getSoftwareVersion()
     }
     loadConfig(filename) {
         return JSON.parse( Fs.readFileSync(filename, "utf8") )
@@ -211,6 +212,7 @@ class Enpi {
         if (!this.sensors.upload.configured) this.configure( Acquisition.lookup("1", `enpi-upload`)?.plan )
 
         console.log("Starting", this.CMD_PATH, `${this.prog}/${s.script}`)
+        
         this.matron.emit(`enpi_${sensor}_status`, 'starting')
         s.child = ChildProcess.spawn(this.CMD_PATH, [`${this.prog}/${s.script}`], { env: this.CMD_ENV })
             .on("exit", () => this.childDied(sensor))
@@ -285,6 +287,81 @@ class Enpi {
                 break
         }
 
+    }
+        
+    getEnpiVersion() {
+        try {
+            return ChildProcess.execSync(
+                'python3 - << "EOF"\n' +
+                'import sys\n' +
+                'sys.path.insert(0, "/opt/sensorgnome/enpi")\n' +
+                'from enpi import __version__\n' +
+                'print(__version__)\n' +
+                'EOF'
+            ).toString().trim();
+        } catch (err) {
+            return null;
+        }
+    }
+
+    getSoftwareVersion() {
+        const version = this.getEnpiVersion()
+
+        this.matron.emit('enpi_version', version);
+    }
+    updateSoftware() {
+
+        let log = ""
+        
+        const url = "https://raw.githubusercontent.com/sensorgnome-org/enviroPi/sensorgnome/update.sh";
+
+        // 1. Spawn curl
+        const curl = ChildProcess.spawn("curl", ["-sSL", url]);
+
+        // 2. Spawn sudo bash
+        const proc = ChildProcess.spawn("sudo", ["bash"], {stdio: ["pipe", "pipe", "pipe"]});
+
+        // 3. Pipe curl → bash
+        curl.stdout.pipe(proc.stdin);
+
+        // 4. Capture stdout (echo output)
+        proc.stdout.on("data", (data) => {
+            const text = data.toString()
+            console.log("enpi: ", text)
+            log += "\n" + text
+            this.matron.emit("enpi_update_log",log)   // or send to UI / logger
+        });
+
+        // 5. Capture stderr
+        proc.stderr.on("data", (data) => {
+            const text = data.toString();
+            console.log("enpi: ", text)
+            log += "\n" + text
+            this.matron.emit("enpi_update_log",log)   // or send to UI / logger
+        });
+
+        // 6. Error handling
+        curl.on("error", (err) => {
+            console.log("enpi: ", err)
+            log += "\n" + err
+            this.matron.emit("enpi_update_log", log)   // or send to UI / logger
+            console.error("curl failed:", err);
+        });
+
+        // 7. Exit handling
+        proc.on("close", (code) => {
+            let text
+            if (code === 0) {
+                text = "Update script completed successfully."
+            } else {
+                text = `Update script failed with exit code ${code}.`
+            }
+            console.log("enpi: ", text)
+            log += "\n" + text
+            this.matron.emit("enpi_update_log",log)   // or send to UI / logger
+        })
+
+        this.getSoftwareVersion()
     }
     updateSecrets(filepath, updates) {
         const errors = Object.entries(updates).map(([key, value]) => {

@@ -42,7 +42,7 @@ class Dashboard {
             'rtlInfo',
             "enpi_light_status", "enpi_air_status", "enpi_light_toggle", "enpi_air_toggle","enpi_air_gotData","enpi_light_gotData",
             'enpi_status', 'enpi_sample_rate','enpi_sample_schedule','enpi_aws_bucket_name','enpi_aws_secrets','enpi_aws_status', 'enpi_upload_status',
-            'enpi_upload_log','enpi_upload_gotData','enpi_upload_config_status',
+            'enpi_upload_log','enpi_upload_gotData','enpi_upload_config_status', 'enpi_update_log', 'enpi_version',
             
             // dashboard events triggered by a message from FlexDash
             'dash_enpi_toggle','dash_enpi_sample_rate','dash_enpi_sample_schedule','dash_enpi_aws_secrets','dash_enpi_download',
@@ -55,7 +55,8 @@ class Dashboard {
             'dash_download_logs', 'dash_lotek_freq_change', 'dash_config_cell', 'dash_toggle_train',
             'dash_remote_cmds', 'dash_detection_range', 'dash_alter_bootCount', 'dash_enable_agc',
             'dash_show_pulses',
-            "dash_enpi_air_toggle", "dash_enpi_light_toggle", "dash_enpi_detection_range", "dash_enpi_secrets_file"
+            "dash_enpi_air_toggle", "dash_enpi_light_toggle", "dash_enpi_detection_range", "dash_enpi_secrets_file",
+            'dash_enpi_update'
         ]) {
             this.matron.on(ev, (...args) => {
                 let fn = 'handle_'+ev
@@ -369,6 +370,9 @@ class Dashboard {
             FlexDash.set('enpi/upload/config/status/value',"validated")
         FlexDash.set('enpi/upload/config/status/popup',errors.join('\n'))
     }
+    handle_enpi_version(text) {FlexDash.set('enpi/version', text || "??")}
+    handle_enpi_update_log(text) {FlexDash.set('enpi/update/log', text || "??")}
+    handle_dash_enpi_update() {Enpi.updateSoftware()}
 
     handle_dash_enpi_toggle(toggle) {Enpi.set('toggle',toggle)}
     handle_dash_enpi_sample_rate(sample_rate) {Enpi.set('sample_rate',sample_rate)}
