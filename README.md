@@ -18,7 +18,10 @@ Air sensors are all attached to a custom-built "bonnet" for the Raspberry Pi pur
 Light level sensor is a USB device made by UniHedron used to detect light pollution.
 # Installation
 
-With internet connection, run: curl -sSL https://raw.githubusercontent.com/sensorgnome-org/enviroPi/sensorgnome/install.sh | sudo bash
+With internet connection, run: 
+```
+curl -sSL https://raw.githubusercontent.com/sensorgnome-org/enpi/sensorgnome/install.sh | sudo bash -s -- enpi-cell
+```
 
 
 ---
