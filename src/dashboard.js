@@ -37,7 +37,7 @@ class Dashboard {
             'gotGPSFix', 'chrony', 'gotTag', 'setParam', 'setParamError', 'devAdded', 'devRemoved',
             'df', 'sdcardUse', 'vahData', 'netDefaultRoute', 'netInet', 'netMotus', 'netWifiState',
             'netHotspotState', 'netWifiConfig', 'portmapFile', 'tagDBInfo', 'motusRecv',
-            'motusUploadResult', 'netDefaultGw', 'netDNS', 'lotekFreq', 'netCellState', 'netCellReason',
+            'motusUploadResult', 'netDefaultGw', 'netDNS', 'lotekFreq', 'netCellState', 'netCellReason', "netScanStatus",
             'netCellInfo', 'netCellConfig', 'cttRadioVersion', 'vahRate', 'vahFrames', 'devState',
             'rtlInfo',
             "enpi_light_status", "enpi_air_status", "enpi_light_toggle", "enpi_air_toggle","enpi_air_gotData","enpi_light_gotData",
@@ -45,8 +45,6 @@ class Dashboard {
             'enpi_upload_log','enpi_upload_gotData','enpi_upload_config_status', 'enpi_update_log', 'enpi_version',
             
             // dashboard events triggered by a message from FlexDash
-            'dash_enpi_toggle','dash_enpi_sample_rate','dash_enpi_sample_schedule','dash_enpi_aws_secrets','dash_enpi_download',
-            'dash_enpi_force_upload','dash_enpi_upload_config',
             'dash_download', 'dash_upload', 'dash_deployment_update', 'dash_enable_wifi',
             'dash_enable_hotspot', 'dash_config_wifi', 'dash_update_portmap', 'dash_creds_update',
             'dash_upload_tagdb', 'dash_df_enable', 'dash_df_tags', 'dash_software_reboot',
@@ -54,9 +52,12 @@ class Dashboard {
             'dash_allow_shutdown', 'dash_software_shutdown', 'dash_software_restart',
             'dash_download_logs', 'dash_lotek_freq_change', 'dash_config_cell', 'dash_toggle_train',
             'dash_remote_cmds', 'dash_detection_range', 'dash_alter_bootCount', 'dash_enable_agc',
-            'dash_show_pulses',
             "dash_enpi_air_toggle", "dash_enpi_light_toggle", "dash_enpi_detection_range", "dash_enpi_secrets_file",
-            'dash_enpi_update'
+            'dash_enpi_update',
+            'dash_show_pulses', 'dash_cellular_priority', 'dash_burstfinder_burst',
+            'dash_burstfinder_filter_file', 'dash_burstfinder_filter_ui',
+            'dash_burstfinder_method', 'dash_cell_debug', 'dash_cell_scan',
+            'dash_scan_carriers', 'dash_scan_carriers_enable'
         ]) {
             this.matron.on(ev, (...args) => {
                 let fn = 'handle_'+ev
@@ -89,43 +90,17 @@ class Dashboard {
         // time-series
         this.ts = {}
         this.tsRefreshInterval = null
-        this.enpiTSRefreshInterval = null
         Fs.mkdirSync(ts_dir, {recursive: true})
         this.handle_dash_detection_range(TimeSeries.ranges[0])
         setInterval(() => this.tsSave(), 60000)
 
         this.pulse_ts = [] // timestamp of last pulse per port
-
-        // Environmental sensors
-        this.enpi = {
-            air: {
-                ts: {
-                    readings: new TimeSeries(ts_dir, "enpi-air-readings"),
-                    temp: new TimeSeries(ts_dir, "enpi-air-temp"),
-                    pressure: new TimeSeries(ts_dir, "enpi-air-pressure"),
-                    humidity: new TimeSeries(ts_dir, "enpi-air-humidity"),
-                    pm1: new TimeSeries(ts_dir, "enpi-air-pm1"),
-                    pm2_5: new TimeSeries(ts_dir, "enpi-air-pm2_5"),
-                    pm10: new TimeSeries(ts_dir, "enpi-air-pm10")
-                }
-            },
-            light: {
-                ts: {
-                    readings: new TimeSeries(ts_dir, "enpi-light-readings"),
-                    light_level: new TimeSeries(ts_dir, "enpi-light-light_level"),
-                    frequency: new TimeSeries(ts_dir, "enpi-light-frequency"),
-                    count: new TimeSeries(ts_dir, "enpi-light-count"),
-                    duration: new TimeSeries(ts_dir, "enpi-light-duration"),
-                    temp: new TimeSeries(ts_dir, "enpi-light-temp")
-                }
-            }
-        }
-        this.ts_enpi_setup()
         
         // prime some data
         setTimeout(() => {
             this.handle_motusRecv({})
             this.handle_devState()
+            this.handle_acquisition(Acquisition)
         }, 1000)
 
         console.log("Dashboard handlers registered")
@@ -298,6 +273,24 @@ class Dashboard {
         this.show_pulses = v == "on"
     }
 
+    handle_acquisition(config) {
+        // update burstfinder config elements
+        FlexDash.set('burstfinder',
+            Object.fromEntries(Object.entries(config.burstfinder).map((
+                [k,v]) => [k, v==true?"on":v==false?"off":v]
+        ))
+        )
+    }
+    handle_dash_burstfinder_method(v) { 
+        if (['burstfinder','pulsefilter'].includes(v)) this.updateBFConfig("method", v)
+    }
+    handle_dash_burstfinder_filter_file(v) { this.updateBFConfig("filter_file", v=="on") }
+    handle_dash_burstfinder_filter_ui(v) { this.updateBFConfig("filter_ui", v=="on") }
+    updateBFConfig(key, value) {
+        const burstfinder = { ...Acquisition.burstfinder, [key]: value }
+        Acquisition.update({ burstfinder })
+    }
+
     // ===== Network / Internet
 
     // events from WifiMan, propagate to the UI
@@ -318,6 +311,16 @@ class Dashboard {
     }
     handle_netCellState(state) { FlexDash.set('cellular/state', state || "??") }
     handle_netCellReason(reason) { FlexDash.set('cellular/reason', reason || "") }
+    handle_netScanStatus(status) { 
+		status = typeof status === "object" ? status : typeof status === "string" ? [status,""] : ["",""]
+		FlexDash.set('cellular/scan_status', status[0] || "")
+		FlexDash.set('cellular/scan_status_detailed', status[1] || "")
+	}
+    handle_netCellCarrier(carrier) { FlexDash.set('cellular/carrier', carrier || "Any") }
+    handle_netCellCarriers(carriers) { 
+		FlexDash.set('cellular/carriers_data', carriers || []) 
+		FlexDash.set('cellular/carriers_columns', ["Carrier Code", "Carrier Name", "Technology", "Availability"]) 
+	}
     handle_netCellConfig(data) {
         FlexDash.set('cellular/config', data || {})
         FlexDash.set('cellular/config_labels', Object.keys(data||{}))
@@ -332,6 +335,19 @@ class Dashboard {
     handle_dash_enable_hotspot(state) { WifiMan.enableHotspot(state == "ON") }
     handle_dash_config_wifi(config) { WifiMan.setWifiConfig(config).then(() => {}) }
     handle_dash_config_cell(config) { CellMan.setCellConfig(config) }
+    handle_dash_scan_carriers() { CellMan.scanCarriers() }
+    handle_dash_scan_carriers_enable(enabled) { FlexDash.set('scan_carriers/enable',enabled) }
+    handle_dash_cellular_priority(prio) {
+        CellMan.setCellPriority(prio)
+        setTimeout(()=>FlexDash.set('cellular/priority', CellMan.getCellPriority()), 5000)
+    }
+    handle_dash_cell_debug() {
+        CellMan.getCellDebug().then(dbg => FlexDash.set('cellular/debug', dbg))
+    }
+    handle_dash_cell_scan() {
+        FlexDash.set('cellular/debug', "Scan takes 10-20 seconds...")
+        CellMan.getCellScan().then(dbg => FlexDash.set('cellular/debug', dbg))
+    }
 
     // upload info
     handle_motusRecv(info) {
@@ -741,7 +757,8 @@ class Dashboard {
                 }
             }
             // display
-            for (const what of ['lotek-tags', 'lotek-pulses', 'lotek-noise', 'lotek-snr', 'lotek-rate', 'ctt-tags']) {
+            for (const what of ['lotek-tags', 'lotek-pulses', 'lotek-noise', 'lotek-snr',
+                    'lotek-rate', 'ctt-tags']) {
                 this.tsShow(what)
             }
         } catch (e) {
@@ -774,7 +791,6 @@ class Dashboard {
             else if (intv < 7200) intv = Math.round(intv/60) + "m"
             else if (intv < 2*86400) intv = Math.round(intv/3600) + "h"
             else intv = Math.round(intv/86400) + "d"
-            
             FlexDash.set("detections/interval", intv)
 
             this.ts_ix = ix
@@ -782,29 +798,6 @@ class Dashboard {
 
             if (this.tsRefreshInterval) clearInterval(this.tsRefreshInterval)
             this.tsRefreshInterval = setInterval(() => this.tsRefresh(), TimeSeries.intervals[ix])
-        } catch (e) {
-            console.warn("tsRefresh", e)
-        }
-    }
-    handle_dash_enpi_detection_range(range) {
-        try {
-            const ix = TimeSeries.ranges.indexOf(range)
-            if (ix < 0) { console.log("handle_dash_enpi_detection_range: bad range", range); return }
-
-            let intv = TimeSeries.intervals[ix]/1000 // in seconds
-            if (intv < 120) intv += "s"
-            else if (intv < 7200) intv = Math.round(intv/60) + "m"
-            else if (intv < 2*86400) intv = Math.round(intv/3600) + "h"
-            else intv = Math.round(intv/86400) + "d"
-                        
-            FlexDash.set("enpi/detections/interval", intv)
-
-            this.enpi_ts_ix = ix
-            this.ts_enpi_refresh()
-
-            if (this.enpiTSRefreshInterval) clearInterval(this.enpiTSRefreshInterval)
-            this.enpiTSRefreshInterval = setInterval(() => this.ts_enpi_refresh(), TimeSeries.intervals[ix])
-        
         } catch (e) {
             console.warn("tsRefresh", e)
         }
@@ -959,17 +952,32 @@ class Dashboard {
         }
     }
 
+    handle_gotBurst(burst) {
+        // { text, info, meanFreq, sdFreq, meanSig, sdSig, meanNoise, meanSnr }
+        // info: [ s0.port, s0.ts/1000, this.tagid, ...intv, ...tags[this.tagid] ]
+        const bf = Acquisition.burstfinder
+        if (burst.src == 'BF' && bf.method != 'burstfinder' && !bf.both_ui) return
+        if (burst.src == 'PF' && bf.method != 'pulsefilter' && !bf.both_ui) return
+
+        const ts = (new Date(burst.info[1]*1000)).toISOString().replace(/.*T/, '').replace(/\..*/, '')
+        const meanFreq = parseFloat(burst.meanFreq).toFixed(3)
+        const minSnr = parseFloat(burst.minSnr).toFixed(1)
+        this.detectionLogPush(
+            `BUR B${burst.info[0]} ${ts}: #${burst.info[2]} ${meanFreq}kHz snr:${minSnr}dB src=${burst.src}`
+        )
+    }
+
     handle_vahData(line) {
         //console.log(`vahData: ${data.toString().replace(/\n/g, '\\n').replace(/\r/g, '\\r')}`)
         if (line.startsWith("p")) {
             this.detections.lotek[this.detections.lotek.length-1]++
-            if (this.show_pulses) {
+            if (!Acquisition.burstfinder.filter_ui) {
                 // convert to something more readable
                 const ll = line.trim().split(',')
                 const port =parseInt(ll[0][1])
                 const last_ts = this.pulse_ts[port] || 0
                 const this_ts = parseFloat(ll[1])*1000
-                const delta_ms = this_ts - last_ts < 120_000 ? (this_ts-last_ts).toFixed(1)+"ms" : ""
+                const delta_ms = this_ts - last_ts < 120_000 ? "Δ"+(this_ts-last_ts).toFixed(1)+"ms" : ""
                 this.pulse_ts[port] = this_ts
                 const ts = (new Date(this_ts)).toISOString().replace(/.*T/, '').replace(/\..*/, '')
                 const snr = parseFloat(ll[5]).toFixed(1)
@@ -1122,15 +1130,17 @@ class Dashboard {
     }
 
     // show and toggle release train
+    releasemap = {stable:'bookworm',testing:'booktest',bookworm:'stable',booktest:'testing'}
     handle_dash_toggle_train(value) {
         FlexDash.set('software/train', value)
         if (['stable','testing'].includes(value)) {
+            value = this.releasemap[value]
             Fs.readFile('/etc/apt/sources.list.d/sensorgnome.list', (err, data) => {
                 if (err) {
                     console.log("Error reading sensorgnome.list:", err)
                     return
                 }
-                data = data.toString().replace(/(stable|testing)/, value)
+                data = data.toString().replace(/(bookworm|booktest)/, value)
                 Fs.writeFile('/etc/apt/sources.list.d/sensorgnome.list', data, (err) => {
                     if (err) {
                         console.log("Error writing sensorgnome.list:", err)
@@ -1148,8 +1158,10 @@ class Dashboard {
                 console.log("Error reading sensorgnome.list:", err)
                 return
             }
-            let train = data.toString().match(/(stable|testing)/)
-            if (train) FlexDash.set('software/train', train[1])
+            let train = data.toString().match(/(bookworm|booktest)/)
+            if (train) {
+                FlexDash.set('software/train', this.releasemap[train[1]])
+            }
         })
     }
 
@@ -1157,7 +1169,7 @@ class Dashboard {
     handle_dash_software_reboot() { Upgrader.reboot() }
     handle_dash_software_shutdown() {
         if (this.allow_poweroff) Upgrader.shutdown()
-    }
+            }
     handle_dash_software_check() { Upgrader.check() }
     handle_dash_software_upgrade(what) { Upgrader.upgrade(what) }
 
@@ -1308,6 +1320,8 @@ class Dashboard {
                 console.log(`${vnstat} parsing failed:`, e)
             }
         })
+
+        FlexDash.set('cellular/priority', CellMan.getCellPriority())
     }
 
     // ===== Return monitoring data in json format

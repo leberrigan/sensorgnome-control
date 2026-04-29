@@ -202,11 +202,11 @@ function calcSunriseSetUTC(rise, JD, latitude, longitude)
 
 function getDayFromDate(date) {
     // return normal and julian day for given date, or for today if date is missing
-    date = date === undefined ? new Date() : new Date(date)
+    date = date === undefined ? new Date() : new Date(date * 1000)
     var year = date.getUTCFullYear(),
     month = date.getUTCMonth(),
     day = date.getUTCDate();
-    return {jday: getJD(year, month+1, day), start: Date.UTC(year, month, day)};
+    return {jday: getJD(year, month+1, day), start: Date.UTC(year, month, day) / 1000};
 }
 
 function sunrise(lat, lng, date) {

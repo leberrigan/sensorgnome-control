@@ -207,11 +207,10 @@ class MotusUploader {
         //this.active = false // whether the uploader is active
         this.session = null // session cookie
         this.state = {
-            sgid: Machine.machineID,
-            sgkey: Machine.machineKey,
+            sgid: null,
+            sgkey: null,
             session_token: null,
             project: null, // project ID used for uploads, session_token must be for that!
-            station: "Unknown"
         }
 
         // start when the initial reading of the datafiles state is completed
@@ -293,7 +292,6 @@ class MotusUploader {
                 const deployment = await getReceiverInfo()
                 this.matron.emit('motusRecv', deployment)
                 if (!deployment.project) throw new Error("Receiver not registered with a project")
-                this.state.station = deployment?.deployment || "Unknown"
                 this.state.project = deployment.project
                 this.writeState()
             }

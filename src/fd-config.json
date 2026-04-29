@@ -902,7 +902,7 @@
     "w03109": {
       "kind": "TextView",
       "rows": 3,
-      "cols": 4,
+      "cols": 6,
       "static": {
         "title": "Tag database content"
       },
@@ -1763,8 +1763,6 @@
           "w01745",
           "w04712",
           "w03109",
-          "w03243",
-          "w03402",
           "w06470"
         ],
         "solid": false
@@ -2101,16 +2099,16 @@
       "rows": 1,
       "cols": 2,
       "static": {
-        "title": "Show pulses",
+        "title": "Filter pulses",
         "on_value": "on",
         "off_value": "off",
         "popup_info": "Toggle the display of detected Lotek pulses in the tags and pulses panel on/off. Tags are always shown."
       },
       "dynamic": {
-        "value": "lotek_show_pulses"
+        "value": "burstfinder/filter_ui"
       },
       "id": "w04712",
-      "output": "show_pulses"
+      "output": "burstfinder_filter_ui"
     },
     "w10000": {
       "kind": "Panel",
@@ -2260,18 +2258,11 @@
       "rows": 2,
       "cols": 3,
       "static": {
-        "title": "Chart controls",
-        "widgets": [
-          "w00924",
-          "w02156",
-          "w09074",
-          "w00423",
-          "w03317",
-          "w02547"
-        ]
+        "title": "! WARNING !",
+        "text": "**WARNING this tab contains experimental features that can cause malfunction of your Sensorgnome and corrupt your data! Please do not use unless you understand what the feature does.**\n\nYou're welcome to ask about anything here in the Motus forum..."
       },
       "dynamic": {},
-      "id": "w02739"
+      "id": "w02187"
     },
     "w00924": {
       "kind": "PushButton",
@@ -2430,7 +2421,7 @@
         ]
       },
       "dynamic": {},
-      "id": "w01720"
+      "id": "w01195"
     },
     "w02646": {
       "kind": "TimePlot",
@@ -2465,16 +2456,14 @@
       "rows": 2,
       "cols": 2,
       "static": {
-        "title": "Bucket config",
-        "high_regexp": "validated",
-        "high_color": "#2E7D32",
-        "low_regexp": "error",
-        "low_color": "#C62828",
-        "color": "#000000"
+        "title": "Method",
+        "on_value": "burstfinder",
+        "off_value": "pulsefilter",
+        "popup_info": "There are two methods for processing pulses into bursts in the Sensorgnome: 'burstfinder' is the same as used in Motus servers while 'pulsefilter' is a simpler, slightly more lenient method. In general, 'burstfinder' should be used. Pulsefilter is available for dev&test reasons.",
+        "show_value": true
       },
       "dynamic": {
-        "value": "enpi/upload/config/status/value",
-        "popup_info": "enpi/upload/config/status/popup"
+        "value": "burstfinder/method"
       },
       "id": "w05310"
     },
@@ -2838,6 +2827,7 @@
         "w08547"
       ],
       "id": "g05782",
+      "min_cols": 3,
       "max_cols": 6
     },
     "g08970": {
@@ -2853,16 +2843,10 @@
         "w07258"
       ],
       "id": "g08970",
+      "min_cols": 3,
       "max_cols": 6
     },
-    "g05783": {
-      "kind": "FixedGrid",
-      "title": "",
-      "widgets": [],
-      "id": "g05783",
-      "max_cols": 2
-    },
-    "g10000": {
+    "g05117": {
       "kind": "FixedGrid",
       "title": "",
       "widgets": [
@@ -2873,9 +2857,13 @@
         "w10000",
         "w10010",
         "w01720",
-        "w00402"
+        "w00402",
+        "w02187",
+        "w03097",
+        "w05065",
+        "w01195"
       ],
-      "id": "g10000",
+      "id": "g05117",
       "min_cols": 3,
       "max_cols": 6
     }
@@ -2888,8 +2876,8 @@
       "t06560",
       "t06959",
       "t08355",
-      "t10000",
-      "t09219"
+      "t09219",
+      "t05656"
     ]
   },
   "tabs": {
@@ -2941,12 +2929,12 @@
         "g05782"
       ]
     },
-    "t10000": {
-      "icon": "leaf",
-      "title": "sensors",
-      "id": "t10000",
+    "t05656": {
+      "icon": "flask",
+      "title": "lab",
+      "id": "t05656",
       "grids": [
-        "g10000"
+        "g05117"
       ]
     }
   },
