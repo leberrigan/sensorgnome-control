@@ -87,10 +87,11 @@ class Enpi {
     }
     
     configure(cfg) {
+        if (typeof cfg !== "object" || Object.keys(cfg).length == 0) return console.log("enpi: missing config")
 
         console.log(`enpi: config: ${JSON.stringify(cfg)}`)
-        const sensorName = cfg.key.devType.split('-')[1] // e.g. "enpi-light" -> "light"
-        const sensorSched = cfg.schedule
+        const sensorName = cfg?.key.devType.split('-')[1] // e.g. "enpi-light" -> "light"
+        const sensorSched = cfg?.schedule
         const s = this.sensors[sensorName]
         if (!s.active) return
         if (!s) return console.log(`enpi: unknown sensor ${sensorName} in config`)
