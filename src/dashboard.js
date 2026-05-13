@@ -41,12 +41,13 @@ class Dashboard {
             'netCellInfo', 'netCellConfig', 'cttRadioVersion', 'vahRate', 'vahFrames', 'devState',
             'rtlInfo',
             "enpi_light_status", "enpi_air_status", "enpi_light_toggle", "enpi_air_toggle","enpi_air_gotData","enpi_light_gotData",
-            'enpi_status', 'enpi_sample_rate','enpi_sample_schedule','enpi_aws_bucket_name','enpi_aws_secrets','enpi_aws_status', 'enpi_upload_status',
-            'enpi_upload_log','enpi_upload_gotData','enpi_upload_config_status',
+            'enpi_status', 'enpi_sample_rate','enpi_sample_schedule','enpi_aws_buket_name', 'enpi_upload_status',
+            'enpi_upload_log','enpi_upload_gotData','enpi_update_log', 'enpi_version',
+            'enpi_provisioning_status', 'enpi_provisioning_info',
             
             // dashboard events triggered by a message from FlexDash
-            'dash_enpi_toggle','dash_enpi_sample_rate','dash_enpi_sample_schedule','dash_enpi_aws_secrets','dash_enpi_download',
-            'dash_enpi_force_upload','dash_enpi_upload_config',
+            'dash_enpi_toggle','dash_enpi_sample_rate','dash_enpi_sample_schedule','dash_enpi_download',
+            'dash_enpi_force_upload','dash_enpi_upload_config', 'dash_enpi_provision',
             'dash_download', 'dash_upload', 'dash_deployment_update', 'dash_enable_wifi',
             'dash_enable_hotspot', 'dash_config_wifi', 'dash_update_portmap', 'dash_creds_update',
             'dash_upload_tagdb', 'dash_df_enable', 'dash_df_tags', 'dash_software_reboot',
@@ -55,7 +56,8 @@ class Dashboard {
             'dash_download_logs', 'dash_lotek_freq_change', 'dash_config_cell', 'dash_toggle_train',
             'dash_remote_cmds', 'dash_detection_range', 'dash_alter_bootCount', 'dash_enable_agc',
             'dash_show_pulses',
-            "dash_enpi_air_toggle", "dash_enpi_light_toggle", "dash_enpi_detection_range"
+            "dash_enpi_air_toggle", "dash_enpi_light_toggle", "dash_enpi_detection_range",
+            'dash_enpi_update'
         ]) {
             this.matron.on(ev, (...args) => {
                 let fn = 'handle_'+ev
@@ -353,27 +355,21 @@ class Dashboard {
     handle_enpi_sample_rate(sample_rate) {FlexDash.set('enpi/sample_rate', sample_rate || "??")}
     handle_enpi_sample_schedule(sample_schedule) {FlexDash.set('enpi/sample_schedule', sample_schedule || "??")}
     handle_enpi_aws_bucket_name(bucket_name) {FlexDash.set('enpi/aws/bucket_name', bucket_name || "??")}
-    handle_enpi_aws_secrets(secrets) {FlexDash.set('enpi/aws/secrets', secrets || "??")}
     handle_enpi_aws_status(status) {FlexDash.set('enpi/aws/status', status || "??")}
     handle_enpi_upload_status(status) {FlexDash.set('enpi/upload/status', status || "??")}
     handle_enpi_upload_log(text) {FlexDash.set('enpi/upload/log', text || "??")}
     handle_enpi_upload_gotData(data) {FlexDash.set('enpi/upload/info', data?.[1] || {})}
-    handle_enpi_upload_config_status(errors) {
-        if (!errors) {
-            FlexDash.set('enpi/upload/config/status/value',"validating...")
-            return
-        }
-        if (errors.length > 0) 
-            FlexDash.set('enpi/upload/config/status/value',"error")
-        else
-            FlexDash.set('enpi/upload/config/status/value',"validated")
-        FlexDash.set('enpi/upload/config/status/popup',errors.join('\n'))
-    }
+    
+    handle_enpi_version(text) {FlexDash.set('enpi/version', text || "??")}
+    handle_enpi_update_log(text) {FlexDash.set('enpi/update/log', text || "??")}
+    handle_enpi_provisioning_status(status) { FlexDash.set('enpi/provisioning/status', status || "??") }
+    handle_enpi_provisioning_info(info) { FlexDash.set('enpi/provisioning/info', info || {}) }
+    handle_dash_enpi_update() {Enpi.updateSoftware()}
 
     handle_dash_enpi_toggle(toggle) {Enpi.set('toggle',toggle)}
     handle_dash_enpi_sample_rate(sample_rate) {Enpi.set('sample_rate',sample_rate)}
     handle_dash_enpi_sample_schedule(sample_schedule) {Enpi.set('sample_schedule',sample_schedule)}
-    handle_dash_enpi_upload_config(config) {Enpi.set('upload/config',config)}
+    handle_dash_enpi_provision(config) {Enpi.provision()}
     handle_dash_enpi_download(download) {Enpi.set('download',download)}
     handle_dash_enpi_force_upload(force) {Enpi.set('upload/force', force)}
 
@@ -509,8 +505,8 @@ class Dashboard {
 
         const title = sensor + " (" + range + ")" // can't set dynamic title :-(
         FlexDash.set(`enpi/${sensor}/detections`, { data, labels, title })
-        console.log(`enpi: ts_enpi_show: ${sensor} ${now} ${data.length} points, labels=${labels}`)
-        console.log('enpi: ',JSON.stringify(data))
+        // console.log(`enpi: ts_enpi_show: ${sensor} ${now} ${data.length} points, labels=${labels}`)
+        // console.log('enpi: ',JSON.stringify(data))
         return combinedData
     }
 

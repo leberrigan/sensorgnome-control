@@ -8,23 +8,43 @@ Environmental Sensor for SensorGnome
 This repo is for building and testing environmental sensor logging with the SensorGnome using the SQM-LU light level sensor and a custom bonnet for the raspberry pi with the PMS5003 particulate sensor and BME/BMP280 for air temperature, pressure, and humidity.
 
 
+### Details
+
+A total of three sensors on two hardware components are used to measure:
+
+    Particulates (pm1.0, pm2.5,pm10) - PMS5003
+    Humidity, temperature, air pressure - BME280
+    Light levels - SQM-LU
+
+Air sensors are all attached to a custom-built "bonnet" for the Raspberry Pi purpose-built for Motus, using the pin headers for connection plus a daughter board for with
+
+Light level sensor is a USB device made by UniHedron used to detect light pollution.
+# Installation
+
+With internet connection, run: curl -sSL https://raw.githubusercontent.com/sensorgnome-org/enviroPi/sensorgnome/install.sh | sudo bash
+
+
+---
 
 ## To do
 
 - Mods to flexdash
-    -- enpi status
-        - on
-        - off
-        - error
-    -- enpi toggle
-        - on/off
-    -- enpi sample rate
-    -- sample schedule
-    -- aws bucket name
-    -- aws connection status
-    -- change bucket and auth key
-    -- upload status
-        - was the last upload successful
-        - what files are waiting to upload
     -- download button
         
+
+---
+
+## Scripts
+
+### Get enpi version
+
+```
+
+python3 - << "EOF"
+import sys
+sys.path.insert(0, "/opt/sensorgnome/enpi")
+from enpi import __version__
+print(__version__)
+EOF
+
+```
