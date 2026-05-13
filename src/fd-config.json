@@ -2145,14 +2145,15 @@
     },
     "w09520": {
       "kind": "Panel",
-      "rows": 3,
+      "rows": 2,
       "cols": 3,
       "static": {
         "title": "AWS info",
         "widgets": [
           "w09904",
+          "w02120",
           "w05310",
-          "w00811"
+          "w01086"
         ]
       },
       "dynamic": {},
@@ -2160,10 +2161,10 @@
     },
     "w09904": {
       "kind": "PropsTable",
-      "rows": 3,
+      "rows": 1,
       "cols": 6,
       "static": {
-        "title": "AWS Config",
+        "title": "",
         "fields": [
           "bucket_name",
           "bucket_key",
@@ -2173,14 +2174,15 @@
           "bucket_name": "value1",
           "key2": "value2"
         },
-        "send_all": true,
-        "editable": true
+        "send_all": false,
+        "editable": false
       },
       "dynamic": {
-        "data": "enpi/upload/info"
+        "data": "enpi/provisioning/info",
+        "fields": "enpi/provisioning/info"
       },
       "id": "w09904",
-      "output": "enpi_upload_config"
+      "output": null
     },
     "w00862": {
       "kind": "Panel",
@@ -2462,36 +2464,22 @@
     },
     "w05310": {
       "kind": "Stat",
-      "rows": 2,
-      "cols": 2,
+      "rows": 1,
+      "cols": 3,
       "static": {
-        "title": "Bucket config",
-        "high_regexp": "validated",
+        "title": "",
+        "high_regexp": "provisioned",
         "high_color": "#2E7D32",
         "low_regexp": "error",
         "low_color": "#C62828",
-        "color": "#000000"
+        "color": "#000000",
+        "zoom": 0.5
       },
       "dynamic": {
-        "value": "enpi/upload/config/status/value",
-        "popup_info": "enpi/upload/config/status/popup"
+        "value": "enpi/provisioning/status",
+        "popup_info": "enpi/provisioning/status"
       },
       "id": "w05310"
-    },
-    "w00811": {
-      "kind": "UploadButton",
-      "rows": 2,
-      "cols": 4,
-      "static": {
-        "title": "Upload Secrets",
-        "accept": "",
-        "icon": "",
-        "tooltip": "Upload secrets file (\"secrets.env\").",
-        "popup_info": "Contact Motus administrator for details."
-      },
-      "dynamic": {},
-      "id": "w00811",
-      "output": "enpi_secrets_file"
     },
     "w05761": {
       "kind": "Panel",
@@ -2760,6 +2748,32 @@
       "dynamic": {},
       "id": "w01712",
       "output": "enpi_update"
+    },
+    "w02120": {
+      "kind": "PushButton",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Provision",
+        "color": "#CDDC39"
+      },
+      "dynamic": {},
+      "id": "w02120",
+      "output": "enpi_provision"
+    },
+    "w01086": {
+      "kind": "PopupButton",
+      "rows": 1,
+      "cols": 1,
+      "static": {
+        "title": "",
+        "color": "#FFFFFF",
+        "text": "Provisioning is required to upload data. It is only done once per device. It should be done automatically on startup, but if there's a failure you can always try clicking the \"provision\" button.",
+        "popup_info": "",
+        "icon": "help-circle"
+      },
+      "dynamic": {},
+      "id": "w01086"
     }
   },
   "grids": {

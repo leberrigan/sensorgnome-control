@@ -12,7 +12,6 @@ const VARDIR      = "/var/lib/sensorgnome"         // where runtime state files 
 const DATAFILE    = VARDIR+"/datafiles.json"       // where database about data files is located
 const STATEFILE   = VARDIR+"/motus_up.json"        // where motus upload state is stored
 const ENPI        = "/opt/sensorgnome/enpi" // Location of enpi executables (.py)
-const ENPISECRETSFILE        = CONFDIR+"/secrets.env" // Location of enpi secrets (AWS keys)
 
 // process.on("uncaughtException", function(err) {
 //      console.log('Caught exception: ' + err);
@@ -73,7 +72,7 @@ RTLSDR        = require("./rtlsdr.js");
 CornellTagXCVR= require("./cornelltagxcvr.js");
 
 // Environmental sensors
-Enpi          = new (require('./enpi.js').Enpi)(TheMatron, ENPI, ENPISECRETSFILE)
+Enpi          = new (require('./enpi.js').Enpi)(TheMatron, ENPI)
 
 //WavMaker      = require('./wavmaker.js');
 

@@ -2,31 +2,34 @@
 var Fs = require("fs")
 
 class Enpi {
-    constructor(matron, prog, secrets_file) {
+    constructor(matron, prog) {
         this.matron = matron
         this.prog = prog
         this.child = null
         this.quitting = false
-        
+        this.provisioned = false
+
         this.lat = null
         this.lon = null
         this.gpsFixed = false
         this.pendingDailyStarts = [] // sensors waiting for a GPS fix
         this.uploadsLogFile = '/var/log/enpi/uploader.log'
         this.enpiConfigFile = `${this.prog}/enpi-config.json`
+        this.iotConfigFile = `${this.prog}/provisioning/iot-config.json`
         this.CMD_PATH = `${this.prog}/env/bin/python3`
         this.CMD_ENV = { ...process.env, PYTHONUNBUFFERED: 1 } // ensure stdout is unbuffered
-        this.SECRETS_PATH = secrets_file //
         
         this.sensors = this.loadConfig(this.enpiConfigFile)
+        this.iot = this.loadConfig(this.iotConfigFile)
 
 
         console.log("enpi: Starting enpi.js...")
 
-        // Have to set GPIO 24 to an INPUT
+        // Have to set GPIO 24 to an INPUT because it's sometimes set as an OUTPUT by default
         ChildProcess.execSync('raspi-gpio set 24 ip')
 
         // Update lat/lon whenever GPS gets a fix
+        // This allows us to set schedule based on sunrise/sunset
         matron.on("gotGPSFix", (fix) => {
             if (!["no-dev", "no-sat"].includes(fix.state) && !this.gpsFixed) {
                 this.gpsFixed = true
@@ -44,8 +47,6 @@ class Enpi {
         matron.on("quit", () => this.quit())
         
         
-        console.log("enpi: enpi.js initiated.")
-        
         for (const sensor in this.sensors) {
             if (this.sensors[sensor].active) {
                 this.configure(Acquisition.lookup("1", `enpi-${sensor}`)?.plan)
@@ -57,8 +58,10 @@ class Enpi {
         }
 
         this.matron.emit(`enpi_upload_config_status`, false)
-        setTimeout(()=>this.validateSecrets(this.SECRETS_PATH),1000)
+        setTimeout(()=>this.provision(),1000)
         this.getSoftwareVersion()
+
+        console.log("enpi: enpi.js initiated.")
     }
     loadConfig(filename) {
         return JSON.parse( Fs.readFileSync(filename, "utf8") )
@@ -151,6 +154,65 @@ class Enpi {
                 },sleep_secs*1e3)
             }
         }
+    }
+
+    provision() {
+        if (this.provisioned) return
+
+        let log = ""
+        let lineBuffer = ""
+
+        const proc = ChildProcess.spawn(this.CMD_PATH, [`${this.prog}/provisioning/provision-device.py`])
+
+        proc.stdout.on("data", (data) => {
+            lineBuffer += data.toString()
+            const lines = lineBuffer.split('\n')
+            lineBuffer = lines.pop()
+            for (const line of lines) {
+                if (!line.trim()) continue
+                console.log("enpi: provision:", line)
+                log += "\n" + line
+                this.matron.emit("enpi_update_log", log)
+                try {
+                    const msg = JSON.parse(line)
+                    if (msg[0] === "status") {
+                        const status = msg[1]
+                        this.matron.emit("enpi_provisioning_status", status)
+                        if (status === "already-provisioned" || status === "provisioned") {
+                            this.provisioned = true
+                        }
+                        if ((status === "provisioned" || status === "already-provisioned") && msg[2]) {
+                            this.matron.emit("enpi_provisioning_info", msg[2])
+                        }
+                    } else if (msg[0] === "error") {
+                        this.matron.emit("enpi_provisioning_status", `error: ${msg[1]}`)
+                    }
+                } catch (e) {
+                    console.log("enpi: provision: bad JSON:", line)
+                }
+            }
+        })
+
+        proc.stderr.on("data", (data) => {
+            const text = data.toString()
+            console.log("enpi: provision stderr:", text)
+            log += "\n" + text
+            this.matron.emit("enpi_update_log", log)
+        })
+
+        proc.on("error", (err) => {
+            console.log("enpi: provision error:", err)
+            this.matron.emit("enpi_provisioning_status", "error")
+        })
+
+        proc.on("close", (code) => {
+            const text = code === 0
+                ? "Provisioning completed successfully."
+                : `Provisioning failed with exit code ${code}.`
+            console.log("enpi: provision close:", text)
+            log += "\n" + text
+            this.matron.emit("enpi_update_log", log)
+        })
     }
 
     _makeSchedule(sensorName, schedCfg) {
@@ -280,15 +342,6 @@ class Enpi {
             this.stop(sensor)
         }
     }
-    sensorConfig(sensor, config) {
-
-        switch(sensor) {
-            case "upload":
-                this.updateSecrets(this.SECRETS_PATH, config)
-                break
-        }
-
-    }
         
     getEnpiVersion() {
         try {
@@ -364,85 +417,6 @@ class Enpi {
 
         this.getSoftwareVersion()
     }
-    updateSecrets(filepath, updates) {
-        const errors = Object.entries(updates).map(([key, value]) => {
-            if (key == "secret_key" && value.replace(/\**/g,'').length == 40 )
-                return updateSecret(filepath, key, value);
-        }).filter(error => typeof error === "string");
-
-        this.matron.emit(`enpi_upload_config_status`, errors)
-    }
-
-    updateSecret(filepath, key, value) {
-
-        const error = this.validateSecret(key, value)
-        if (error)
-            return error
-
-        let content = Fs.readFileSync(filepath, 'utf8');
-        
-        const regex = new RegExp(`^${key}=.*$`, 'm');
-        
-        if (regex.test(content)) {
-            // Key exists, replace it
-            content = content.replace(regex, `${key}=${value}`);
-        } else {
-            // Key doesn't exist, append it
-            content += `\n${key}=${value}`;
-        }
-        
-        Fs.writeFileSync(filepath, content, 'utf8');
-
-        return false
-    }
-    validateSecrets(filepath) {
-        
-        console.log("enpi: validating secrets...")
-        let content
-        
-        try {
-            content = Fs.readFileSync(filepath, 'utf8')
-        } catch (err) {
-            if (err.code === "ENOENT") {
-                console.log("enpi: Secrets file does not exist")
-            } else {
-                throw err // real error, re‑throw
-            }
-            return false
-        }
-        
-        const entries = content.match(/^([A-z]|_|[0-9])+=.*$/gm)
-        let errors = ["No entries"]
-        if (entries && entries.length > 0) {
-            errors = entries.map( entry => {
-                const key = entry.match(/([A-z]|_|[0-9])+(?=\=)/gm)
-                const value = entry.replace(`${key}=`, '')
-                return this.validateSecret(key, value)
-            }).filter(error => typeof error === "string")
-            console.log(`enpi: Done. Found ${errors.length} errors.`)
-        } else {
-            console.log("enpi: found empty secrets file")
-        }
-        
-        this.matron.emit(`enpi_upload_config_status`, errors)
-        
-    }
-    validateSecret(key, value) {
-        switch(key) {
-            case "AWS_ACCESS_KEY_ID":
-                if (!/^AKIA[A-Z0-9]{16}$/.test(secrets.AWS_ACCESS_KEY_ID))
-                    return 'AWS_ACCESS_KEY_ID must be 20 characters and start with AKIA'
-            case "AWS_SECRET_ACCESS_KEY":
-                if (!/^[A-Za-z0-9/+=]{40}$/.test(secrets.AWS_SECRET_ACCESS_KEY)) 
-                    return 'AWS_SECRET_ACCESS_KEY must be 40 characters'
-            case "BUCKET_NAME":
-                if (!/^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]$/.test(secrets.BUCKET_NAME))
-                    return 'BUCKET_NAME must be 3-63 characters, lowercase letters, numbers and hyphens only';
-        }
-        
-        return false;
-    }
-
 
     set(setting_path, value) {
         console.log(`enpi: received setting: ${setting_path} -> ${value}`)
@@ -453,9 +427,6 @@ class Enpi {
                 break
             case "force":
                 this.start(sensor)
-                break
-            case "config":
-                this.sensorConfig(sensor, value)
                 break
         }
     }
