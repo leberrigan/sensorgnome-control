@@ -70,6 +70,7 @@ Sensor        = require('./sensor.js');
 USBAudio      = require("./usbaudio.js");
 RTLSDR        = require("./rtlsdr.js");
 CornellTagXCVR= require("./cornelltagxcvr.js");
+DigiBabel     = require("./digibabel.js");
 
 // Environmental sensors
 Enpi          = new (require('./enpi.js').Enpi)(TheMatron, ENPI)
