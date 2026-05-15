@@ -45,6 +45,8 @@ class Enpi {
             }
         })
         matron.on("quit", () => this.quit())
+        matron.on("devAdded", (dev) => this.devAdded(dev))
+        matron.on("devRemoved", (dev) => this.devRemoved(dev))
         
         
         for (const sensor in this.sensors) {
@@ -65,6 +67,20 @@ class Enpi {
     }
     loadConfig(filename) {
         return JSON.parse( Fs.readFileSync(filename, "utf8") )
+    }
+    devRemoved(dev) {
+        if (dev?.attr?.radio == "none" && dev?.attr?.type == "SQM-LU") {
+            this.toggle("light", "off")
+            this.matron.emit("enpi_light_toggle", "off")
+        }
+    }
+    devAdded(dev) {
+        if (dev?.attr?.radio == "none" && dev?.attr?.type == "SQM-LU") {
+            setTimeout(() => {
+                this.toggle("light", "on")
+                this.matron.emit("enpi_light_toggle", "on")
+            }, 1000)
+        }
     }
     saveConfig() {
         const toWrite = {} // Copy the object

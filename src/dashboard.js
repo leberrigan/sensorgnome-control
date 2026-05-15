@@ -222,7 +222,8 @@ class Dashboard {
         return {
             ctt: Object.values(HubMan.devs).filter(d => d.attr?.radio.startsWith("CTT") || d.attr?.radio == "DigiBabel").length,
             vah: Object.values(HubMan.devs).filter(d => d.attr?.radio == "VAH").length,
-            all: Object.values(HubMan.devs).filter(d => d.attr?.radio).length,
+            sensors: Object.values(HubMan.devs).filter(d => d.attr?.radio == "none").length,
+            all: Object.values(HubMan.devs).filter(d => d.attr?.radio && d.attr?.radio != "none" ).length,
             // bad: radios with invalid port
             bad: Object.keys(HubMan.devs).filter(p => (p < 0 || p > 20) && HubMan.devs[p].attr?.radio).length,
         }
@@ -233,7 +234,7 @@ class Dashboard {
         setTimeout(() => { // give HubMan a chance to process the devState event first
             const green = "#4CAF50", red = "#F44336", yellow = "#FFC107"
             let color = green, cnt = 0, text = []
-            for (const dev of Object.values(HubMan.devs)) {
+            for (const dev of Object.values(HubMan.devs).filter(dev => dev.attr?.radio != "none")) {
                 switch (dev.state) {
                 case "running":
                     text.push(`port ${dev.attr?.port} is running OK`)
