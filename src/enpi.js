@@ -60,7 +60,11 @@ class Enpi {
         }
 
         this.matron.emit(`enpi_upload_config_status`, false)
-        setTimeout(()=>this.provision(),1000)
+        //setTimeout(()=>this.provision(),1000)
+        this.matron.on("netInet", (status)=>{
+            if (status == "OK") this.provision()
+        })
+
         this.getSoftwareVersion()
 
         console.log("enpi: enpi.js initiated.")
