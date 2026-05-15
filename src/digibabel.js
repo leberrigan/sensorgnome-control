@@ -202,6 +202,7 @@ class DigiBabel {
     this.retries = 0 // number of retries opening the device
     this.initialized = false // whether init messages have been sent
     this.pendingControlAck = null // pending control-command acknowledgement waiter
+    this.fwVersion = 0 // 0 = no READ_CFG support, 1+ = READ_CFG responded with config payload
 
     this.matron.on("devRemoved", (dev) => this.devRemoved(dev))
 
@@ -439,9 +440,21 @@ class DigiBabel {
       try {
         // Disable detection forwarding first to avoid receiving detections while changing other settings.
         await this.sendControlFrame(CMD_MSG_CODE, DET_OFF_CMD_CODE, CMD_OP_CODE, Buffer.from([CMD_PL]), Buffer.from([DET_OFF_ACK_PL]), 'detection forwarding disable')
-        // Request current DigiBabel config and print the returned payload fields.
-        const cfgPayload = await this.sendControlFrame(CMD_MSG_CODE, DET_ON_CMD_CODE, READ_CFG_OP_CODE, Buffer.from([READ_CFG_PL]), null, 'read detection settings')
-        this.logReadConfigPayload(cfgPayload)
+        // Request current DigiBabel config. Older firmware echoes the command back (1-byte payload)
+        // instead of returning the 6-byte config; treat that as firmware v0 and continue.
+        try {
+          const cfgPayload = await this.sendControlFrame(CMD_MSG_CODE, DET_ON_CMD_CODE, READ_CFG_OP_CODE, Buffer.from([READ_CFG_PL]), null, 'read detection settings')
+          if (cfgPayload.length === 6) {
+            this.logReadConfigPayload(cfgPayload)
+            this.fwVersion = 1
+          } else {
+            console.log(`DigiBabel port ${this.getPort()}: READ_CFG returned ${cfgPayload.length} byte(s); treating as firmware v0`)
+          }
+        } catch (cfgErr) {
+          console.log(`DigiBabel port ${this.getPort()}: READ_CFG failed (${cfgErr.message}); treating as firmware v0`)
+        }
+        this.matron.emit("digibabelRadioVersion", { port: this.getPort(), version: `${this.fwVersion}` })
+        console.log(`DigiBabel port ${this.getPort()}: firmware version ${this.fwVersion}`)
         // Enable or disable extended payloads based on the switch.
         // Note: the device must be power cycled before the extended payload enable/disable command takes effect!
         if (ENABLE_EXTENDED_PAYLOAD) {

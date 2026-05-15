@@ -38,7 +38,7 @@ class Dashboard {
             'df', 'sdcardUse', 'vahData', 'netDefaultRoute', 'netInet', 'netMotus', 'netWifiState',
             'netHotspotState', 'netWifiConfig', 'portmapFile', 'tagDBInfo', 'motusRecv',
             'motusUploadResult', 'netDefaultGw', 'netDNS', 'lotekFreq', 'netCellState', 'netCellReason',
-            'netCellInfo', 'netCellConfig', 'cttRadioVersion', 'vahRate', 'vahFrames', 'devState',
+            'netCellInfo', 'netCellConfig', 'cttRadioVersion', 'digibabelRadioVersion', 'vahRate', 'vahFrames', 'devState',
             'rtlInfo',
             "enpi_light_status", "enpi_air_status", "enpi_light_toggle", "enpi_air_toggle","enpi_air_gotData","enpi_light_gotData",
             'enpi_status', 'enpi_sample_rate','enpi_sample_schedule','enpi_aws_buket_name', 'enpi_upload_status',
@@ -78,7 +78,7 @@ class Dashboard {
         // 5 minutes of detections in 10 second bins for sparklines
         this.detections = {
             ctt: Array(5*6).fill(null),
-            lotek: Array(5*6).fill(null),
+            lotek: Array(5*6).fill(null)
         }
         this.detection_log = []
 
@@ -220,11 +220,11 @@ class Dashboard {
     // update the number of radios connected on devAdded/Removed
     updateNumRadios() {
         return {
-            ctt: Object.values(HubMan.devs).filter(d => d.attr?.radio.startsWith("CTT")).length,
+            ctt: Object.values(HubMan.devs).filter(d => d.attr?.radio.startsWith("CTT") || d.attr?.radio == "DigiBabel").length,
             vah: Object.values(HubMan.devs).filter(d => d.attr?.radio == "VAH").length,
             all: Object.values(HubMan.devs).filter(d => d.attr?.radio).length,
             // bad: radios with invalid port
-            bad: Object.keys(HubMan.devs).filter(p => (p < 0 || p > 10) && HubMan.devs[p].attr?.radio).length,
+            bad: Object.keys(HubMan.devs).filter(p => (p < 0 || p > 20) && HubMan.devs[p].attr?.radio).length,
         }
     }
 
@@ -284,6 +284,10 @@ class Dashboard {
         FlexDash.set(`radios`, this.updateNumRadios())
         this.tsRemoveDevice(info)
         this.handle_devState()
+    }
+    handle_digibabelRadioVersion(info) {
+        const v = info.version.replace(/\..*/, '')
+        FlexDash.set(`devices/${info.port}/type`, 'DigiBabel.v' + v)
     }
     handle_cttRadioVersion(info) {
         const v = info.version.replace(/\..*/, '')
@@ -553,11 +557,11 @@ class Dashboard {
     // generate a filename for a device's time-series
     tsFilename(dev) {
         let prefix
-        switch (dev.attr.type) {
-        case "CTT/CornellRcvr": prefix = "ctt"; break
-        case "funcubeProPlus": prefix = "lotek"; break
-        case "funcubePro": prefix = "lotek"; break
-        case "rtlsdr": prefix = "lotek"; break
+        switch (dev.attr.radio) {
+        case "CTT/Cornell": prefix = "ctt"; break
+        case "DigiBabel": prefix = "ctt"; break
+        case "VAH": prefix = "lotek"; break
+        case "GNU": prefix = "lotek"; break
         default: return null
         }
         return `${prefix}-${dev.attr.port}`
@@ -566,7 +570,7 @@ class Dashboard {
     // device got added, init the time-series for it
     tsAddDevice(dev) {
         const port = dev.attr.port
-        if (dev.attr.type == "CTT/CornellRcvr") {
+        if (dev.attr.type == "CTT/CornellRcvr" || dev.attr.radio == "DigiBabel") {
             // CTT devices only produce tag detections
             this.ts[port] = {
                 tags: new TimeSeries(ts_dir, "ctt-tags-"+dev.attr.port),
