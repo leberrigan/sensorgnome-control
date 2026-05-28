@@ -11,8 +11,7 @@ class Enpi {
 
         this.lat = null
         this.lon = null
-        this.gpsFixed = false
-        this.pendingDailyStarts = [] // sensors waiting for a GPS fix
+        
         this.uploadsLogFile = '/var/log/enpi/uploader.log'
         this.enpiConfigFile = `${this.prog}/enpi-config.json`
         this.iotConfigFile = `${this.prog}/provisioning/iot-config.json`
@@ -28,22 +27,6 @@ class Enpi {
         // Have to set GPIO 24 to an INPUT because it's sometimes set as an OUTPUT by default
         ChildProcess.execSync('raspi-gpio set 24 ip')
 
-        // Update lat/lon whenever GPS gets a fix
-        // This allows us to set schedule based on sunrise/sunset
-        matron.on("gotGPSFix", (fix) => {
-            if (!["no-dev", "no-sat"].includes(fix.state) && !this.gpsFixed) {
-                this.gpsFixed = true
-                this.lat = fix.lat
-                this.lon = fix.lon
-                // Start any Daily schedules that were waiting
-                for (const sensorName of this.pendingDailyStarts) {
-                    if (this.sensors[sensorName].active)
-                        console.log(`enpi-${sensorName}: got GPS fix, starting Daily schedule. Fix: ${JSON.stringify(fix)}`)
-                        this.sensors[sensorName].schedule.start()
-                }
-                this.pendingDailyStarts = []
-            }
-        })
         matron.on("quit", () => this.quit())
         matron.on("devAdded", (dev) => this.devAdded(dev))
         matron.on("devRemoved", (dev) => this.devRemoved(dev))
@@ -51,7 +34,7 @@ class Enpi {
         
         for (const sensor in this.sensors) {
             if (this.sensors[sensor].active) {
-                this.configure(Acquisition.lookup("1", `enpi-${sensor}`)?.plan)
+                if (!this.sensors[sensor].configured) this.configure( sensor )
                 this.matron.emit(`enpi_${sensor}_toggle`, 'on')
             } else {
                 this.matron.emit(`enpi_${sensor}_status`, 'off')
@@ -92,7 +75,8 @@ class Enpi {
             "lineBuffer",
             "script",
             "active",
-            "frequency"
+            "frequency",
+            "intervalSecs"
         ]
         for (const sensor in this.sensors) {
             toWrite[sensor] = Object.fromEntries( 
@@ -109,71 +93,19 @@ class Enpi {
         console.log(`enpi-upload: read log text (${text.length} lines)`)
     }
     
-    configure(cfg) {
-        if (typeof cfg !== "object" || Object.keys(cfg).length == 0) return console.log("enpi: missing config")
-
-        console.log(`enpi: config: ${JSON.stringify(cfg)}`)
-        const sensorName = cfg?.key.devType.split('-')[1] // e.g. "enpi-light" -> "light"
-        const sensorSched = cfg?.schedule
+    configure( sensorName ) {
         const s = this.sensors[sensorName]
+        console.log(`enpi: config: ${sensorName}: ${s.script} ${s.active?"ACTIVE":"INACTIVE"}`)
         if (!s.active) return
         if (!s) return console.log(`enpi: unknown sensor ${sensorName} in config`)
 
         this.matron.emit(`enpi_${sensorName}_toggle`, 'on')
-        if (s.schedule) {
-            s.schedule.stop()
-            s.schedule = null
-        }
+        if (s.configured) this.stop( sensorName )
 
-        const schedType = sensorSched.type.toLowerCase()
-        s.schedule = this._makeSchedule(sensorName, sensorSched)
-        s.configured = true
+        this.sensors[sensorName].configured = true
         console.log(`enpi-${sensorName}: configured`)
 
-        if (schedType === "daily") {
-            if (this.gpsFixed) {
-                // Fix already came in before config — start immediately
-                s.schedule.start()
-            } else {
-                // Defer start until gotGPSFix
-                console.log(`enpi-${sensorName}: waiting for GPS fix before starting Daily schedule`)
-                this.pendingDailyStarts.push(sensorName)
-                for (const i in (cfg?.devParams || [])) {
-                    switch (cfg.devParams[i].name) {
-                        case "fallbackLat":
-                            this.fallbackLat = cfg.devParams[i].schedule?.value || 0
-                            break;
-                        case "fallbackLon":
-                            this.fallbackLon = cfg.devParams[i].schedule?.value || 0
-                            break;
-                    }
-                }
-
-                console.log(`enpi-${sensorName}: using fallback lat/lon: ${this.fallbackLat},${this.fallbackLon}`)
-
-                // Fallback: if no fix within 10 minutes, use fallback coords if provided
-                if (this.fallbackLat && this.fallbackLon) {
-                    setTimeout(() => {
-                        if (!this.gpsFixed) {
-                            console.log(`enpi-${sensorName}: no GPS fix after 10min, using fallback coords`)
-                            this.lat = this.fallbackLat
-                            this.lon = this.fallbackLon
-                            this.sensors[sensorName].schedule.start()
-                        }
-                    }, 0.1 * 60 * 1000)
-                }
-            }
-        } else {
-            // AlwaysOn etc. don't need GPS — start immediately
-            s.schedule.start()
-            if (s.frequency) {
-                const sleep_secs = 60*60 / s.frequency
-                console.log(`enpi-${sensorName}: Waiting for ${sleep_secs} seconds before running again.`)
-                s.interval = setInterval(()=>{
-                    s.schedule.start()
-                },sleep_secs*1e3)
-            }
-        }
+        this.start( sensorName )
     }
 
     provision() {
@@ -235,71 +167,24 @@ class Enpi {
         })
     }
 
-    _makeSchedule(sensorName, schedCfg) {
-        const callback = (newState, oldState) => {
-            console.log(`enpi-${sensorName}: schedule ${oldState} -> ${newState}`)
-            if (newState === "on") this.start(sensorName)
-            else this.stop(sensorName)
+    start(sensorName) {
+        const s = this.sensors[sensorName]
+        if (!s || s.quitting || s.child) {
+            console.log(`enpi-${sensorName}: Can't start because: ${!s?"Sensor undefined":s.quitting?"Currently quitting": "Child already exists"}`)
+            return
         }
-
-        switch (schedCfg.type.toLowerCase()) {
-            case "alwayson":
-                return new Schedule.AlwaysOn(callback)
-
-            case "daily": {
-                const self = this
-                
-                // Parses "sunset", "sunrise", "sunset-1", "sunrise+2.5" etc.
-                // Returns a function compatible with Schedule.Daily
-                const parseTimeExpr = (expr) => {
-                    const match = expr.match(/^(sunrise|sunset)([+-]\d+(\.\d+)?)?$/)
-                    if (!match) throw new Error(`enpi: invalid schedule time expression: "${expr}"`)
-                    
-                    const base = match[1]         // "sunrise" or "sunset"
-                    const offset = parseFloat(match[2] || 0) * 3600 * 1000  // hours -> ms
-
-                    return function(d) {
-                        // try{
-                            const baseTime = this[base](self.lat, self.lon, d)
-                            const date = new Date(baseTime + offset)
-                            console.log("enpi: date: ", date)
-                            return date
-                        /* } catch(e){
-                            console.warn("Enpi: date parsing error: ", e);
-                            console.warn("Enpi: date parsing error: ", Schedule.sunrise);
-                            return new Date()
-                        } */
-                    }
-                }
-
-                //console.log("enpi: start date: ",parseTimeExpr(schedCfg.startTime)(new Date()))
-                //console.log("enpi: end date: ",parseTimeExpr(schedCfg.stopTime)(new Date()))
-                return new Schedule.Daily(callback, 
-                    parseTimeExpr(schedCfg.startTime), 
-                    parseTimeExpr(schedCfg.stopTime))
-            }
-
-            default:
-                console.log(`enpi-${sensorName}: unknown schedule type ${schedCfg.type}`)
-                return new Schedule.AlwaysOn(callback)
-        }
-    }
-
-    start(sensor) {
-        const s = this.sensors[sensor]
-        if (!s || s.quitting || s.child) return
         if (!s.configured) {
-            console.log(`enpi-${sensor}: Not yet configured.`)
-            return this.configure( Acquisition.lookup("1", `enpi-${sensor}`)?.plan )
+            console.log(`enpi-${sensorName}: Not yet configured.`)
+            return this.configure( sensorName )
         }
-        if (!this.sensors.upload.configured) this.configure( Acquisition.lookup("1", `enpi-upload`)?.plan )
 
-        console.log("Starting", this.CMD_PATH, `${this.prog}/${s.script}`)
+        console.log("Enpi: Starting", this.CMD_PATH, `${this.prog}/${s.script}`)
         
-        this.matron.emit(`enpi_${sensor}_status`, 'starting')
+        this.matron.emit(`enpi_${sensorName}_status`, 'starting')
         s.child = ChildProcess.spawn(this.CMD_PATH, [`${this.prog}/${s.script}`], { env: this.CMD_ENV })
-            .on("exit", () => this.childDied(sensor))
-            .on("error", () => this.childDied(sensor))
+            .on("exit", () => this.childDied(sensorName))
+            .on("kill", () => this.childDied(sensorName))
+            .on("error", () => this.childDied(sensorName))
 
         s.child.stdout.on("data", chunk => {
             s.lineBuffer += chunk.toString()
@@ -311,15 +196,15 @@ class Enpi {
                 try {
                     const data = JSON.parse(line)
                     if (data[0] == "status") {
-                        console.log(`enpi-${sensor}: status:`, data[1])
-                        this.matron.emit(`enpi_${sensor}_status`, data[1])
+                        console.log(`enpi-${sensorName}: status:`, data[1])
+                        this.matron.emit(`enpi_${sensorName}_status`, data[1])
                     } else {
-                        console.log(`enpi-${sensor}: got data:`, line)
-                        this.matron.emit(`enpi_${sensor}_gotData`, data)
+                        console.log(`enpi-${sensorName}: got data:`, line)
+                        this.matron.emit(`enpi_${sensorName}_gotData`, data)
                     }
-                    if (sensor == "upload") this.get_upload_logs()
+                    if (sensorName == "upload") this.get_upload_logs()
                 } catch(e) {
-                    console.log(`enpi-${sensor}: bad JSON:`, line)
+                    console.log(`enpi-${sensorName}: bad JSON:`, line)
                 }
             }
         })
@@ -327,33 +212,53 @@ class Enpi {
 
         s.child.stderr.on("data", x => {
             for (const line of x.toString().split('\n')) {
-                if (line.trim()) console.log(`enpi-${sensor}.py stderr:`, line)
+                if (line.trim()) console.log(`enpi-${sensorName}.py stderr:`, line)
             }
         })
         s.child.stderr.on("error", () => {})
 
+        if (s.intervalSecs > 0) {
+            console.log(`enpi-${sensorName}: Waiting for ${s.intervalSecs} seconds before running again.`)
+            s.interval = setInterval(()=>{
+                this.start(sensorName)
+            }, s.intervalSecs * 1e3)
+        }
     }
 
-    stop(sensor) {
-        console.log(`enpi-${sensor}: Quitting sensor process...`)
-        const s = this.sensors[sensor]
-        if (s?.interval) clearInterval(s.interval)
+    stop(sensorName) {
+        console.log(`enpi-${sensorName}: Quitting sensor process...`)
+        const s = this.sensors[sensorName]
+        if (s?.interval) {
+            console.log(`enpi-${sensorName}: Clearing interval`)
+            clearInterval(s.interval)
+        }
         if (!s || !s.child) {
-            this.matron.emit(`enpi_${sensor}_status`, "off")
-            console.log(`enpi-${sensor}: Sensor process already inactive`)
+            this.matron.emit(`enpi_${sensorName}_status`, "off")
+            console.log(`enpi-${sensorName}: Sensor process already inactive`)
             return
         }
         s.quitting = true
+        s.restarting = false
         s.child.kill()
-        this.matron.emit(`enpi_${sensor}_status`, "off")
+        this.matron.emit(`enpi_${sensorName}_status`, "off")
     }
 
-    childDied(sensor) {
-        const s = this.sensors[sensor]
+    childDied(sensorName) {
+        console.log(`enpi-${sensorName}.py exited`)
+        const s = this.sensors[sensorName]
         if (!s) return
         s.child = null
-        if (!s.quitting) {
-            console.log(`enpi-${sensor}.py exited unexpectedly`)
+        if (s.intervalSecs > 0) {
+            console.log(`enpi-${sensorName}.py exited as expected.`)
+        } else if (!s.quitting) {
+            if (!s.restarting) {
+                console.log(`enpi-${sensorName}.py exited unexpectedly! Attempting to restart...`)
+                s.restarting = true
+                this.configure( sensorName )
+            } else {
+                console.log(`enpi-${sensorName}.py exited unexpectedly, again! Not going to attempt restarting again.`)
+                s.restarting = false
+            }
         }
         s.quitting = false
     }
@@ -453,10 +358,13 @@ class Enpi {
 
     toggle(sensor, value = "off") {
         this.sensors[sensor].active = value == "on"
-        this.sensors.upload.active = Object.values(this.sensors).map( values => values.active ).includes( true )
+        if (!this.sensors.upload.active && Object.values(this.sensors).some( values => values.active )) {
+            if (!this.sensors.upload.configured) this.configure('upload')
+            this.sensors.upload.active = true
+        }
         if (value === "on") this.start(sensor)
         else this.stop(sensor)
-        if (!this.sensors.upload.active) this.stop('upload')
+        if (this.sensors.upload.active && !Object.values(this.sensors).some( values => values.active )) this.stop('upload')
         this.saveConfig()
     }   
 }

@@ -28,9 +28,34 @@ With internet connection, run: curl -sSL https://raw.githubusercontent.com/senso
 
 ## To do
 
-- Mods to flexdash
-    -- download button
-        
+### Localization
+
+- Sources:
+    - GPS       // Location based on GPS
+    - Manual    // User enters the location manually
+    - Internet  // Location is estimated using IP (internet-connected stations only)
+    - Cell      // Location is estimated based on cellular towers (cell-enabled stations only)
+- States:
+    - Active    // Location was recorded recently
+    - Backup    // Location was not recorded recently
+    - None      // No location has been recorded
+
+
+- Prioritization
+
+. | Active | Backup
+-- | -- | -- 
+GPS | 1 | 5
+Manual | 2 | 2
+Internet | 3 | 6
+Cell | 4 | 7
+
+- Notes:
+    - Web interface needs to allow users to set priority
+    - Need to create a warning when there are certain conflicts
+
+-----
+
 
 ---
 
