@@ -1,8 +1,5 @@
-This is a fork of (https://github.com/tve/sensorgnome-control)[sensorgnome-control].
 
----
-
-Environmental Sensor for SensorGnome
+Additional Cell Modem controls for SensorGnome
 ===========
 
 This repo is for building and testing environmental sensor logging with the SensorGnome using the SQM-LU light level sensor and a custom bonnet for the raspberry pi with the PMS5003 particulate sensor and BME/BMP280 for air temperature, pressure, and humidity.
@@ -21,7 +18,10 @@ Air sensors are all attached to a custom-built "bonnet" for the Raspberry Pi pur
 Light level sensor is a USB device made by UniHedron used to detect light pollution.
 # Installation
 
-With internet connection, run: curl -sSL https://raw.githubusercontent.com/sensorgnome-org/enviroPi/sensorgnome/install.sh | sudo bash
+With internet connection, run: 
+```
+curl -sSL https://raw.githubusercontent.com/sensorgnome-org/enpi/sensorgnome/install.sh | sudo bash -s -- enpi-cell
+```
 
 
 ---

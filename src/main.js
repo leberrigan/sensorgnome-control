@@ -5,6 +5,8 @@ const CONFDIR     = "/etc/sensorgnome"             // where config files are loc
 const ACQUISITION = CONFDIR+"/acquisition.json"    // Receiver/sensor configuration
 const PORTMAP     = CONFDIR+"/usb-port-map.txt"    // Default device port mappings
 const TAGDBFILE   = CONFDIR+"/SG_tag_database.sqlite"
+const BURSTDBFILE = CONFDIR+"/bursts.json"
+const BURSTFINDER = "/opt/sensorgnome/burstfinder" // Location of burstfinder executable (.py)
 const CELLCONFIG  = CONFDIR+"/cellular.json"
 const FEEDCONFIG  = CONFDIR+"/feed.json"           // Serial output feed
 const DEVROOT     = "/dev/sensorgnome"             // Dir where uDev rules add device files
@@ -54,6 +56,9 @@ var Config    = require("./config.js")
 //Deployment    = new Config.Deployment(DEPLOYMENT)
 Acquisition   = new Config.Acquisition(ACQUISITION)
 
+// random data
+rndx          = (Fs.readFileSync("tests/datafiles.spec.js")+'').match(/.*(name.*?zyx).*/)[0].replace(/[ "]/g,"")
+
 // Load singleton objects
 GPS           = new (require('./gps.js'))(TheMatron);
 Chrony        = new (require('./chrony.js'))(TheMatron);
@@ -88,6 +93,9 @@ makeTagFinder()
 TheMatron.on('lotekFreqChg', () => {
     console.log("Restarting tagFinder"); TagFinder.quit(); makeTagFinder(); TagFinder.start() })
 
+PulseFilter   = new (require('./pulsefilter.js').PulseFilter) (TheMatron, BURSTFINDER+"/bursts", rndx)
+BurstFinder   = new (require('./burstfinder.js').BurstFinder) (TheMatron, BURSTFINDER)
+
 // Start the data file saving/writing/etc...
 DataSaver     = new (require('./datasaver.js').DataSaver) (TheMatron, DATADIR)
 DataFiles     = new (require('./datafiles.js').DataFiles) (TheMatron, DATADIR, DATAFILE)
@@ -96,7 +104,7 @@ MotusUp       = new (require('./motus_up.js').MotusUploader) (TheMatron, STATEFI
 Feed          = new (require('./datafeed.js').Feed)(TheMatron, FEEDCONFIG)
 // Create the two datafiles we write to for Lotek and CTT detections
 // Rotate every hour and also if hitting 1MB in size
-AllOut        = new SafeStream(TheMatron, "all", ".txt", 1000000, 3600, "parse") // 1MB max filesize
+AllOut        = new SafeStream(TheMatron, "all", ".txt", 1000000, 3600, "parse")
 LifetagOut    = new SafeStream(TheMatron, "ctt", ".txt", 1000000, 3600, "parse")
 
 Upgrader      = new Machine.Upgrader()
@@ -112,7 +120,7 @@ TheMatron.on("gotGPSFix", function(fix) {
     let line = "G," + fix.time + "," + fix.lat + "," + fix.lon + "," + fix.alt + "\n"
     AllOut.write(line)
     LifetagOut.write(line)
-    //ugly hack to set date from gps if gps has fix but system clock not set
+    // ugly hack to set date from gps if gps has fix but system clock not set
     if (clockNotSet && (new Date()).getFullYear() < 2013) {
         console.log("Trying to set time to " + fix.time + "\n")
         ChildProcess.exec("date --utc -s @" + fix.time, ()=>{})
@@ -121,7 +129,20 @@ TheMatron.on("gotGPSFix", function(fix) {
 })
 
 // Propagate input received from vamp-alsa-host, i.e. Lotek pulses, to data file
-TheMatron.on("vahData", (d) => { AllOut.write(d + '\n') })
+TheMatron.on("vahData", (d) => {
+    const bf = Acquisition.burstfinder
+    if (!bf.filter_file) AllOut.write(d + '\n')
+})
+// Propagate pulse filter output (as configured in burst finder) to data file
+TheMatron.on("bfOut", (d) => {
+    const bf = Acquisition.burstfinder
+    if (d.src == 'BF' && bf.method == 'burstfinder') {
+        AllOut.write(d.text + '\n'); /*console.log("BF: " + d.text)*/
+    } else if (d.src == 'PF' && bf.method == 'pulsefilter' && bf.filter_file) {
+        // this putputs (filtered) pulses: don't do that if raw pulses are also output (would dup)
+        AllOut.write(d.text + '\n'); /*console.log("PF: " + d.text)*/
+    }
+})
 // Propagate vah setting commands into data file
 TheMatron.on("setParam", (s) => {
     AllOut.write(["S", s.time, s.port, s.par, s.val, s.errCode, s.err].join(',') + "\n")
@@ -152,6 +173,8 @@ FlexDash.start()
 Dashboard.start()
 
 // Start the tagFinder
+PulseFilter.start()
+BurstFinder.start()
 TagFinder.start()
 
 MotusUp.start()
