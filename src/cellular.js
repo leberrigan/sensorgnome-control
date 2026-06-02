@@ -4,6 +4,7 @@ var Fs = require("fs")
 var Fsp = require("fs").promises
 
 const MMCLI = "/usr/bin/mmcli"
+const CM_BUSY_MARKER = "/run/check-modem/busy"
 const CHECK_MODEM = "/opt/sensorgnome/cellular/check-modem.sh"
 
 class CellConfig {
@@ -284,6 +285,9 @@ class CellMan {
   async execMMCli(modem, args, nolog = false) {
     const a = ["-J", ...args]
     if (modem != null) a.unshift("-m", modem)
+    while (Fs.existsSync(CM_BUSY_MARKER)) {
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    }
     const res = await this.execFile(MMCLI, a)
     if (!nolog) console.log(`ModemManager [${a.join(" ")}]: ${res.replace(/\n/g, "\\n")}`)
     const data = JSON.parse(res)
