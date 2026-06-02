@@ -294,6 +294,7 @@ class WifiMan {
 
         // enable and save
         try {
+            await this.execWpaCli(["disable", "wlan0"])
             await this.execWpaCli(["enable", "wlan0"])
             await this.execWpaCli(["save_config"])
             //console.log(await this.execFile("/usr/bin/cat", ["/etc/wpa_supplicant/wpa_supplicant.conf"]))
