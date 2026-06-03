@@ -21,6 +21,13 @@ const ts_dir = "/data/ts"
 
 const LotekFreqs = [ 166.380, 150.100, 150.500 ]
 
+// Returns an HSL colour string sweeping red→amber→green across the gauge's dBm range
+function signalColor(dbm, min, max) {
+    if (dbm == null) return '#9E9E9E'
+    const t = Math.max(0, Math.min(1, (dbm - min) / (max - min)))
+    return `hsl(${Math.round(t * 120)}, 70%, 40%)`
+}
+
 // The Dashboard class communicates between the web UI (FlexDash) and the "core" processing,
 // mainly using the "Matron" event system. It consists of a number of handlers divided into two
 // groups: the "handleSomeEvent" handlers that react to Matron events and propagate the data to
@@ -60,7 +67,9 @@ class Dashboard {
             'dash_show_pulses', 'dash_cellular_priority', 'dash_burstfinder_burst',
             'dash_burstfinder_filter_file', 'dash_burstfinder_filter_ui',
             'dash_burstfinder_method', 'dash_cell_debug', 'dash_cell_scan',
-            'dash_scan_carriers', 'dash_scan_carriers_enable'
+            'dash_scan_carriers', 'dash_scan_carriers_enable',
+            'netCellSeenImsi', 'netCellBadImsi', 'dash_cell_bad_imsi',
+            'netCellSignal', 'netWifiSignal', 'dash_enable_cell', 'netWifiIP'
         ]) {
             this.matron.on(ev, (...args) => {
                 let fn = 'handle_'+ev
@@ -317,7 +326,10 @@ class Dashboard {
         config.passphrase = "********"
         FlexDash.set('net_wifi_config', config)
     }
-    handle_netCellState(state) { FlexDash.set('cellular/state', state || "??") }
+    handle_netCellState(state) {
+        FlexDash.set('cellular/state', state || "??")
+        FlexDash.set('cellular/enabled', (state === 'disabled' || state === 'no-modem') ? 'OFF' : 'ON')
+    }
     handle_netCellReason(reason) { FlexDash.set('cellular/reason', reason || "") }
     handle_netScanStatus(status) { 
 		status = typeof status === "object" ? status : typeof status === "string" ? [status,""] : ["",""]
@@ -343,6 +355,7 @@ class Dashboard {
     handle_dash_enable_hotspot(state) { WifiMan.enableHotspot(state == "ON") }
     handle_dash_config_wifi(config) { WifiMan.setWifiConfig(config).then(() => {}) }
     handle_dash_config_cell(config) { CellMan.setCellConfig(config) }
+    handle_dash_enable_cell(state) { CellMan.enableCellular(state === 'ON') }
     handle_dash_scan_carriers() { CellMan.scanCarriers() }
     handle_dash_scan_carriers_enable(enabled) { FlexDash.set('scan_carriers/enable',enabled) }
     handle_dash_cellular_priority(prio) {
@@ -356,6 +369,32 @@ class Dashboard {
         FlexDash.set('cellular/debug', "Scan takes 10-20 seconds...")
         CellMan.getCellScan().then(dbg => FlexDash.set('cellular/debug', dbg))
     }
+    // Seen-IMSI reference table (populated from check-modem.sh log)
+    handle_netCellSeenImsi(rows) {
+        FlexDash.set('cellular/telecom/header', ["MCC", "MNC", "Operator", "Region", "Rejected"])
+        FlexDash.set('cellular/telecom/data', rows || [])
+    }
+    // Bad-IMSI table (currently blocked prefixes)
+    handle_netCellBadImsi(rows) {
+        FlexDash.set('cellular/bad_imsi/header', ["MCC", "MNC", "Operator", "Region"])
+        FlexDash.set('cellular/bad_imsi/data', rows || [])
+    }
+    // User edits the blocked list from the UI; expects array of 5-6 digit prefix strings
+    handle_dash_cell_bad_imsi(data) {
+        if (!Array.isArray(data)) return
+        CellMan.setCellConfig({ 'bad-imsi-prefixes': data })
+    }
+    handle_netCellSignal(s) {
+        FlexDash.set('cellular/signal/dbm',   s?.dbm ?? null)
+        FlexDash.set('cellular/signal/label',  s ? `${s.dbm} dBm (${s.rat})` : '—')
+        FlexDash.set('cellular/signal/color',  signalColor(s?.dbm, -120, -50))
+    }
+    handle_netWifiSignal(s) {
+        FlexDash.set('net_wifi_signal/dbm',   s?.dbm ?? null)
+        FlexDash.set('net_wifi_signal/label',  s ? `${s.dbm} dBm` : '—')
+        FlexDash.set('net_wifi_signal/color',  signalColor(s?.dbm, -90, -30))
+    }
+    handle_netWifiIP(ip) { FlexDash.set('net_wifi_ip', ip || '—') }
 
     // upload info
     handle_motusRecv(info) {

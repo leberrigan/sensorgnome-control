@@ -2,16 +2,23 @@
 
 var Fs = require("fs")
 var Fsp = require("fs").promises
+const { lookupImsi, lookupPrefix } = require('./mcc-mnc')
 
 const MMCLI = "/usr/bin/mmcli"
 const CM_BUSY_MARKER = "/run/check-modem/busy"
 const CHECK_MODEM = "/opt/sensorgnome/cellular/check-modem.sh"
+const IMSI_LOG = "/var/lib/sensorgnome/imsi-log"
+
+// Convert a dBm value to 0-100 percentage within a practical range
+function signalPct(dbm, min, max) {
+  return Math.round(Math.max(0, Math.min(100, (dbm - min) / (max - min) * 100)))
+}
 
 class CellConfig {
   constructor(path) {
     this.path = path
     // config values
-    this.data = { apn: "", "ip-type": "ipv4v6", "allow-roaming": "yes", priority: "low"}
+    this.data = { apn: "", "ip-type": "ipv4v6", "allow-roaming": "yes", priority: "low", "bad-imsi-prefixes": [] }
     //
     try {
       let text = Fs.readFileSync(path).toString()
@@ -62,17 +69,22 @@ class CellMan {
     this.config = null
     this.setInter
 	  this.modemID = null
+    this._seenImsi = []       // cache of {mcc, mnc, operator, region} for each unique seen IMSI
+    this._imsiLogTimer = null
   }
 
   start(configPath) {
     this.config = new CellConfig(configPath)
     this.matron.emit("netCellConfig", this.config.data)
+    this.matron.emit("netCellBadImsi", this._badImsiRows())
     this.matron.on("netDefaultRoute", () => this.getCellStatusSoon(400))
     this.getCellStatusSoon(400)
+    this.watchImsiLog()
   }
 
   setCellConfig(config) {
-    if (typeof config == 'object' && typeof config.apn == 'string') {
+    if (typeof config != 'object') return
+    if (typeof config.apn == 'string') {
       this.config.update({
         apn: config.apn,
         'ip-type': config["ip-type"] || "ipv4v6",
@@ -85,6 +97,72 @@ class CellMan {
       })
       this.getCellStatusSoon(2000)
     }
+    if (Array.isArray(config['bad-imsi-prefixes'])) {
+      const prefixes = config['bad-imsi-prefixes'].filter(p => /^[0-9]{5,6}$/.test(p))
+      this.config.update({ 'bad-imsi-prefixes': prefixes })
+      this.matron.emit("netCellBadImsi", this._badImsiRows())
+      this.emitImsiTable()
+    }
+  }
+
+  // Build table rows [[mcc, mnc, operator, region]] for the bad-imsi-prefixes list
+  _badImsiRows() {
+    return (this.config.data['bad-imsi-prefixes'] || []).map(p => {
+      const info = lookupPrefix(p) || { mcc: p.slice(0, 3), mnc: p.slice(3), operator: 'Unknown', region: 'Unknown' }
+      return [info.mcc, info.mnc, info.operator, info.region]
+    })
+  }
+
+  // Emit the seen-IMSI table, annotating each row with Rejected status
+  emitImsiTable() {
+    const badPrefixes = this.config.data['bad-imsi-prefixes'] || []
+    const rows = this._seenImsi.map(e => {
+      const rejected = badPrefixes.some(p => (e.mcc + e.mnc) === p)
+      return [e.mcc, e.mnc, e.operator, e.region, rejected]
+    })
+    this.matron.emit("netCellSeenImsi", rows)
+  }
+
+  // Read IMSI log written by check-modem.sh, deduplicate by MCC+MNC, update cache
+  readImsiLog() {
+    try {
+      const lines = Fs.readFileSync(IMSI_LOG, 'utf8').split('\n').filter(Boolean)
+      const seen = new Map()
+      for (const line of lines) {
+        const parts = line.trim().split('\t')
+        const imsi = parts[parts.length - 1]
+        if (!/^[0-9]{14,15}$/.test(imsi)) continue
+        const info = lookupImsi(imsi)
+        if (!info) continue
+        const key = info.mcc + info.mnc
+        if (!seen.has(key)) seen.set(key, info)
+      }
+      this._seenImsi = Array.from(seen.values())
+    } catch (e) {
+      if (e.code !== 'ENOENT') console.log("readImsiLog:", e.message)
+    }
+    this.emitImsiTable()
+  }
+
+  // Poll the IMSI log: every 30s when not connected, every 5 min when connected
+  watchImsiLog() {
+    if (this._imsiLogTimer) { clearTimeout(this._imsiLogTimer); this._imsiLogTimer = null }
+    this.readImsiLog()
+    const interval = this.cell_state === 'connected' ? 300000 : 30000
+    this._imsiLogTimer = setTimeout(() => this.watchImsiLog(), interval)
+  }
+
+  enableCellular(enable) {
+    if (!this.modemID) { console.log("enableCellular: no modem ID yet"); return }
+    // execMMCli always parses JSON but -e/-d returns plain text, so use execFile directly
+    this.execFile(MMCLI, ['-m', this.modemID, enable ? '-e' : '-d'])
+      .then(out => {
+        console.log(`enableCellular(${enable}):`, out)
+        // Clear any long-running poll timer so the 1s re-check isn't silently dropped
+        if (this.cellStatusTimer) { clearTimeout(this.cellStatusTimer); this.cellStatusTimer = null }
+        this.getCellStatusSoon(1000)
+      })
+      .catch(err => console.log(`enableCellular(${enable}):`, err.message))
   }
 
   getCellPriority() {
@@ -147,6 +225,7 @@ class CellMan {
           this.matron.emit("netCellCarrier", "Checking...")
           this.matron.emit("netCellCarriers", [])
           this.matron.emit("netCellInfo", {})
+          this.matron.emit("netCellSignal", null)
           this.getCellStatusSoon(30000)
           return
         }
@@ -159,7 +238,10 @@ class CellMan {
         this.matron.emit("netCellState", this.cell_state)
         this.matron.emit("netCellReason", reason)
         // see whether a connectivity check is in order
-        if (old_state != this.cell_state) this.getCellStatusSoon()
+        if (old_state != this.cell_state) {
+          this.getCellStatusSoon()
+          this.watchImsiLog()
+        }
         if (!["connected"].includes(this.cell_state)) {
           this.getCellStatusSoon(20000)
         } else {
@@ -249,6 +331,19 @@ class CellMan {
               info["signal"] = { rat, ...sig[rat] }
               break
             }
+          }
+          const s = info["signal"]
+          if (s) {
+            const isLte = ['lte', 'nr5g'].includes(s.rat)
+            const rsrp = s.rsrp && s.rsrp !== '--' ? parseFloat(s.rsrp) : NaN
+            const rssi = s.rssi && s.rssi !== '--' ? parseFloat(s.rssi) : NaN
+            const dbm = !isNaN(rsrp) ? rsrp : rssi
+            if (!isNaN(dbm)) {
+              const pct = signalPct(dbm, isLte ? -120 : -100, isLte ? -70 : -60)
+              this.matron.emit("netCellSignal", { pct, dbm, rat: s.rat.toUpperCase() })
+            }
+          } else {
+            this.matron.emit("netCellSignal", null)
           }
         this.matron.emit("netCellInfo", info)
       }

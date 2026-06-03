@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "mcc-mnc-list": "*",
     "archiver": "^5.3.0",
     "body-parser": "^1.20.2",
     "centra": "^2.6.0",

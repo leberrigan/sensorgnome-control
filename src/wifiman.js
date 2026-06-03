@@ -30,6 +30,7 @@ const centra = require("./centra.js")
 const Fs = require('fs')
 const Fsp = require("fs").promises
 const crypto = require("crypto")
+const OS = require('os')
 
 const IP_CMD = "/usr/sbin/ip"
 const route_map = { wlan0: "wifi", eth0: "eth", usb: "cell", wwan0: "cell", usb0: "cell" }
@@ -44,6 +45,12 @@ const HOTSPOT_CONFIG = "/etc/hostapd/hostapd.conf"
 const LED_SCRIPT = "/opt/sensorgnome/wifi-button/sysled.sh"
 const WPA_CLI = "/usr/sbin/wpa_cli"
 const RFKILL = "/usr/sbin/rfkill"
+const IW = "/usr/sbin/iw"
+const WIFI_SIGNAL_INTERVAL = 30000
+
+function signalPct(dbm, min, max) {
+  return Math.round(Math.max(0, Math.min(100, (dbm - min) / (max - min) * 100)))
+}
 
 // wpa_cli status: INACTIVE, ..., COMPLETED
 
@@ -60,6 +67,7 @@ class WifiMan {
         this.recheck_time = INET_RECHECK_INIT
         this.check_timer = null
         this.hotspot_has_pass = false
+        this._wifiSignalTimer = null
     }
 
     start() {
@@ -161,6 +169,13 @@ class WifiMan {
         .catch(err => console.log("getInterfaceStates ip link:", err))
 
         this.getWifiStatusSoon(100)
+        this.matron.emit("netWifiIP", this.getWlanIP())
+    }
+
+    getWlanIP() {
+        const addrs = (OS.networkInterfaces()['wlan0'] || [])
+            .filter(a => a.family === 'IPv4' && !a.internal)
+        return addrs[0]?.address || null
     }
     
     getWifiStatusSoon(ms) {
@@ -181,6 +196,13 @@ class WifiMan {
             if (old_state != this.wifi_state) {
                 console.log("Wifi state: %s", stdout.replace(/\n/g, " "))
                 this.testConnectivitySoon()
+                if (this.wifi_state === "CONNECTED") {
+                    this.getWifiSignal()
+                    this.startWifiSignalPoll()
+                } else if (old_state === "CONNECTED") {
+                    this.stopWifiSignalPoll()
+                    this.matron.emit("netWifiSignal", null)
+                }
             }
             if (! ["CONNECTED","INACTIVE"].includes(this.wifi_state)) {
                 this.getWifiStatusSoon(2000)
@@ -229,6 +251,31 @@ class WifiMan {
         return res
     }
     
+    getWifiSignal() {
+        this.execFile(IW, ["dev", "wlan0", "link"])
+        .then(stdout => {
+            const m = stdout.match(/signal:\s*([-\d.]+)\s*dBm/)
+            if (m) {
+                const dbm = parseFloat(m[1])
+                const pct = signalPct(dbm, -90, -30)
+                this.matron.emit("netWifiSignal", { pct, dbm })
+            }
+        })
+        .catch(err => console.log("getWifiSignal:", err))
+    }
+
+    startWifiSignalPoll() {
+        this.stopWifiSignalPoll()
+        this._wifiSignalTimer = setInterval(() => {
+            if (this.wifi_state === "CONNECTED") this.getWifiSignal()
+            else this.stopWifiSignalPoll()
+        }, WIFI_SIGNAL_INTERVAL)
+    }
+
+    stopWifiSignalPoll() {
+        if (this._wifiSignalTimer) { clearInterval(this._wifiSignalTimer); this._wifiSignalTimer = null }
+    }
+
     getWifiCountry() { return this.execWpaCli(["get", "country"]) }
 
     getWifiSSID() { return this.execWpaCli(["get_network", "wlan0", "ssid"]) }

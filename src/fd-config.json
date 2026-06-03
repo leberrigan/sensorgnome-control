@@ -371,7 +371,7 @@
     "w00071": {
       "kind": "PropsTable",
       "rows": 2,
-      "cols": 3,
+      "cols": 6,
       "static": {
         "title": "Config",
         "data": {
@@ -696,7 +696,7 @@
     "w00244": {
       "kind": "Toggle",
       "rows": 1,
-      "cols": 3,
+      "cols": 2,
       "static": {
         "title": "",
         "on_value": "ON",
@@ -729,14 +729,15 @@
     },
     "w01975": {
       "kind": "Panel",
-      "rows": 2,
+      "rows": 3,
       "cols": 3,
       "static": {
         "title": "WiFi Client",
         "widgets": [
-          "w00071",
           "w00244",
-          "w05477"
+          "w05477",
+          "w05306",
+          "w00071"
         ],
         "solid": true
       },
@@ -746,7 +747,7 @@
     "w05477": {
       "kind": "Stat",
       "rows": 1,
-      "cols": 3,
+      "cols": 2,
       "static": {
         "title": "",
         "high_regexp": "CONNECTED",
@@ -754,7 +755,7 @@
         "low_color": "#000000",
         "low_regexp": "INACTIVE",
         "color": "#EF6C00",
-        "zoom": 0.95,
+        "zoom": 0.7,
         "popup_info": "If the status keeps cycling between associating and disconnected/inactive then most likely the password is incorrect. Unfortunately there is no good error message for this common failure case..."
       },
       "dynamic": {
@@ -1293,7 +1294,8 @@
           "w06078",
           "w03153",
           "w01266",
-          "w06246"
+          "w06246",
+          "w09651"
         ]
       },
       "dynamic": {},
@@ -1302,10 +1304,10 @@
     "w01266": {
       "kind": "Stat",
       "rows": 1,
-      "cols": 3,
+      "cols": 2,
       "static": {
         "title": "DNS",
-        "zoom": 0.9
+        "zoom": 0.7
       },
       "dynamic": {
         "value": "net_dns"
@@ -1315,10 +1317,10 @@
     "w06246": {
       "kind": "Stat",
       "rows": 1,
-      "cols": 3,
+      "cols": 2,
       "static": {
         "title": "Gateway",
-        "zoom": 0.9
+        "zoom": 0.7
       },
       "dynamic": {
         "value": "net_default_gw"
@@ -1489,37 +1491,26 @@
     },
     "w07599": {
       "kind": "Panel",
-      "rows": 5,
+      "rows": 9,
       "cols": 3,
       "static": {
         "title": "Cellular",
         "widgets": [
+          "w00320",
           "w04606",
-          "w07289",
+          "w06592",
+          "w03999",
+          "w05576",
           "w03595",
+          "w07289",
           "w05350",
-          "w03999"
+          "w01225",
+          "w02332"
         ],
         "solid": false
       },
       "dynamic": {},
       "id": "w07599"
-    },
-    "w04002": {
-      "kind": "Panel",
-      "rows": 5,
-      "cols": 3,
-      "static": {
-        "title": "Cellular carriers",
-        "widgets": [
-          "w04001",
-          "w04003",
-          "w04000"
-        ],
-        "solid": false
-      },
-      "dynamic": {},
-      "id": "w04002"
     },
     "w04606": {
       "kind": "Stat",
@@ -1542,7 +1533,7 @@
     },
     "w07289": {
       "kind": "PropsTable",
-      "rows": 5,
+      "rows": 3,
       "cols": 4,
       "static": {
         "title": "Info",
@@ -1555,27 +1546,10 @@
       },
       "dynamic": {
         "data": "cellular/info",
-        "fields": "cellular/info_labels"
+        "fields": ""
       },
       "id": "w07289",
       "output": null
-    },
-    "w06057": {
-      "kind": "SimpleTable",
-      "rows": 4,
-      "cols": 3,
-      "static": {
-        "title": "Network Usage",
-        "popup_info": "Network usage information collected every 5 minutes and aggregated over time. Uses \"vnstat\".",
-        "columns": [],
-        "labels": null
-      },
-      "dynamic": {
-        "data": "net_usage_data",
-        "columns": "null",
-        "labels": "net_usage_columns"
-      },
-      "id": "w06057"
     },
     "w03595": {
       "kind": "Stat",
@@ -1595,11 +1569,11 @@
       "rows": 1,
       "cols": 2,
       "static": {
-        "title": "Carrier",
+        "title": "Operator",
         "zoom": 0.6
       },
       "dynamic": {
-        "value": "cellular/carrier"
+        "value": "cellular/info/operator name"
       },
       "id": "w03999"
     },
@@ -1649,7 +1623,7 @@
     },
     "w05350": {
       "kind": "PropsTable",
-      "rows": 2,
+      "rows": 3,
       "cols": 2,
       "static": {
         "title": "Config",
@@ -1686,7 +1660,7 @@
     "w01316": {
       "kind": "Toggle",
       "rows": 1,
-      "cols": 2,
+      "cols": 3,
       "static": {
         "title": "Remote commands",
         "on_value": "enabled",
@@ -1702,7 +1676,7 @@
     "w03100": {
       "kind": "Toggle",
       "rows": 1,
-      "cols": 2,
+      "cols": 3,
       "static": {
         "title": "Remote Web UI",
         "on_value": "enabled",
@@ -2774,6 +2748,135 @@
       },
       "dynamic": {},
       "id": "w01086"
+    },
+    "w02332": {
+      "kind": "SimpleTable",
+      "rows": 2,
+      "cols": 6,
+      "static": {
+        "title": "Blocked SIM Profiles",
+        "popup_info": "Profiles listed here are skipped at boot. If the SIM selects a blocked profile, the station cycles the modem radio to force a new selection. If no acceptable profile is found after 10 attempts, the station proceeds anyway and logs a warning.  Each entry is identified by its 5–6 digit IMSI prefix (MCC + MNC). Entries are saved manually using config options above and take effect on the next reboot or modem reset."
+      },
+      "dynamic": {
+        "data": "cellular/bad_imsi/data",
+        "labels": "cellular/bad_imsi/header"
+      },
+      "id": "w02332"
+    },
+    "w01225": {
+      "kind": "SimpleTable",
+      "rows": 2,
+      "cols": 6,
+      "static": {
+        "title": "SIM Profile History",
+        "data": "",
+        "popup_info": "The SIM card in this station supports multiple carrier profiles (IMSIs). Each time the modem powers on, the SIM applet randomly selects one. This table shows every profile observed since the station was set up, identified by the carrier's country code (MCC) and network code (MNC).  Profiles marked Rejected are currently blocked — at startup the station will power-cycle the modem radio until a different profile is selected (up to 10 attempts). If a profile is causing connection failures in your region, block it using the controls below."
+      },
+      "dynamic": {
+        "data": "cellular/telecom/data",
+        "labels": "cellular/telecom/header"
+      },
+      "id": "w01225"
+    },
+    "w06592": {
+      "kind": "Gauge",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Signal Strength",
+        "value": 90,
+        "unit": "dBm",
+        "stretch": false,
+        "low_threshold": -110,
+        "high_threshold": -90,
+        "low_color": "#C62828",
+        "high_color": "#2E7D32",
+        "color": "#FF8F00",
+        "min": -120,
+        "max": -50
+      },
+      "dynamic": {
+        "value": "cellular/signal/dbm",
+        "color": "cellular/signal/color"
+      },
+      "id": "w06592"
+    },
+    "w05306": {
+      "kind": "Gauge",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Signal Strength",
+        "low_color": "#C62828",
+        "low_threshold": -75,
+        "high_threshold": -55,
+        "high_color": "#2E7D32",
+        "color": "#FF8F00",
+        "unit": "dBm",
+        "max": -30,
+        "min": -90
+      },
+      "dynamic": {
+        "value": "net_wifi_signal/dbm",
+        "color": "net_wifi_signal/color"
+      },
+      "id": "w05306"
+    },
+    "w02232": {
+      "kind": "SimpleTable",
+      "rows": 8,
+      "cols": 3,
+      "static": {
+        "title": "Network Usage",
+        "popup_info": "Network usage information collected every 5 minutes and aggregated over time. Uses \"vnstat\".",
+        "data": ""
+      },
+      "dynamic": {
+        "labels": "net_usage_columns",
+        "data": "net_usage_data"
+      },
+      "id": "w02232"
+    },
+    "w00320": {
+      "kind": "Toggle",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "",
+        "off_value": "OFF",
+        "on_value": "ON"
+      },
+      "dynamic": {
+        "value": "cellular/enabled"
+      },
+      "id": "w00320",
+      "output": "enable_cell"
+    },
+    "w05576": {
+      "kind": "Stat",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Carrier",
+        "zoom": 0.6
+      },
+      "dynamic": {
+        "value": "cellular/info/carrier"
+      },
+      "id": "w05576"
+    },
+    "w09651": {
+      "kind": "Stat",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Local Wi-Fi IP",
+        "zoom": 0.7
+      },
+      "dynamic": {
+        "value": "net_wifi_ip"
+      },
+      "id": "w09651"
     }
   },
   "grids": {
@@ -2821,9 +2924,7 @@
         "w07658",
         "w01975",
         "w00701",
-        "w07599",
-        "w06057",
-        "w04002"
+        "w07599"
       ],
       "id": "g03307",
       "min_cols": 3,
@@ -2892,6 +2993,16 @@
       "id": "g10000",
       "min_cols": 3,
       "max_cols": 6
+    },
+    "g06076": {
+      "kind": "FixedGrid",
+      "title": "",
+      "widgets": [
+        "w02232"
+      ],
+      "id": "g06076",
+      "min_cols": 3,
+      "max_cols": 6
     }
   },
   "dash": {
@@ -2936,7 +3047,8 @@
       "title": "network",
       "id": "t06959",
       "grids": [
-        "g03307"
+        "g03307",
+        "g06076"
       ]
     },
     "t08355": {
