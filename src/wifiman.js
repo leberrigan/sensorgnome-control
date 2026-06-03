@@ -76,6 +76,8 @@ class WifiMan {
         //setTimeout(() => this.getDefaultRoute(), 3000) // for debugging
         this.getWifiConfig()
         this.matron.on('dash_login', (user, pass) => this.checkHotspotPassword(user,pass))
+        // One scan at startup to populate the table
+        setTimeout(() => this.scanWifiNetworks(), 5000)
     }
 
     // ===== monitoring default route
@@ -251,6 +253,52 @@ class WifiMan {
         return res
     }
     
+    async scanWifiNetworks() {
+        this.matron.emit('netWifiScanEnabled', false)
+        try {
+            // Trigger a scan (ignore FAIL-BUSY if one is already in progress)
+            await this.execWpaCli(['scan']).catch(() => {})
+            await new Promise(r => setTimeout(r, 2000))
+
+            const [results, listNets, status] = await Promise.all([
+                this.execWpaCli(['scan_results'], true),
+                this.execWpaCli(['list_networks'], true),
+                this.execWpaCli(['status'], true),
+            ])
+
+            const connectedSSID = status.match(/^ssid=(.+)$/m)?.[1] ?? null
+
+            const savedSSIDs = new Set(
+                listNets.split('\n')
+                    .filter(l => /^\d+\t/.test(l))
+                    .map(l => l.split('\t')[1])
+            )
+
+            // Deduplicate by SSID, keeping the strongest-signal entry
+            const seen = new Map()
+            for (const line of results.split('\n')) {
+                if (!line || line.startsWith('bssid')) continue
+                const parts = line.split('\t')
+                if (parts.length < 5) continue
+                const ssid = parts[4]
+                if (!ssid) continue // skip hidden networks
+                const signal = parseInt(parts[2])
+                if (seen.has(ssid) && seen.get(ssid)[1] >= signal) continue
+                const st = ssid === connectedSSID ? 'Connected'
+                         : savedSSIDs.has(ssid)   ? 'Saved'
+                         : ''
+                seen.set(ssid, [ssid, signal, st])
+            }
+
+            const rows = Array.from(seen.values()).sort((a, b) => b[1] - a[1])
+            this.matron.emit('netWifiNetworks', rows)
+        } catch (err) {
+            console.log('scanWifiNetworks:', err.message)
+        } finally {
+            this.matron.emit('netWifiScanEnabled', true)
+        }
+    }
+
     getWifiSignal() {
         this.execFile(IW, ["dev", "wlan0", "link"])
         .then(stdout => {

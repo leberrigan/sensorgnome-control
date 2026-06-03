@@ -729,7 +729,7 @@
     },
     "w01975": {
       "kind": "Panel",
-      "rows": 3,
+      "rows": 6,
       "cols": 3,
       "static": {
         "title": "WiFi Client",
@@ -737,7 +737,10 @@
           "w00244",
           "w05477",
           "w05306",
-          "w00071"
+          "w00071",
+          "w07851",
+          "w00881",
+          "w04107"
         ],
         "solid": true
       },
@@ -1491,7 +1494,7 @@
     },
     "w07599": {
       "kind": "Panel",
-      "rows": 9,
+      "rows": 11,
       "cols": 3,
       "static": {
         "title": "Cellular",
@@ -1499,13 +1502,15 @@
           "w00320",
           "w04606",
           "w06592",
+          "w05350",
           "w03999",
           "w05576",
           "w03595",
-          "w07289",
-          "w05350",
+          "w01163",
+          "w03330",
           "w01225",
-          "w02332"
+          "w02332",
+          "w07289"
         ],
         "solid": false
       },
@@ -1533,8 +1538,8 @@
     },
     "w07289": {
       "kind": "PropsTable",
-      "rows": 3,
-      "cols": 4,
+      "rows": 2,
+      "cols": 6,
       "static": {
         "title": "Info",
         "data": {
@@ -1546,7 +1551,7 @@
       },
       "dynamic": {
         "data": "cellular/info",
-        "fields": ""
+        "fields": "cellular/info_labels"
       },
       "id": "w07289",
       "output": null
@@ -1624,7 +1629,7 @@
     "w05350": {
       "kind": "PropsTable",
       "rows": 3,
-      "cols": 2,
+      "cols": 4,
       "static": {
         "title": "Config",
         "data": {},
@@ -2781,7 +2786,7 @@
     "w06592": {
       "kind": "Gauge",
       "rows": 1,
-      "cols": 2,
+      "cols": 3,
       "static": {
         "title": "Signal Strength",
         "value": 90,
@@ -2822,25 +2827,10 @@
       },
       "id": "w05306"
     },
-    "w02232": {
-      "kind": "SimpleTable",
-      "rows": 8,
-      "cols": 3,
-      "static": {
-        "title": "Network Usage",
-        "popup_info": "Network usage information collected every 5 minutes and aggregated over time. Uses \"vnstat\".",
-        "data": ""
-      },
-      "dynamic": {
-        "labels": "net_usage_columns",
-        "data": "net_usage_data"
-      },
-      "id": "w02232"
-    },
     "w00320": {
       "kind": "Toggle",
       "rows": 1,
-      "cols": 2,
+      "cols": 1,
       "static": {
         "title": "",
         "off_value": "OFF",
@@ -2877,6 +2867,93 @@
         "value": "net_wifi_ip"
       },
       "id": "w09651"
+    },
+    "w02911": {
+      "kind": "SimpleTable",
+      "rows": 7,
+      "cols": 3,
+      "static": {
+        "title": "Network Usage",
+        "popup_info": "Network usage information collected every 5 minutes and aggregated over time. Uses \"vnstat\"."
+      },
+      "dynamic": {
+        "data": "net_usage_data",
+        "labels": "net_usage_columns"
+      },
+      "id": "w02911"
+    },
+    "w04107": {
+      "kind": "SimpleTable",
+      "rows": 3,
+      "cols": 6,
+      "static": {
+        "title": "",
+        "columns": null,
+        "data": "",
+        "labels": [
+          "SSID",
+          "Signal strength",
+          "Status"
+        ]
+      },
+      "dynamic": {
+        "data": "wifi/networks/data",
+        "labels": "wifi/networks/labels"
+      },
+      "id": "w04107"
+    },
+    "w01163": {
+      "kind": "Stat",
+      "rows": 1,
+      "cols": 4,
+      "static": {
+        "title": "ICCID",
+        "value": "**********************",
+        "zoom": 0.7,
+        "high_regexp": "^[0-9]{19,22}$",
+        "high_color": "#2E7D32",
+        "high_threshold": null,
+        "chip": false,
+        "low_regexp": ""
+      },
+      "dynamic": {
+        "value": "cellular/iccid"
+      },
+      "id": "w01163"
+    },
+    "w03330": {
+      "kind": "PushButton",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Show ICCID"
+      },
+      "dynamic": {},
+      "id": "w03330",
+      "output": "cellular_iccid_show"
+    },
+    "w00881": {
+      "kind": "PopupButton",
+      "rows": 1,
+      "cols": 1,
+      "static": {
+        "title": "Scan"
+      },
+      "dynamic": {},
+      "id": "w00881"
+    },
+    "w07851": {
+      "kind": "Label",
+      "rows": 1,
+      "cols": 5,
+      "static": {
+        "title": "",
+        "label": "Available Wifi Networks",
+        "weight": "600",
+        "size": "150%"
+      },
+      "dynamic": {},
+      "id": "w07851"
     }
   },
   "grids": {
@@ -2924,7 +3001,8 @@
         "w07658",
         "w01975",
         "w00701",
-        "w07599"
+        "w07599",
+        "w02911"
       ],
       "id": "g03307",
       "min_cols": 3,
@@ -2993,16 +3071,6 @@
       "id": "g10000",
       "min_cols": 3,
       "max_cols": 6
-    },
-    "g06076": {
-      "kind": "FixedGrid",
-      "title": "",
-      "widgets": [
-        "w02232"
-      ],
-      "id": "g06076",
-      "min_cols": 3,
-      "max_cols": 6
     }
   },
   "dash": {
@@ -3047,8 +3115,7 @@
       "title": "network",
       "id": "t06959",
       "grids": [
-        "g03307",
-        "g06076"
+        "g03307"
       ]
     },
     "t08355": {

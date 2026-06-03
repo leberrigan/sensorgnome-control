@@ -69,7 +69,9 @@ class Dashboard {
             'dash_burstfinder_method', 'dash_cell_debug', 'dash_cell_scan',
             'dash_scan_carriers', 'dash_scan_carriers_enable',
             'netCellSeenImsi', 'netCellBadImsi', 'dash_cell_bad_imsi',
-            'netCellSignal', 'netWifiSignal', 'dash_enable_cell', 'netWifiIP'
+            'netCellSignal', 'netWifiSignal', 'dash_enable_cell', 'netWifiIP',
+            'netWifiNetworks', 'netWifiScanEnabled', 'netCellICCID', 'dash_cellular_iccid_show',
+            'dash_wifi_networks_scan'
         ]) {
             this.matron.on(ev, (...args) => {
                 let fn = 'handle_'+ev
@@ -154,6 +156,7 @@ class Dashboard {
         FlexDash.set('rtl_sdr_gain', {})
         FlexDash.set('lotek_show_pulses', "on")
         this.show_pulses = true
+        FlexDash.set('cellular/iccid', '**********************')
 
         FlexDash.monitoring = this.monitoring.bind(this)
 
@@ -395,6 +398,14 @@ class Dashboard {
         FlexDash.set('net_wifi_signal/color',  signalColor(s?.dbm, -90, -30))
     }
     handle_netWifiIP(ip) { FlexDash.set('net_wifi_ip', ip || '—') }
+    handle_netWifiNetworks(rows) {
+        FlexDash.set('wifi/networks/labels', ["SSID", "Signal (dBm)", "Status"])
+        FlexDash.set('wifi/networks/data', rows || [])
+    }
+    handle_netCellICCID(iccid) { FlexDash.set('cellular/iccid', iccid || '') }
+    handle_dash_cellular_iccid_show() { CellMan.fetchAndRevealICCID() }
+    handle_netWifiScanEnabled(enabled) { FlexDash.set('wifi/networks/scan_enabled', enabled) }
+    handle_dash_wifi_networks_scan() { WifiMan.scanWifiNetworks() }
 
     // upload info
     handle_motusRecv(info) {

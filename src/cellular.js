@@ -71,6 +71,8 @@ class CellMan {
 	  this.modemID = null
     this._seenImsi = []       // cache of {mcc, mnc, operator, region} for each unique seen IMSI
     this._imsiLogTimer = null
+    this._simPath = null
+    this._iccidTimer = null
   }
 
   start(configPath) {
@@ -150,6 +152,29 @@ class CellMan {
     this.readImsiLog()
     const interval = this.cell_state === 'connected' ? 300000 : 30000
     this._imsiLogTimer = setTimeout(() => this.watchImsiLog(), interval)
+  }
+
+  fetchAndRevealICCID() {
+    if (!this.modemID) { console.log("fetchAndRevealICCID: modem not yet initialised"); return }
+    // Fetch modem info to get the SIM D-Bus path, then query the SIM for its ICCID
+    this.execMMCli(this.modemID, [], true)
+      .then(data => {
+        const simPath = data?.modem?.generic?.sim
+        if (!simPath) throw new Error("SIM not found in modem info")
+        const simId = simPath.replace(/.*\//, "")
+        return this.execMMCli(null, ["-i", simId], true)
+      })
+      .then(simData => {
+        const iccid = simData?.sim?.properties?.iccid
+        if (!iccid) throw new Error("ICCID not present in SIM info")
+        this.matron.emit("netCellICCID", iccid)
+        if (this._iccidTimer) clearTimeout(this._iccidTimer)
+        this._iccidTimer = setTimeout(() => {
+          this.matron.emit("netCellICCID", '**********************')
+          this._iccidTimer = null
+        }, 15000)
+      })
+      .catch(err => console.log("fetchAndRevealICCID:", err.message))
   }
 
   enableCellular(enable) {
@@ -261,7 +286,7 @@ class CellMan {
         info["number"] = modem?.generic?.["own-numbers"]?.join(" ")
 
         // Need to run a different command to get SIM ID
-        this.getSimICCID( modem?.sim );
+        this.getSimICCID( modem?.generic?.sim, info );
 
 		    this.matron.emit("netCellCarrier", info["carrier"])
         // see what to query next
@@ -409,24 +434,19 @@ class CellMan {
   }
   
 
-  getSimICCID(simPath) {
-
-    // Get SIM ICCID
-    if (simPath) {
-      const simId = simPath.replace(/.*\//, "")
-      this.execMMCli(null, ["-i", simId], true)
-        .then(simData => {
-          const iccid = simData?.sim?.properties?.iccid
-          if (iccid) {
-            info["sim-iccid"] = iccid
-          }
-          this.matron.emit("netCellInfo", info)
-        })
-        .catch(err => {
-          console.log("SIM query failed:", err.message.trim())
-          this.matron.emit("netCellInfo", info)
-        })
-    }
+  getSimICCID(simPath, info) {
+    if (!simPath) return
+    const simId = simPath.replace(/.*\//, "")
+    this.execMMCli(null, ["-i", simId], true)
+      .then(simData => {
+        const iccid = simData?.sim?.properties?.iccid
+        if (iccid) info["sim-iccid"] = iccid
+        this.matron.emit("netCellInfo", info)
+      })
+      .catch(err => {
+        console.log("SIM query failed:", err.message.trim())
+        this.matron.emit("netCellInfo", info)
+      })
   }
 
   listCarriers( data, info ) {
