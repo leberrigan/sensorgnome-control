@@ -132,6 +132,7 @@ class FlexDash {
 
         // mount static content, publicly accessible
         this.app.get('/', (...args) => this.sendIndexHtml(...args))
+        this.app.get('/auth', (req, res) => req.session?.rooms ? res.status(200).end() : res.status(401).end())
         this.app.post('/login', Express.json(), (req, res) => this.login(req, res))
         this.app.get('/monitoring', (req, res) => this.sendMonitoring(req, res))
         this.app.use(Express.static(__dirname + '/public', { extensions: ['html'] }))
@@ -191,6 +192,7 @@ class FlexDash {
 
             data = data.toString()
                 .replace(/title:.*/, `title: '${Machine.machineID}',`)
+                .replace(/username:.*/, `username: '${Machine.username}',`)
                 .replace(/<title>[^<]+/, `<title>${Machine.machineID}`)
             res.end(data)
         })
@@ -263,14 +265,13 @@ class FlexDash {
         const ss = socket.request.session
         console.log(`SIO connection ${socket.id} session=${ss.id.substring(0,8)} x-domain:${hs.xdomain}`)
         this.sendData(socket)
+        this.sendConfig(socket) // 0.4.x client doesn't send $ctrl/start; send config immediately
 
         // handle incoming messages
         socket.on("msg", (topic, payload) => {
             try {
                 if (typeof topic !== 'string') {
                     console.warn(`SIO message doesn't have string topic: ${JSON.stringify(topic)}`)
-                } else if (topic === "$ctrl" && payload === "start") {
-                    this.sendConfig(socket)
                 } else if (topic.startsWith("$config")) {
                     this.saveConfig(socket, topic, payload)
                 } else {
