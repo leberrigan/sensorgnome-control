@@ -8,8 +8,23 @@ mkdir $DESTDIR
 
 # install FlexDash in there
 mkdir src/public/flexdash
-curl -L https://s3.amazonaws.com/s3.voneicken.com/flexdash/flexdash-0.3.18.tgz | \
+curl -L https://s3.amazonaws.com/s3.voneicken.com/flexdash/flexdash-0.4.90.tgz | \
     tar xzf - -C src/public/flexdash
+
+# generate flexdash.html from the tarball's index.html, prefixing asset paths with ./flexdash/
+# and injecting the socket.io connection options so sendIndexHtml can patch the title
+python3 - <<'EOF'
+with open('src/public/flexdash/index.html') as f:
+    html = f.read()
+html = html.replace('src="./assets/', 'src="./flexdash/assets/')
+html = html.replace('href="./assets/', 'href="./flexdash/assets/')
+html = html.replace('href="./favicon.ico"', 'href="./flexdash/favicon.ico"')
+html = html.replace('flexdash_options = {}',
+    "flexdash_options = {\n        title: 'SG',\n        sio: window.location.origin + '/fd'\n      }")
+with open('src/public/flexdash.html', 'w') as f:
+    f.write(html)
+print('Generated flexdash.html from flexdash/index.html')
+EOF
 
 # install the control application files as user gnome=1000
 SG=$DESTDIR/opt/sensorgnome

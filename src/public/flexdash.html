@@ -1,23 +1,25 @@
 <!DOCTYPE html>
-<!-- For development load FlexDash from Vite:
-     http://core2.voneicken.com:3000/?sio=http://sg.voneicken.com/fd -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" href="./favicon.ico" />
+    <link rel="icon" href="./flexdash/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FlexDash</title>
-    <base href="./flexdash/index.html" />
+    <script type="module" crossorigin src="./flexdash/assets/index.666eb821.js"></script>
+    <link rel="stylesheet" href="./flexdash/assets/index.758af46b.css">
+  </head>
+  <body>
+    <div id="app">FlexDash loading...</div>
     <script>
       flexdash_options = {
         title: 'SG',
-        theme: 'light',
-        sio: window.location.origin + '/fd', // socket.io
+        sio: window.location.origin + '/fd'
       }
     </script>
-    <script type="module" crossorigin src="./start.js"></script>
-  </head>
-  <body>
-    <div id="app"></div>
+
+
+    <noscript>
+      <strong>Sorry, but FlexDash requires JavaScript to be enabled.</strong>
+    </noscript>
   </body>
 </html>
