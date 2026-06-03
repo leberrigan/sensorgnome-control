@@ -902,7 +902,7 @@
     "w03109": {
       "kind": "TextView",
       "rows": 3,
-      "cols": 6,
+      "cols": 4,
       "static": {
         "title": "Tag database content"
       },
@@ -1763,6 +1763,8 @@
           "w01745",
           "w04712",
           "w03109",
+          "w03243",
+          "w03402",
           "w06470"
         ],
         "solid": false
@@ -2099,16 +2101,16 @@
       "rows": 1,
       "cols": 2,
       "static": {
-        "title": "Filter pulses",
+        "title": "Show pulses",
         "on_value": "on",
         "off_value": "off",
         "popup_info": "Toggle the display of detected Lotek pulses in the tags and pulses panel on/off. Tags are always shown."
       },
       "dynamic": {
-        "value": "burstfinder/filter_ui"
+        "value": "lotek_show_pulses"
       },
       "id": "w04712",
-      "output": "burstfinder_filter_ui"
+      "output": "show_pulses"
     },
     "w10000": {
       "kind": "Panel",
@@ -2260,11 +2262,18 @@
       "rows": 2,
       "cols": 3,
       "static": {
-        "title": "! WARNING !",
-        "text": "**WARNING this tab contains experimental features that can cause malfunction of your Sensorgnome and corrupt your data! Please do not use unless you understand what the feature does.**\n\nYou're welcome to ask about anything here in the Motus forum..."
+        "title": "Chart controls",
+        "widgets": [
+          "w00924",
+          "w02156",
+          "w09074",
+          "w00423",
+          "w03317",
+          "w02547"
+        ]
       },
       "dynamic": {},
-      "id": "w02187"
+      "id": "w02739"
     },
     "w00924": {
       "kind": "PushButton",
@@ -2423,7 +2432,7 @@
         ]
       },
       "dynamic": {},
-      "id": "w01195"
+      "id": "w01720"
     },
     "w02646": {
       "kind": "TimePlot",
@@ -2843,7 +2852,6 @@
         "w08547"
       ],
       "id": "g05782",
-      "min_cols": 3,
       "max_cols": 6
     },
     "g08970": {
@@ -2859,10 +2867,16 @@
         "w07258"
       ],
       "id": "g08970",
-      "min_cols": 3,
       "max_cols": 6
     },
-    "g05117": {
+    "g05783": {
+      "kind": "FixedGrid",
+      "title": "",
+      "widgets": [],
+      "id": "g05783",
+      "max_cols": 2
+    },
+    "g10000": {
       "kind": "FixedGrid",
       "title": "",
       "widgets": [
@@ -2873,13 +2887,9 @@
         "w10000",
         "w10010",
         "w01720",
-        "w00402",
-        "w02187",
-        "w03097",
-        "w05065",
-        "w01195"
+        "w00402"
       ],
-      "id": "g05117",
+      "id": "g10000",
       "min_cols": 3,
       "max_cols": 6
     }
@@ -2892,8 +2902,8 @@
       "t06560",
       "t06959",
       "t08355",
-      "t09219",
-      "t05656"
+      "t10000",
+      "t09219"
     ]
   },
   "tabs": {
@@ -2945,12 +2955,12 @@
         "g05782"
       ]
     },
-    "t05656": {
-      "icon": "flask",
-      "title": "lab",
-      "id": "t05656",
+    "t10000": {
+      "icon": "leaf",
+      "title": "sensors",
+      "id": "t10000",
       "grids": [
-        "g05117"
+        "g10000"
       ]
     }
   },
