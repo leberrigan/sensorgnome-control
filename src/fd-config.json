@@ -61,7 +61,8 @@
       "dynamic": {
         "data": "devices"
       },
-      "id": "w05060"
+      "id": "w05060",
+      "output": null
     },
     "w09119": {
       "kind": "Stat",
@@ -375,31 +376,6 @@
       "id": "w07718",
       "output": null
     },
-    "w00071": {
-      "kind": "PropsTable",
-      "rows": 2,
-      "cols": 6,
-      "static": {
-        "title": "Config",
-        "data": {
-          "SSID": "my-ssid",
-          "Passphrase": "********",
-          "Country": "US"
-        },
-        "editable": true,
-        "fields": [
-          "ssid",
-          "passphrase",
-          "country"
-        ],
-        "send_all": true
-      },
-      "dynamic": {
-        "data": "net_wifi_config"
-      },
-      "id": "w00071",
-      "output": "config_wifi"
-    },
     "w03153": {
       "kind": "Stat",
       "rows": 1,
@@ -538,7 +514,8 @@
       "dynamic": {
         "data": "df"
       },
-      "id": "w06900"
+      "id": "w06900",
+      "output": null
     },
     "w00917": {
       "kind": "TimePlot",
@@ -741,26 +718,6 @@
       "id": "w01270",
       "output": "enable_hotspot"
     },
-    "w01975": {
-      "kind": "Panel",
-      "rows": 6,
-      "cols": 3,
-      "static": {
-        "title": "WiFi Client",
-        "widgets": [
-          "w00244",
-          "w05477",
-          "w05306",
-          "w00071",
-          "w07851",
-          "w00881",
-          "w04107"
-        ],
-        "solid": true
-      },
-      "dynamic": {},
-      "id": "w01975"
-    },
     "w05477": {
       "kind": "Stat",
       "rows": 1,
@@ -779,21 +736,6 @@
         "value": "net_wifi_state"
       },
       "id": "w05477"
-    },
-    "w00701": {
-      "kind": "Panel",
-      "rows": 1,
-      "cols": 3,
-      "static": {
-        "title": "HotSpot",
-        "widgets": [
-          "w08793",
-          "w01633",
-          "w01270"
-        ]
-      },
-      "dynamic": {},
-      "id": "w00701"
     },
     "w09855": {
       "kind": "TextView",
@@ -1310,24 +1252,6 @@
       "dynamic": {},
       "id": "w07004"
     },
-    "w07658": {
-      "kind": "Panel",
-      "rows": 2,
-      "cols": 3,
-      "static": {
-        "title": "Network Connectivity",
-        "widgets": [
-          "w08687",
-          "w06078",
-          "w03153",
-          "w01266",
-          "w06246",
-          "w09651"
-        ]
-      },
-      "dynamic": {},
-      "id": "w07658"
-    },
     "w01266": {
       "kind": "Stat",
       "rows": 1,
@@ -1522,31 +1446,6 @@
         "label": " "
       },
       "id": "w08863"
-    },
-    "w07599": {
-      "kind": "Panel",
-      "rows": 11,
-      "cols": 3,
-      "static": {
-        "title": "Cellular",
-        "widgets": [
-          "w00320",
-          "w04606",
-          "w06592",
-          "w05350",
-          "w03999",
-          "w05576",
-          "w03595",
-          "w01163",
-          "w03330",
-          "w01225",
-          "w02332",
-          "w07289"
-        ],
-        "solid": false
-      },
-      "dynamic": {},
-      "id": "w07599"
     },
     "w04606": {
       "kind": "Stat",
@@ -2807,13 +2706,14 @@
       "cols": 6,
       "static": {
         "title": "Blocked SIM Profiles",
-        "popup_info": "Profiles listed here are skipped at boot. If the SIM selects a blocked profile, the station cycles the modem radio to force a new selection. If no acceptable profile is found after 10 attempts, the station proceeds anyway and logs a warning.  Each entry is identified by its 5\u00e2\u20ac\u201c6 digit IMSI prefix (MCC + MNC). Entries are saved manually using config options above and take effect on the next reboot or modem reset."
+        "popup_info": "Profiles listed here are skipped at boot. If the SIM selects a blocked profile, the station cycles the modem radio to force a new selection. If no acceptable profile is found after 10 attempts, the station proceeds anyway and logs a warning.  Each entry is identified by its 5â€“6 digit IMSI prefix (MCC + MNC). Entries are saved manually using config options above and take effect on the next reboot or modem reset."
       },
       "dynamic": {
         "data": "cellular/bad_imsi/data",
         "labels": "cellular/bad_imsi/header"
       },
-      "id": "w02332"
+      "id": "w02332",
+      "output": null
     },
     "w01225": {
       "kind": "SimpleTable",
@@ -2822,13 +2722,14 @@
       "static": {
         "title": "SIM Profile History",
         "data": "",
-        "popup_info": "The SIM card in this station supports multiple carrier profiles (IMSIs). Each time the modem powers on, the SIM applet randomly selects one. This table shows every profile observed since the station was set up, identified by the carrier's country code (MCC) and network code (MNC).  Profiles marked Rejected are currently blocked \u00e2\u20ac\u201d at startup the station will power-cycle the modem radio until a different profile is selected (up to 10 attempts). If a profile is causing connection failures in your region, block it using the controls below."
+        "popup_info": "The SIM card in this station supports multiple carrier profiles (IMSIs). Each time the modem powers on, the SIM applet randomly selects one. This table shows every profile observed since the station was set up, identified by the carrier's country code (MCC) and network code (MNC).  Profiles marked Rejected are currently blocked â€” at startup the station will power-cycle the modem radio until a different profile is selected (up to 10 attempts). If a profile is causing connection failures in your region, block it using the controls below."
       },
       "dynamic": {
         "data": "cellular/telecom/data",
         "labels": "cellular/telecom/header"
       },
-      "id": "w01225"
+      "id": "w01225",
+      "output": null
     },
     "w06592": {
       "kind": "Gauge",
@@ -2917,40 +2818,6 @@
       },
       "id": "w09651"
     },
-    "w02911": {
-      "kind": "SimpleTable",
-      "rows": 7,
-      "cols": 3,
-      "static": {
-        "title": "Network Usage",
-        "popup_info": "Network usage information collected every 5 minutes and aggregated over time. Uses \"vnstat\"."
-      },
-      "dynamic": {
-        "data": "net_usage_data",
-        "labels": "net_usage_columns"
-      },
-      "id": "w02911"
-    },
-    "w04107": {
-      "kind": "SimpleTable",
-      "rows": 3,
-      "cols": 6,
-      "static": {
-        "title": "",
-        "columns": null,
-        "data": "",
-        "labels": [
-          "SSID",
-          "Signal strength",
-          "Status"
-        ]
-      },
-      "dynamic": {
-        "data": "wifi/networks/data",
-        "labels": "wifi/networks/labels"
-      },
-      "id": "w04107"
-    },
     "w01163": {
       "kind": "Stat",
       "rows": 1,
@@ -2982,29 +2849,166 @@
       "id": "w03330",
       "output": "cellular_iccid_show"
     },
-    "w00881": {
-      "kind": "PopupButton",
+    "w03603": {
+      "kind": "DropdownSelect",
+      "rows": 1,
+      "cols": 4,
+      "static": {
+        "title": "Available networks",
+        "value": ""
+      },
+      "dynamic": {
+        "value": "wifi/ssid",
+        "choices": "wifi/available",
+        "labels": "wifi/available"
+      },
+      "id": "w03603",
+      "output": null
+    },
+    "w04519": {
+      "kind": "CustomWidget",
       "rows": 1,
       "cols": 1,
       "static": {
-        "title": "Scan"
+        "title": "CustomWidget"
       },
       "dynamic": {},
-      "id": "w00881"
+      "id": "w04519",
+      "output": null
     },
-    "w07851": {
-      "kind": "Label",
+    "w01126": {
+      "kind": "TextField",
       "rows": 1,
-      "cols": 5,
+      "cols": 4,
       "static": {
-        "title": "",
-        "label": "Available Wifi Networks",
-        "weight": "600",
-        "size": "150%",
-        "color": ""
+        "title": "Password",
+        "text": "asdateasd",
+        "color": "grey-lighten-3"
+      },
+      "dynamic": {
+        "text": "wifi/password"
+      },
+      "id": "w01126",
+      "output": null
+    },
+    "w04105": {
+      "kind": "PushButton",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Connect",
+        "output_value": "true"
+      },
+      "dynamic": {
+        "enabled": "wifi/connect/enabled"
+      },
+      "id": "w04105",
+      "output": null
+    },
+    "w06185": {
+      "kind": "PushButton",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "Scan for networks",
+        "output_value": "true"
       },
       "dynamic": {},
-      "id": "w07851"
+      "id": "w06185",
+      "output": null
+    },
+    "w02911": {
+      "kind": "SimpleTable",
+      "rows": 7,
+      "cols": 3,
+      "static": {
+        "title": "Network Usage",
+        "popup_info": "Network usage information collected every 5 minutes and aggregated over time. Uses \"vnstat\"."
+      },
+      "dynamic": {
+        "data": "net_usage_data",
+        "labels": "net_usage_columns"
+      },
+      "id": "w02911",
+      "output": null
+    },
+    "w07599": {
+      "kind": "Panel",
+      "rows": 11,
+      "cols": 3,
+      "static": {
+        "title": "Cellular",
+        "widgets": [
+          "w00320",
+          "w04606",
+          "w06592",
+          "w05350",
+          "w03999",
+          "w05576",
+          "w03595",
+          "w01163",
+          "w03330",
+          "w01225",
+          "w02332",
+          "w07289"
+        ],
+        "solid": false
+      },
+      "dynamic": {},
+      "id": "w07599"
+    },
+    "w00701": {
+      "kind": "Panel",
+      "rows": 1,
+      "cols": 3,
+      "static": {
+        "title": "HotSpot",
+        "widgets": [
+          "w08793",
+          "w01633",
+          "w01270"
+        ]
+      },
+      "dynamic": {},
+      "id": "w00701"
+    },
+    "w01975": {
+      "kind": "Panel",
+      "rows": 3,
+      "cols": 3,
+      "static": {
+        "title": "WiFi Client",
+        "widgets": [
+          "w00244",
+          "w05477",
+          "w05306",
+          "w03603",
+          "w06185",
+          "w01126",
+          "w04105"
+        ],
+        "solid": true
+      },
+      "dynamic": {},
+      "id": "w01975"
+    },
+    "w07658": {
+      "kind": "Panel",
+      "rows": 2,
+      "cols": 3,
+      "static": {
+        "title": "Network Connectivity",
+        "widgets": [
+          "w08687",
+          "w06078",
+          "w03153",
+          "w01266",
+          "w06246",
+          "w09651"
+        ]
+      },
+      "dynamic": {},
+      "id": "w07658"
     }
   },
   "grids": {
@@ -3043,20 +3047,6 @@
         "w00699"
       ],
       "id": "g03145",
-      "max_cols": 6
-    },
-    "g03307": {
-      "kind": "StdGrid",
-      "title": "",
-      "widgets": [
-        "w07658",
-        "w01975",
-        "w00701",
-        "w07599",
-        "w02911"
-      ],
-      "id": "g03307",
-      "min_cols": 3,
       "max_cols": 6
     },
     "g07380": {
@@ -3113,6 +3103,20 @@
         "w00402"
       ],
       "id": "g10000",
+      "min_cols": 3,
+      "max_cols": 6
+    },
+    "g03307": {
+      "kind": "StdGrid",
+      "title": "",
+      "widgets": [
+        "w07658",
+        "w01975",
+        "w00701",
+        "w07599",
+        "w02911"
+      ],
+      "id": "g03307",
       "min_cols": 3,
       "max_cols": 6
     }
