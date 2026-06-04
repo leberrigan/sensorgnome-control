@@ -6,7 +6,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FlexDash</title>
     <!-- bundle loaded dynamically after auth -->
-    <link rel="stylesheet" href="./flexdash/assets/index.758af46b.css">
+    <link rel="stylesheet" href="./flexdash/assets/index.0a0efba0.css">
+    <style>
+      /* Fix Vuetify 3.0.x: active overlays stuck at opacity:0 due to broken keyframe animations */
+      .v-overlay--active>.v-overlay__content{opacity:1!important;pointer-events:auto!important}
+    </style>
+    <script>
+      /* Fix Vuetify 3.0.x: VTextField type="number" emits InputEvent instead of value string */
+      ;(function(){var s;Object.defineProperty(window,'fd_store',{configurable:true,
+        set:function(v){s=v;if(v&&typeof v.updateWidgetProp==='function'){var o=v.updateWidgetProp.bind(v);
+          v.updateWidgetProp=function(id,w,p,val){if(val instanceof Event)val=val.target?val.target.value:'';return o(id,w,p,val)}}},
+        get:function(){return s}})})()
+    </script>
   </head>
   <body>
     <div id="app">FlexDash loading...</div>
@@ -17,7 +28,6 @@
         username: 'gnome'
       }
     </script>
-
 
     <noscript>
       <strong>Sorry, but FlexDash requires JavaScript to be enabled.</strong>
@@ -41,7 +51,7 @@
   </div>
   <script>
     ;(function() {
-      var bundleSrc = './flexdash/assets/index.666eb821.js'
+      var bundleSrc = './flexdash/assets/index.aef35ab0.js'
       document.getElementById('sg-id').textContent = flexdash_options.title || 'SG'
       document.getElementById('sg-u').value = flexdash_options.username || 'gnome'
       function sgLoad() {

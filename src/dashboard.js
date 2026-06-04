@@ -21,11 +21,19 @@ const ts_dir = "/data/ts"
 
 const LotekFreqs = [ 166.380, 150.100, 150.500 ]
 
-// Returns an HSL colour string sweeping red→amber→green across the gauge's dBm range
+// Returns a hex colour sweeping red→amber→green across the gauge's dBm range.
+// flexdash 0.4.90's color2hhex() only handles hex and Vuetify named colours, not hsl().
 function signalColor(dbm, min, max) {
     if (dbm == null) return '#9E9E9E'
     const t = Math.max(0, Math.min(1, (dbm - min) / (max - min)))
-    return `hsl(${Math.round(t * 120)}, 70%, 40%)`
+    const h = t * 120, s = 0.7, l = 0.4
+    const a = s * Math.min(l, 1 - l)
+    const f = n => {
+        const k = (n + h / 30) % 12
+        const c = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1)
+        return Math.round(255 * c).toString(16).padStart(2, '0')
+    }
+    return `#${f(0)}${f(8)}${f(4)}`
 }
 
 // The Dashboard class communicates between the web UI (FlexDash) and the "core" processing,

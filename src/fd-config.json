@@ -107,7 +107,8 @@
       "cols": 2,
       "static": {
         "title": "Radio Devices",
-        "value": "4"
+        "value": "4",
+        "color": ""
       },
       "dynamic": {
         "value": "radios/all"
@@ -125,7 +126,8 @@
         "start_mode": 2,
         "low_color": "#4CAF50",
         "low_threshold": null,
-        "high_threshold": null
+        "high_threshold": null,
+        "color": ""
       },
       "dynamic": {
         "value": "data_file_summary/last_upload"
@@ -139,7 +141,8 @@
       "static": {
         "title": "Files to upload",
         "value": "1",
-        "popup_info": "Number of data files ready for upload to Motus that have not previously been uploaded."
+        "popup_info": "Number of data files ready for upload to Motus that have not previously been uploaded.",
+        "color": ""
       },
       "dynamic": {
         "value": "data_file_summary/files_to_upload"
@@ -173,7 +176,7 @@
       "cols": 2,
       "static": {
         "title": "DOWNLOAD",
-        "icon": "download",
+        "icon": "mdi-download",
         "output_value": "new",
         "popup_info": "Download all data files to your computer that have not previously been uploaded or downloaded."
       },
@@ -188,7 +191,7 @@
       "static": {
         "title": "ALL",
         "color": "#EEEEEE",
-        "icon": "download",
+        "icon": "mdi-download",
         "output_value": "all"
       },
       "dynamic": {},
@@ -201,7 +204,7 @@
       "cols": 2,
       "static": {
         "title": "Upload",
-        "icon": "cloud-upload",
+        "icon": "mdi-cloud-upload",
         "tooltip": "",
         "output_value": "now",
         "color": "#EEEEEE",
@@ -217,7 +220,8 @@
       "cols": 2,
       "static": {
         "title": "Lotek radios",
-        "value": "2"
+        "value": "2",
+        "color": ""
       },
       "dynamic": {
         "value": "radios/vah"
@@ -230,7 +234,8 @@
       "cols": 2,
       "static": {
         "title": "CTT radios",
-        "value": "2"
+        "value": "2",
+        "color": ""
       },
       "dynamic": {
         "value": "radios/ctt"
@@ -276,7 +281,8 @@
       "rows": 1,
       "cols": 4,
       "static": {
-        "title": "Current version"
+        "title": "Current version",
+        "color": ""
       },
       "dynamic": {
         "value": "machineinfo/version"
@@ -330,7 +336,8 @@
       "cols": 4,
       "static": {
         "title": "Available version",
-        "label": "?"
+        "label": "?",
+        "color": ""
       },
       "dynamic": {},
       "id": "w03733"
@@ -578,7 +585,8 @@
       "static": {
         "title": "Bytes to upload",
         "value": "1",
-        "unit": "B"
+        "unit": "B",
+        "color": ""
       },
       "dynamic": {
         "value": "data_file_summary/bytes_to_upload"
@@ -590,7 +598,8 @@
       "rows": 1,
       "cols": 2,
       "static": {
-        "title": "Files to download"
+        "title": "Files to download",
+        "color": ""
       },
       "dynamic": {
         "value": "data_file_summary/files_to_download"
@@ -603,7 +612,8 @@
       "cols": 2,
       "static": {
         "title": "Bytes to download",
-        "unit": "B"
+        "unit": "B",
+        "color": ""
       },
       "dynamic": {
         "value": "data_file_summary/bytes_to_download"
@@ -615,7 +625,8 @@
       "rows": 1,
       "cols": 2,
       "static": {
-        "title": "Total files"
+        "title": "Total files",
+        "color": ""
       },
       "dynamic": {
         "value": "data_file_summary/total_files"
@@ -628,7 +639,8 @@
       "cols": 2,
       "static": {
         "title": "Total bytes",
-        "unit": "B"
+        "unit": "B",
+        "color": ""
       },
       "dynamic": {
         "value": "data_file_summary/total_bytes"
@@ -642,7 +654,8 @@
       "static": {
         "title": "Last Download",
         "start_mode": 2,
-        "low_threshold": 0
+        "low_threshold": 0,
+        "color": ""
       },
       "dynamic": {
         "value": "data_file_summary/last_download"
@@ -656,7 +669,7 @@
       "static": {
         "title": "repeat",
         "color": "#EEEEEE",
-        "icon": "download",
+        "icon": "mdi-download",
         "output_value": "last",
         "enabled": "false",
         "popup_info": "Repeat the last download in case it was misplaced or some error occurred."
@@ -671,7 +684,7 @@
       "cols": 2,
       "static": {
         "title": "All",
-        "icon": "download",
+        "icon": "mdi-download",
         "color": "#EEEEEE",
         "output_value": "all",
         "popup_info": "Download all files to your computer/phone regardless of prior uploads/downloads."
@@ -685,7 +698,8 @@
       "rows": 6,
       "cols": 3,
       "static": {
-        "title": "Acquisition Configuration"
+        "title": "Acquisition Configuration",
+        "color": ""
       },
       "dynamic": {
         "text": "acquisition"
@@ -787,7 +801,8 @@
       "cols": 3,
       "static": {
         "title": "Port Mapping",
-        "editable": true
+        "editable": true,
+        "color": ""
       },
       "dynamic": {
         "text": "portmap_file"
@@ -848,7 +863,8 @@
       "static": {
         "title": "",
         "label": "SSID:",
-        "justify": "right"
+        "justify": "right",
+        "color": ""
       },
       "dynamic": {},
       "id": "w08793"
@@ -881,7 +897,8 @@
       "static": {
         "title": "Booted",
         "start_mode": 2,
-        "zoom": 90
+        "zoom": 90,
+        "color": ""
       },
       "dynamic": {
         "value": "boot_time"
@@ -895,7 +912,8 @@
       "static": {
         "title": "Lotek tag detection log",
         "autoscroll": true,
-        "popup_info": "The detection log shows raw detections coming from the radios. Its primary purpose is to verify correct operation of the radios. For CTT tags the format is as follows:\n\nTAG: T6,1665900910.226,78664C33,-95\n\nThe T6 refers to CTT radio on port 6, 1665900910.226 is the timestamp (seconds since 1970-1-1) 78664C33 is the CTT tag ID and -95 is the RSSI (dBm).\n\nFor Lotek tag first the raw radio pulses are shown as follows:\n\nPLS: p5,1665900923.5965,3.96,-48.31,-60.86\nPLS: p5,1665900923.6185,3.948,-48.76,-60.92\nPLS: p5,1665900923.6380,3.986,-47.99,-60.94\nPLS: p5,1665900923.6625,3.989,-47.62,-61.01\n\nPLS stands for pulse, p5 refers to \"pulse on port 5\", this is followed by the time-stamp, the frequency offset in kHz from the nominal frequency, the RSSI (dBm) and the noise (dBm). It takes 2 bursts of 4 pulses to detect a tag if the tag is found in the local tag database. A tag detection is hown as follows:\n\nTAG: L5,1665900923.5965,TestTags#1.1@166.38:25.1,3.971,0.02,-48.1,11.1,-60.9,3223,95,1.97e-07,-4.96e-05,166.38\n\nThe L5 refers to a Lotek tag detected by the radio on port 5. This is followed by the tag name and ID, the nominal frequency, the pulse interval (25.1s in this case), the freq offset in kHz, and further details about the pulse burst."
+        "popup_info": "The detection log shows raw detections coming from the radios. Its primary purpose is to verify correct operation of the radios. For CTT tags the format is as follows:\n\nTAG: T6,1665900910.226,78664C33,-95\n\nThe T6 refers to CTT radio on port 6, 1665900910.226 is the timestamp (seconds since 1970-1-1) 78664C33 is the CTT tag ID and -95 is the RSSI (dBm).\n\nFor Lotek tag first the raw radio pulses are shown as follows:\n\nPLS: p5,1665900923.5965,3.96,-48.31,-60.86\nPLS: p5,1665900923.6185,3.948,-48.76,-60.92\nPLS: p5,1665900923.6380,3.986,-47.99,-60.94\nPLS: p5,1665900923.6625,3.989,-47.62,-61.01\n\nPLS stands for pulse, p5 refers to \"pulse on port 5\", this is followed by the time-stamp, the frequency offset in kHz from the nominal frequency, the RSSI (dBm) and the noise (dBm). It takes 2 bursts of 4 pulses to detect a tag if the tag is found in the local tag database. A tag detection is hown as follows:\n\nTAG: L5,1665900923.5965,TestTags#1.1@166.38:25.1,3.971,0.02,-48.1,11.1,-60.9,3223,95,1.97e-07,-4.96e-05,166.38\n\nThe L5 refers to a Lotek tag detected by the radio on port 5. This is followed by the tag name and ID, the nominal frequency, the pulse interval (25.1s in this case), the freq offset in kHz, and further details about the pulse burst.",
+        "color": ""
       },
       "dynamic": {
         "text": "detection_log"
@@ -908,7 +926,8 @@
       "rows": 3,
       "cols": 4,
       "static": {
-        "title": "Tag database content"
+        "title": "Tag database content",
+        "color": ""
       },
       "dynamic": {
         "text": "tagdb/info"
@@ -977,7 +996,8 @@
       "rows": 2,
       "cols": 6,
       "static": {
-        "title": "Tags and pulses"
+        "title": "Tags and pulses",
+        "color": ""
       },
       "dynamic": {
         "text": "df_log"
@@ -1049,7 +1069,8 @@
       "cols": 6,
       "static": {
         "title": "Available Packages",
-        "text": "  "
+        "text": "  ",
+        "color": ""
       },
       "dynamic": {
         "text": "software/available"
@@ -1105,7 +1126,8 @@
       "cols": 3,
       "static": {
         "title": "Software Update Log",
-        "text": "   "
+        "text": "   ",
+        "color": ""
       },
       "dynamic": {
         "text": "software/log"
@@ -1133,7 +1155,7 @@
       "static": {
         "title": "Download logs",
         "color": "#EEEEEE",
-        "icon": "download",
+        "icon": "mdi-download",
         "output_value": "all"
       },
       "dynamic": {},
@@ -1146,7 +1168,7 @@
       "cols": 2,
       "static": {
         "title": "Help",
-        "icon": "information-outline",
+        "icon": "mdi-information-outline",
         "popup_info": "",
         "text": "This page allows data files to be uploaded to Motus.org or to be downloaded to your computer. When there is Internet connectivity files are uploaded automatically when the next file is started (typ. hourly). The upload button is for situations where you manually establish internet connectivity and need to kick off uploading immediately.\n\nThe red `download` button downloads all files to your computer/phone\nthat have not been uploaded or downloaded yet.\nThe `all` button downloads all files irrespective of prior uploads/downloads (this could be big),\nthis can be useful as a backup.\nThe `repeat` button repeats the last download in case it was misplaced or some error occurred.\n\nLogin: in order to upload files the Sensorgnome needs to authenticate with the Motus upload server. The mechanism for this is still in flux. By default, the Sensorgnome obtains credentials from a sensorgnome.net server, but it is also possible to enter Motus.org login credentials explicitly. These credentials are not stored/saved on the Sensorgnome: they are briefly used to obtain an authentication token which is stored. The Sensorgnome must have connectivity at least every 45 days to refresh this token or it expires (in which case a new login may be required).",
         "color": "#90CAF9"
@@ -1161,7 +1183,7 @@
       "static": {
         "title": "Port Mapping Help",
         "color": "#90CAF9",
-        "icon": "information",
+        "icon": "mdi-information",
         "text": "- all radios (Lotek & CTT) must show up in the \"port mapping\" widget\n- all radios must have a distinct port number from 0 to 9\n- the detection log should show any test tags in the vicinity\n\n### Built-in port numbering\n\n- rPi 4B: port 1: lower outside, 2: upper outside, 3: lower next to ethernet; 4: above 3; plug hub into the latter\n- rPi 3B & 3B+: port 1: upper next to ethernet, 2: below 1, 3: upper outside, 4: lower outside; plug hub into the latter\n\n### Port Mapping info\n\nWhen a device is plugged into USB its port is represented by a path, such as 1.2.3.\nThe Sensorgnome must report tag/pulse detections to Motus using a \"port number\" in the range 0..9\n(0 really being 10) and the port numbers configured here must correspond to the port/antenna numbers in the \"receiver deployment\" on the Motus site.\n\nThe Sensorgnome image is pre-configured to support up to 4 radios plugged into the rPi ports, or 3 radios directly plugged in a 4 more on a 4-port hub, or 3 + 7 using a 7-port hub. The pre-configured port mapping makes assumptions that may not match the specific hub you may be using, for this reason you may want to alter the mapping.\n\nThe port mapping allows explicit port mappings to be enforced, such that ports on the rPi and\non a hub can be labeled 1..10 in a reasonable order.\nThe mapping simply assigns a port number to a path using a notation like\n`path -> port`, for example, `1.2.3 -> 3` to map path `1.2.3` to port `3`.\nTo alter the port mapping use the pencil edit button on the port mapping widget.\n\nOn a __rPi 4B__ the built-in USB ports have paths 1.1 through 1.4 (1.1 is on the bottom closest\nto the Ethernet, 1.4 is at the top outside corner). The default mapping assigns port 1 to path 1.3 (lower outside), port 2 to path 1.4 (top outside), port 3 to path 1.1, and port 4 to path 1.2 (top next to ethernet).\nThis may be a bit confusing, the reason is so a hub can be plugged into the top blue USB3 port.\nThis results in ports 4 through 10 being on the hub.\n\nOn a __rPi 3B__ the built-in USB ports have paths 1.2 through 1.5 (1.2 is on the top closest\nto the Ethernet, 1.5 is at the bottom outside corner). A 4-port hub plugged into the bottom outside\nport will result in paths 1.5.1 through 1.5.4.\n\nIn terms of ordering of mappings: the first line with a matching path wins!\n"
       },
       "dynamic": {},
@@ -1204,7 +1226,8 @@
       "cols": 6,
       "static": {
         "title": "Station name",
-        "zoom": 0.8
+        "zoom": 0.8,
+        "color": ""
       },
       "dynamic": {
         "value": "motus_recv/station_name"
@@ -1235,7 +1258,8 @@
         "high_regexp": "OK",
         "high_color": "#4CAF50",
         "low_regexp": "FAILED",
-        "low_color": "#F44336"
+        "low_color": "#F44336",
+        "color": ""
       },
       "dynamic": {
         "value": "motus_upload/status",
@@ -1266,7 +1290,7 @@
       "static": {
         "title": "Help",
         "color": "#03A9F4",
-        "icon": "information-outline",
+        "icon": "mdi-information-outline",
         "text": "This tab provides overview info, please use the other tabs (tab bar at the top or hamburger menu on mobile devices) to view and edit data files, wifi&network settings, software updates, etc.\n\nGetting started:\n- Plug in ethernet or configure WiFi in the network tab.\n- Configure radios in the radio tab and ensure all radios have a correct port mapping.\n- Check that data files are uploading in the files tab.\n"
       },
       "dynamic": {},
@@ -1310,7 +1334,8 @@
       "cols": 2,
       "static": {
         "title": "DNS",
-        "zoom": 0.7
+        "zoom": 0.7,
+        "color": ""
       },
       "dynamic": {
         "value": "net_dns"
@@ -1323,7 +1348,8 @@
       "cols": 2,
       "static": {
         "title": "Gateway",
-        "zoom": 0.7
+        "zoom": 0.7,
+        "color": ""
       },
       "dynamic": {
         "value": "net_default_gw"
@@ -1373,7 +1399,8 @@
       "cols": 6,
       "static": {
         "title": "",
-        "label": "A Motus login is usually not needed."
+        "label": "A Motus login is usually not needed.",
+        "color": ""
       },
       "dynamic": {},
       "id": "w04637"
@@ -1386,7 +1413,8 @@
         "title": "",
         "value": "motus_login",
         "iso_prefix": false,
-        "zoom": 0.9
+        "zoom": 0.9,
+        "color": ""
       },
       "dynamic": {
         "value": "motus_login/status",
@@ -1401,7 +1429,8 @@
       "static": {
         "title": "Lotek Frequency",
         "unit": "Mhz",
-        "iso_prefix": false
+        "iso_prefix": false,
+        "color": ""
       },
       "dynamic": {
         "value": "lotek_freq"
@@ -1475,7 +1504,8 @@
       "cols": 2,
       "static": {
         "title": "",
-        "label": "Enable power-off"
+        "label": "Enable power-off",
+        "color": ""
       },
       "dynamic": {},
       "id": "w04884"
@@ -1485,7 +1515,8 @@
       "rows": 1,
       "cols": 1,
       "static": {
-        "title": ""
+        "title": "",
+        "color": ""
       },
       "dynamic": {
         "label": " "
@@ -1562,7 +1593,8 @@
       "cols": 2,
       "static": {
         "title": "",
-        "zoom": 0.6
+        "zoom": 0.6,
+        "color": ""
       },
       "dynamic": {
         "value": "cellular/reason"
@@ -1575,7 +1607,8 @@
       "cols": 2,
       "static": {
         "title": "Operator",
-        "zoom": 0.6
+        "zoom": 0.6,
+        "color": ""
       },
       "dynamic": {
         "value": "cellular/info/operator name"
@@ -1618,7 +1651,8 @@
       "cols": 4,
       "static": {
         "title": "Scan status",
-        "zoom": 0.6
+        "zoom": 0.6,
+        "color": ""
       },
       "dynamic": {
         "value": "cellular/scan_status",
@@ -1702,7 +1736,8 @@
       "static": {
         "title": "Lotek radio pulses",
         "autoscroll": true,
-        "popup_info": "The detection log shows raw detections coming from the radios. Its primary purpose is to verify correct operation of the radios. For CTT tags the format is as follows:\n\nTAG: T6,1665900910.226,78664C33,-95\n\nThe T6 refers to CTT radio on port 6, 1665900910.226 is the timestamp (seconds since 1970-1-1) 78664C33 is the CTT tag ID and -95 is the RSSI (dBm).\n\nFor Lotek tag first the raw radio pulses are shown as follows:\n\nPLS: p5,1665900923.5965,3.96,-48.31,-60.86\nPLS: p5,1665900923.6185,3.948,-48.76,-60.92\nPLS: p5,1665900923.6380,3.986,-47.99,-60.94\nPLS: p5,1665900923.6625,3.989,-47.62,-61.01\n\nPLS stands for pulse, p5 refers to \"pulse on port 5\", this is followed by the time-stamp, the frequency offset in kHz from the nominal frequency, the RSSI (dBm) and the noise (dBm). It takes 2 bursts of 4 pulses to detect a tag if the tag is found in the local tag database. A tag detection is hown as follows:\n\nTAG: L5,1665900923.5965,TestTags#1.1@166.38:25.1,3.971,0.02,-48.1,11.1,-60.9,3223,95,1.97e-07,-4.96e-05,166.38\n\nThe L5 refers to a Lotek tag detected by the radio on port 5. This is followed by the tag name and ID, the nominal frequency, the pulse interval (25.1s in this case), the freq offset in kHz, and further details about the pulse burst."
+        "popup_info": "The detection log shows raw detections coming from the radios. Its primary purpose is to verify correct operation of the radios. For CTT tags the format is as follows:\n\nTAG: T6,1665900910.226,78664C33,-95\n\nThe T6 refers to CTT radio on port 6, 1665900910.226 is the timestamp (seconds since 1970-1-1) 78664C33 is the CTT tag ID and -95 is the RSSI (dBm).\n\nFor Lotek tag first the raw radio pulses are shown as follows:\n\nPLS: p5,1665900923.5965,3.96,-48.31,-60.86\nPLS: p5,1665900923.6185,3.948,-48.76,-60.92\nPLS: p5,1665900923.6380,3.986,-47.99,-60.94\nPLS: p5,1665900923.6625,3.989,-47.62,-61.01\n\nPLS stands for pulse, p5 refers to \"pulse on port 5\", this is followed by the time-stamp, the frequency offset in kHz from the nominal frequency, the RSSI (dBm) and the noise (dBm). It takes 2 bursts of 4 pulses to detect a tag if the tag is found in the local tag database. A tag detection is hown as follows:\n\nTAG: L5,1665900923.5965,TestTags#1.1@166.38:25.1,3.971,0.02,-48.1,11.1,-60.9,3223,95,1.97e-07,-4.96e-05,166.38\n\nThe L5 refers to a Lotek tag detected by the radio on port 5. This is followed by the tag name and ID, the nominal frequency, the pulse interval (25.1s in this case), the freq offset in kHz, and further details about the pulse burst.",
+        "color": ""
       },
       "dynamic": {
         "text": "detection_log"
@@ -1837,7 +1872,7 @@
       "cols": 6,
       "static": {
         "title": "Chart info",
-        "icon": "information-outline",
+        "icon": "mdi-information-outline",
         "color": "#03A9F4"
       },
       "dynamic": {},
@@ -1890,7 +1925,8 @@
       "rows": 1,
       "cols": 2,
       "static": {
-        "title": "interval per point"
+        "title": "interval per point",
+        "color": ""
       },
       "dynamic": {
         "value": "detections/interval"
@@ -1903,7 +1939,8 @@
       "cols": 3,
       "static": {
         "title": "Tags and Pulses",
-        "popup_info": "# Detection log\n\nThe detection log shows raw detections coming from the radios. Its primary purpose is to verify correct operation of the radios. For CTT tags the format is as follows:\n\nTAG: T6,1665900910.226,78664C33,-95\n\nThe T6 refers to CTT radio on port 6, 1665900910.226 is the timestamp (seconds since 1970-1-1) 78664C33 is the CTT tag ID and -95 is the RSSI (dBm).\n\nFor Lotek tag first the raw radio pulses are shown as follows:\n\nPLS: p5,1665900923.5965,3.96,-48.31,-60.86\n\nPLS stands for pulse, p5 refers to \"pulse on port 5\", this is followed by the time-stamp, the frequency offset in kHz from the nominal frequency, the RSSI (dBm) and the noise (dBm). It takes 2 bursts of 4 pulses to detect a tag if the tag is found in the local tag database. A tag detection is shown as follows:\n\nTAG: L5,1665900923.5965,TestTags#1.1@166.38:25.1,3.971,0.02,-48.1,11.1,-60.9,3223,95,1.97e-07,-4.96e-05,166.38\n\nThe L5 refers to a Lotek tag detected by the radio on port 5. This is followed by the tag name and ID, the nominal frequency, the pulse interval (25.1s in this case), the freq offset in kHz, and further details about the pulse burst."
+        "popup_info": "# Detection log\n\nThe detection log shows raw detections coming from the radios. Its primary purpose is to verify correct operation of the radios. For CTT tags the format is as follows:\n\nTAG: T6,1665900910.226,78664C33,-95\n\nThe T6 refers to CTT radio on port 6, 1665900910.226 is the timestamp (seconds since 1970-1-1) 78664C33 is the CTT tag ID and -95 is the RSSI (dBm).\n\nFor Lotek tag first the raw radio pulses are shown as follows:\n\nPLS: p5,1665900923.5965,3.96,-48.31,-60.86\n\nPLS stands for pulse, p5 refers to \"pulse on port 5\", this is followed by the time-stamp, the frequency offset in kHz from the nominal frequency, the RSSI (dBm) and the noise (dBm). It takes 2 bursts of 4 pulses to detect a tag if the tag is found in the local tag database. A tag detection is shown as follows:\n\nTAG: L5,1665900923.5965,TestTags#1.1@166.38:25.1,3.971,0.02,-48.1,11.1,-60.9,3223,95,1.97e-07,-4.96e-05,166.38\n\nThe L5 refers to a Lotek tag detected by the radio on port 5. This is followed by the tag name and ID, the nominal frequency, the pulse interval (25.1s in this case), the freq offset in kHz, and further details about the pulse burst.",
+        "color": ""
       },
       "dynamic": {
         "text": "detection_log"
@@ -1917,7 +1954,8 @@
       "cols": 6,
       "static": {
         "title": "Station",
-        "zoom": 0.75
+        "zoom": 0.75,
+        "color": ""
       },
       "dynamic": {
         "value": "motus_recv/station_name"
@@ -2185,7 +2223,8 @@
       "cols": 6,
       "static": {
         "title": "Upload history",
-        "text": "/enpi/upload/log"
+        "text": "/enpi/upload/log",
+        "color": ""
       },
       "dynamic": {
         "text": "enpi/upload/log"
@@ -2325,7 +2364,8 @@
       "cols": 2,
       "static": {
         "title": "Chart interval",
-        "zoom": 0.8
+        "zoom": 0.8,
+        "color": ""
       },
       "dynamic": {
         "value": "enpi/detections/interval"
@@ -2579,7 +2619,8 @@
       "rows": 1,
       "cols": 6,
       "static": {
-        "title": "Stat"
+        "title": "Stat",
+        "color": ""
       },
       "dynamic": {
         "value": "$demo_random"
@@ -2613,7 +2654,8 @@
       "rows": 1,
       "cols": 4,
       "static": {
-        "title": "Stat"
+        "title": "Stat",
+        "color": ""
       },
       "dynamic": {
         "value": "$demo_random"
@@ -2639,7 +2681,8 @@
         "title": " ",
         "label": "Light Level",
         "size": "150%",
-        "weight": "600"
+        "weight": "600",
+        "color": ""
       },
       "dynamic": {},
       "id": "w09395"
@@ -2653,7 +2696,8 @@
         "size": "150%",
         "label": "Air Quality",
         "padding": "0px",
-        "weight": "600"
+        "weight": "600",
+        "color": ""
       },
       "dynamic": {},
       "id": "w09015"
@@ -2666,7 +2710,8 @@
         "title": "",
         "weight": "600",
         "size": "150%",
-        "label": "Combined"
+        "label": "Combined",
+        "color": ""
       },
       "dynamic": {
         "label": "Combined"
@@ -2693,7 +2738,8 @@
       "rows": 3,
       "cols": 6,
       "static": {
-        "title": "Update log"
+        "title": "Update log",
+        "color": ""
       },
       "dynamic": {
         "text": "enpi/update/log"
@@ -2710,7 +2756,8 @@
         "label": "0.2.5",
         "weight": "600",
         "size": "150%",
-        "justify": "center"
+        "justify": "center",
+        "color": ""
       },
       "dynamic": {
         "label": "enpi/version"
@@ -2749,7 +2796,7 @@
         "color": "#FFFFFF",
         "text": "Provisioning is required to upload data. It is only done once per device. It should be done automatically on startup, but if there's a failure you can always try clicking the \"provision\" button.",
         "popup_info": "",
-        "icon": "help-circle"
+        "icon": "mdi-help-circle"
       },
       "dynamic": {},
       "id": "w01086"
@@ -2760,7 +2807,7 @@
       "cols": 6,
       "static": {
         "title": "Blocked SIM Profiles",
-        "popup_info": "Profiles listed here are skipped at boot. If the SIM selects a blocked profile, the station cycles the modem radio to force a new selection. If no acceptable profile is found after 10 attempts, the station proceeds anyway and logs a warning.  Each entry is identified by its 5–6 digit IMSI prefix (MCC + MNC). Entries are saved manually using config options above and take effect on the next reboot or modem reset."
+        "popup_info": "Profiles listed here are skipped at boot. If the SIM selects a blocked profile, the station cycles the modem radio to force a new selection. If no acceptable profile is found after 10 attempts, the station proceeds anyway and logs a warning.  Each entry is identified by its 5\u00e2\u20ac\u201c6 digit IMSI prefix (MCC + MNC). Entries are saved manually using config options above and take effect on the next reboot or modem reset."
       },
       "dynamic": {
         "data": "cellular/bad_imsi/data",
@@ -2775,7 +2822,7 @@
       "static": {
         "title": "SIM Profile History",
         "data": "",
-        "popup_info": "The SIM card in this station supports multiple carrier profiles (IMSIs). Each time the modem powers on, the SIM applet randomly selects one. This table shows every profile observed since the station was set up, identified by the carrier's country code (MCC) and network code (MNC).  Profiles marked Rejected are currently blocked — at startup the station will power-cycle the modem radio until a different profile is selected (up to 10 attempts). If a profile is causing connection failures in your region, block it using the controls below."
+        "popup_info": "The SIM card in this station supports multiple carrier profiles (IMSIs). Each time the modem powers on, the SIM applet randomly selects one. This table shows every profile observed since the station was set up, identified by the carrier's country code (MCC) and network code (MNC).  Profiles marked Rejected are currently blocked \u00e2\u20ac\u201d at startup the station will power-cycle the modem radio until a different profile is selected (up to 10 attempts). If a profile is causing connection failures in your region, block it using the controls below."
       },
       "dynamic": {
         "data": "cellular/telecom/data",
@@ -2848,7 +2895,8 @@
       "cols": 2,
       "static": {
         "title": "Carrier",
-        "zoom": 0.6
+        "zoom": 0.6,
+        "color": ""
       },
       "dynamic": {
         "value": "cellular/info/carrier"
@@ -2861,7 +2909,8 @@
       "cols": 2,
       "static": {
         "title": "Local Wi-Fi IP",
-        "zoom": 0.7
+        "zoom": 0.7,
+        "color": ""
       },
       "dynamic": {
         "value": "net_wifi_ip"
@@ -2914,7 +2963,8 @@
         "high_color": "#2E7D32",
         "high_threshold": null,
         "chip": false,
-        "low_regexp": ""
+        "low_regexp": "",
+        "color": ""
       },
       "dynamic": {
         "value": "cellular/iccid"
@@ -2950,7 +3000,8 @@
         "title": "",
         "label": "Available Wifi Networks",
         "weight": "600",
-        "size": "150%"
+        "size": "150%",
+        "color": ""
       },
       "dynamic": {},
       "id": "w07851"
@@ -2959,7 +3010,7 @@
   "grids": {
     "g00001": {
       "id": "g00001",
-      "kind": "FixedGrid",
+      "kind": "StdGrid",
       "widgets": [
         "w06965",
         "w06221",
@@ -2969,7 +3020,7 @@
       "max_cols": 6
     },
     "g01892": {
-      "kind": "FixedGrid",
+      "kind": "StdGrid",
       "title": "",
       "widgets": [
         "w01693",
@@ -2982,7 +3033,7 @@
       "min_cols": 3
     },
     "g03145": {
-      "kind": "FixedGrid",
+      "kind": "StdGrid",
       "title": "",
       "widgets": [
         "w01814",
@@ -2995,7 +3046,7 @@
       "max_cols": 6
     },
     "g03307": {
-      "kind": "FixedGrid",
+      "kind": "StdGrid",
       "title": "",
       "widgets": [
         "w07658",
@@ -3009,7 +3060,7 @@
       "max_cols": 6
     },
     "g07380": {
-      "kind": "FixedGrid",
+      "kind": "StdGrid",
       "title": "",
       "widgets": [
         "w00710",
@@ -3020,7 +3071,7 @@
       "max_cols": 6
     },
     "g05782": {
-      "kind": "FixedGrid",
+      "kind": "StdGrid",
       "title": "",
       "widgets": [
         "w07215",
@@ -3034,7 +3085,7 @@
       "max_cols": 6
     },
     "g08970": {
-      "kind": "FixedGrid",
+      "kind": "StdGrid",
       "title": "",
       "widgets": [
         "w08212",
@@ -3048,15 +3099,8 @@
       "id": "g08970",
       "max_cols": 6
     },
-    "g05783": {
-      "kind": "FixedGrid",
-      "title": "",
-      "widgets": [],
-      "id": "g05783",
-      "max_cols": 2
-    },
     "g10000": {
-      "kind": "FixedGrid",
+      "kind": "StdGrid",
       "title": "",
       "widgets": [
         "w05761",
@@ -3088,13 +3132,13 @@
   "tabs": {
     "t00001": {
       "id": "t00001",
-      "icon": "view-dashboard",
+      "icon": "mdi-view-dashboard",
       "grids": [
         "g00001"
       ]
     },
     "t01980": {
-      "icon": "file-multiple",
+      "icon": "mdi-file-multiple",
       "title": "Files",
       "id": "t01980",
       "grids": [
@@ -3102,7 +3146,7 @@
       ]
     },
     "t06560": {
-      "icon": "radio-tower",
+      "icon": "mdi-radio-tower",
       "title": "radios",
       "id": "t06560",
       "grids": [
@@ -3111,7 +3155,7 @@
       ]
     },
     "t06959": {
-      "icon": "lan",
+      "icon": "mdi-lan",
       "title": "network",
       "id": "t06959",
       "grids": [
@@ -3119,7 +3163,7 @@
       ]
     },
     "t08355": {
-      "icon": "tune-vertical",
+      "icon": "mdi-tune-vertical",
       "title": "config",
       "id": "t08355",
       "grids": [
@@ -3127,7 +3171,7 @@
       ]
     },
     "t09219": {
-      "icon": "script-text",
+      "icon": "mdi-script-text",
       "title": "software",
       "id": "t09219",
       "grids": [
@@ -3135,7 +3179,7 @@
       ]
     },
     "t10000": {
-      "icon": "leaf",
+      "icon": "mdi-leaf",
       "title": "sensors",
       "id": "t10000",
       "grids": [
