@@ -13,6 +13,7 @@ class BurstFinder {
 
         matron.on("quit", () => this.quit())
         matron.on("vahData", x => this.gotInput(x))
+        matron.on("grhData", x => this.gotInput(x))
 
         this.CMD_PATH = "/usr/bin/python3"
         this.BY = "/run/bursts.yaml"

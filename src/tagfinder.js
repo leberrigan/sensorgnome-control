@@ -16,6 +16,7 @@ class TagFinder {
 
         matron.on("quit", () => this.quit())
         matron.on("vahData", x => this.gotInput(x))
+        matron.on("grhData", x => this.gotInput(x))
         matron.on("setParam", x => this.gotParamInput(x))
         matron.on("tagDBChg", x => this.restart())
     }

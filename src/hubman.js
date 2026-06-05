@@ -52,6 +52,7 @@ class HubMan {
         this.portmapfile = portmapfile
         this.devs = {} // port-number-indexed map of devices and their properties
 
+        matron.on("GRHstarted", () => this.GRHstarted())
         matron.on("VAHstarted", () => this.VAHstarted())
         matron.on("VAHdied", () => this.VAHdied())
         matron.on("devState", (port, state, msg) => this.setDevState(port, state, msg))
@@ -104,6 +105,8 @@ class HubMan {
         if (attr.type.includes("DigiBabel")) attr.radio = "DigiBabel"
         if (attr.type.includes("funcube")) attr.radio = "VAH"
         if (attr.type.includes("rtlsdr")) attr.radio = "VAH"
+        if (attr.type.includes("airspy")) attr.radio = "GRH"
+        if (attr.type.includes("airspyhf")) attr.radio = "GRH"
 
         // munge port and path
         let port = attr.radio ? this.findPort(attr.port_path) : "0" // attr.port_path is usb device path        
@@ -202,6 +205,10 @@ class HubMan {
         }
     }
 
+    GRHstarted() {
+        // if device server restarted, re-start all devices as appropriate
+        this.enumeratePreExistingDevices()
+    }
     VAHstarted() {
         // if device server restarted, re-start all devices as appropriate
         this.enumeratePreExistingDevices()
@@ -216,6 +223,12 @@ class HubMan {
                 delete this.devs[i]
             }
         }
+    }
+
+    grhDied() {
+        // if GRH died, forget devices when GRH
+        // restarts, we'll re-enumerate
+      // Probably don't need to do anything
     }
 
 }
