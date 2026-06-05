@@ -55,6 +55,7 @@ class HubMan {
         matron.on("GRHstarted", () => this.GRHstarted())
         matron.on("VAHstarted", () => this.VAHstarted())
         matron.on("VAHdied", () => this.VAHdied())
+        matron.on("grhDied", () => this.grhDied())
         matron.on("devState", (port, state, msg) => this.setDevState(port, state, msg))
         // setInterval(()=> console.log(`Hubman devices: ${Object.values(this.devs).map(d => 
         //     JSON.stringify([d.attr?.port, d.attr?.type, d.state, d.msg]))}`), 20_000)
@@ -103,8 +104,9 @@ class HubMan {
         if (attr.type.includes("Cornell")) attr.type = "CTT/CornellRcvr"
         if (attr.type.includes("Cornell")) attr.radio = "CTT/Cornell"
         if (attr.type.includes("DigiBabel")) attr.radio = "DigiBabel"
-        if (attr.type.includes("funcube")) attr.radio = "VAH"
-        if (attr.type.includes("rtlsdr")) attr.radio = "VAH"
+        if (attr.type.includes("funcube") && attr.type !== "funcubeProPlus") attr.radio = "VAH"
+        if (attr.type === "funcubeProPlus") attr.radio = "GRH"
+        if (attr.type.includes("rtlsdr")) attr.radio = "GRH"
         if (attr.type.includes("airspy")) attr.radio = "GRH"
         if (attr.type.includes("airspyhf")) attr.radio = "GRH"
 
@@ -226,9 +228,14 @@ class HubMan {
     }
 
     grhDied() {
-        // if GRH died, forget devices when GRH
-        // restarts, we'll re-enumerate
-      // Probably don't need to do anything
+        // remove GRH-backed devices so that when GRH restarts and GRHstarted fires,
+        // enumeratePreExistingDevices re-emits devAdded for each of them
+        for (var i in this.devs) {
+            if (this.devs[i] && this.devs[i].attr.radio === "GRH") {
+                this.matron.emit("devRemoved", {...this.devs[i]})
+                delete this.devs[i]
+            }
+        }
     }
 
 }

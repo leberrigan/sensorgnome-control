@@ -135,6 +135,8 @@ GRH.prototype.sockConnected = function() {
         console.log("GnuRadio command (queued): ", JSON.stringify(this.commandQueue[0]));
         this.sock.write( this.commandQueue.shift() );
     }
+    if (!this.checkRateTimer)
+        this.checkRateTimer = setInterval(() => this.checkRates(), checkRatesInterval);
 };
 
 GRH.prototype.serverReady = function(data) {
@@ -211,7 +213,7 @@ GRH.prototype.grhSubmit = function (cmd, callback, callbackPars) {
     } else {
         // console.log("GnuRadio about to queue: " + cmd + "\n");
         for (var i in cmd)
-            this.commandQueue.push(cmd + '\n');
+            this.commandQueue.push(cmd[i] + '\n');
     }
 };
 
@@ -223,7 +225,7 @@ GRH.prototype.grhStartStop = function (startstop, port, callback, callbackPars) 
     this.grhSubmit(cmd, callback, callbackPars);
     // info from GnuRadio comes back as 'pN', the 'p' stands for Plugin...
     if (startstop != 'start') {
-        delete this.frames['p'+devLabel]; // remove plugin from list being monitored
+        delete this.frames['p'+port]; // remove plugin from list being monitored
     }
 };
 
@@ -270,12 +272,9 @@ GRH.prototype.gotReply = function (data) {
 };
 
 GRH.prototype.grhAccept = function(pluginLabel) {
-    // indicate that GnuRadio should accept data from the specified plugin
-    if (this.dataSock) {
-        console.log("GnuRadio asking to receive " + pluginLabel);
-        this.dataSock.write("receive " + pluginLabel + "\n");
-        this.frames[pluginLabel] = { at: Date.now(), frames: null, bad: 0 };
-    }
+    // register this port for rate/alive monitoring
+    console.log("GnuRadio registering for monitoring: " + pluginLabel);
+    this.frames[pluginLabel] = { at: Date.now(), bad: 0 };
 };
 
 
@@ -305,58 +304,25 @@ GRH.prototype.checkRates = function() {
     this.grhSubmit("list", reply => this.checkRatesReply(reply));
 };
 
-var logRateCnt = 0;
-
 GRH.prototype.checkRatesReply = function(reply) {
-    // NOTE: `p` in this function refers to a value like `p2` where the `p` really stands for
-    // GnuRadio Plugin, but `p` is also used as Port designator here. The use of the same letter is
-    // actually a coincidence. It works, but not great.
-    // check that all the plugins are producing data at the correct rate
-    const now = Date.now()
-    const minFct = 1 - boundsPCT/100
-    const maxFct = 1 + boundsPCT/100
-    console.log("GnuRadio rates: ", JSON.stringify(reply, null, 2));
-    //console.log(`GnuRadio frames: ${JSON.stringify(this.frames, null, 2)}`);
+    // reply is {"p3": {"alive": true, "pid": 12345}, ...} from gnu-radio-host.py
     for (const p in this.frames) {
         const fp = this.frames[p];
         if (p in reply) {
-            var info = reply[p];
-            if (info.type != 'PluginRunner') {
-                console.log(`GnuRadio checkRates: ${p} is not a plugin? ${JSON.stringify(info)}`);
-                continue;
-            }
-            // console.log(`GnuRadio info for ${p} at ${now} (dt=${now-fp.at}): ${JSON.stringify(info, null, 2)}`);
-            this.matron.emit("grhFrames", p, now, info.totalFrames);
-            // if fp.frames is null it just started and we don't have an initial frame count, so
-            // get that (we used to set frames to 0 when starting but it takes a long time to actually
-            // start and that caused low frame rates)
-            if (fp.frames === null) {
-                this.frames[p] = { ...fp, at: now, frames: info.totalFrames };
-                continue;
-            }
-            // calculate the rate
-            const dt = now - fp.at;
-            if (dt < checkRatesInterval*0.9) continue; // too soon to calculate stable rate
-            const df = info.totalFrames - fp.frames;
-            const rate = df / dt * 1000;
-            this.matron.emit("grhRate", p, now, rate);
-            // OK or not?
-            const ok = rate > info.rate*minFct && rate < info.rate*maxFct;
-            if (!ok || logRateCnt++ < 100)
-                console.log(`GnuRadio rate for ${p}: nominal ${info.rate}, actual ${rate.toFixed(0)} frames/sec`);
-            if (!ok) fp.bad++; else fp.bad = 0;
-            if (fp.bad >= maxOutOfBounds) {
-                const msg = `GnuRadio rate for ${p} is out of range: nominal ${info.rate}, actual ${rate.toFixed(0)} frames/sec`
+            if (!reply[p].alive) {
+                const msg = `GnuRadio subprocess for ${p} has died`;
                 console.log(msg);
                 this.matron.emit("devStalled", p, msg);
-                fp.bad = 0; // reset count so we don't continuously signal devStalled
+                delete this.frames[p];
             }
-            // Update the current frame count for the next check
-            this.frames[p] = { ...fp, at: now, frames: info.totalFrames };
-        } else if (fp.frames > 0 || Date.now() - fp.at > checkRatesInterval*0.9) {
-            // plugin has died
-            console.log(`GnuRadio plugin ${p} has died`);
-            this.matron.emit("devStalled", p, `port ${p} is not producing data`);
+        } else {
+            // port registered locally but not known to GRH — only flag after one full interval
+            if (Date.now() - fp.at > checkRatesInterval) {
+                const msg = `GnuRadio subprocess for ${p} is not in device list`;
+                console.log(msg);
+                this.matron.emit("devStalled", p, msg);
+                delete this.frames[p];
+            }
         }
     }
 };

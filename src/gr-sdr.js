@@ -24,35 +24,8 @@ GR_SDR = function(matron, dev, devPlan) {
     // this.this_gotCmdReply      = this.gotCmdReply.bind(this);
     // this.this_logServerError   = this.logServerError.bind(this);
     this.this_grhDied          = this.grhDied.bind(this);
-    this.this_grhData          = this.grhData.bind(this);
-    // this.this_serverDied       = this.serverDied.bind(this);
-    // this.this_serverError      = this.serverError.bind(this);
-    // this.this_cmdSockConnected = this.cmdSockConnected.bind(this);
-    // this.this_connectCmd       = this.connectCmd.bind(this);
-    // this.this_serverReady      = this.serverReady.bind(this);
-    // this.this_cmdSockError     = this.cmdSockError.bind(this);
-    // this.this_cmdSockClose     = this.cmdSockClose.bind(this);
-    // this.this_cmdSockEnd       = this.cmdSockEnd.bind(this);
-    // this.this_spawnServer      = this.spawnServer.bind(this);
 
-    // handle situation where program owning other connection to libairspy dies
     this.matron.on("grhDied", this.this_grhDied);
-
-    // listen to data to adjust gain based on noise level
-    this.matron.on("grhData", this.this_grhData);
-
-    // storage for the setting list sent by libairspy
-    this.replyBuf = ""; // buffer the reply stream, in case it crosses transmission unit boundaries
-
-    // libairspy replies with a 12-byte header, before real command replies; we ignore this
-    // as the info is available elsewhere
-    this.gotCmdHeader = false;
-
-    this.restart = false; // when true, we're killing the server and want a restart
-
-    this.killing = false; // when true, we've deliberately killed the server
-
-    this.agc_at = 0; // timestamp of last AGC change
 
     console.log("GnuRadio: created");
 };
@@ -62,48 +35,62 @@ GR_SDR.prototype.constructor = GR_SDR;
 
 
 GR_SDR.prototype.getDeviceID = function() {
-    if (this.dev.attr.type == "airspy" || this.dev.attr.type == "airspyhf") {
-            
-        const [bus, device] = (this.dev.attr.usbPath || "0:0")
-            .split(":")
-            .map( x => x.padStart(3, '0') );
-
-        const path = `/dev/bus/usb/${bus}/${device}`;
-        let output;
-
-        console.log("Getting serial number for GnuRadio device at path:", path);
-        try {
-            output = ChildProcess.execSync(`udevadm info -q all -n ${path}`).toString();
-        } catch (err) {
-            console.warn(`Failed to get udev info for ${path}:`, err.message);
-            return null;
-        }
-
-        const serialMatch = output.match(/ID_SERIAL=([^\n]+)/);
-
-        const serial = serialMatch ? serialMatch[1].split(":").pop() : null;   
-        console.log("Found serial number:", serial);
-
-        return serial;
-
-    } else {
-        return this.dev.attr.port;
+    // FCD Pro+ is an audio device. Return a compound "USB_PATH:ALSA_CARD" string so the
+    // flow graph has both: USB path for `fcd -p` RF tuning, and card number for audio.source.
+    if (this.dev.attr.type === "funcubeProPlus") {
+        return `${this.dev.attr.usbPath}:${this.dev.attr.alsaDev}`;
     }
+
+    // For all other SDR devices (rtlsdr, airspy, airspyhf): get the hardware serial via
+    // udevadm. ID_SERIAL_SHORT is the firmware serial that osmosdr/Soapy accept directly,
+    // allowing correct device selection when multiple units of the same type are connected.
+    const [bus, device] = (this.dev.attr.usbPath || "0:0")
+        .split(":")
+        .map(x => x.padStart(3, '0'));
+    const path = `/dev/bus/usb/${bus}/${device}`;
+
+    try {
+        const output = ChildProcess.execSync(`udevadm info -q all -n ${path}`).toString();
+        const shortMatch = output.match(/ID_SERIAL_SHORT=([^\n]+)/);
+        if (shortMatch) {
+            const serial = shortMatch[1].trim();
+            console.log(`GnuRadio device serial (${this.dev.attr.type} @ ${path}):`, serial);
+            return serial;
+        }
+        const serialMatch = output.match(/ID_SERIAL=([^\n]+)/);
+        if (serialMatch) {
+            const serial = serialMatch[1].trim().split(":").pop();
+            console.log(`GnuRadio device serial (fallback) (${this.dev.attr.type} @ ${path}):`, serial);
+            return serial;
+        }
+    } catch (err) {
+        console.warn(`Failed to get udev info for ${path}:`, err.message);
+    }
+
+    console.warn(`No serial found for ${this.dev.attr.type} on port ${this.dev.attr.port}, using port number`);
+    return this.dev.attr.port;
 }
 
 
 GR_SDR.prototype.extractPluginParams = function() {
-    
-    for (param of this.plan.plugins[0].params) {
+    for (let param of this.plan.plugins[0].params) {
         this.plan[param.name] = param.value;
     }
-    for (param of this.plan.devParams) {
+    for (let param of this.plan.devParams) {
         this.plan[param.name] = param.schedule.value;
     }
 }
 
 GR_SDR.prototype.grhDied = function() {
     this.hw_delete();
+};
+
+GR_SDR.prototype.devRemoved = function(dev) {
+    // clean up GRH-specific listeners before delegating to base class
+    this.matron.removeListener("grhDied", this.this_grhDied);
+    // unregister from rate monitoring
+    this.matron.emit("grhStartStop", "stop", this.dev.attr.port);
+    Sensor.Sensor.prototype.devRemoved.call(this, dev);
 };
 
 
@@ -144,23 +131,13 @@ GR_SDR.prototype.hw_devPath = function() {
 
 
 GR_SDR.prototype.hw_delete = function() {
-    //console.log("airspy::hw_delete");
-    if (this.server) {
-        this.killing = true;
-        this.server.kill("SIGKILL");
-        console.log("libairspy server", this.server.pid, this.server.killed ? "killed" : "not killed");
-        //this.server = null;
-    }
-    if (this.cmdSock) {
-        this.cmdSock.destroy();
-        this.cmdSock = null;
-    }
+    // nothing to do here — gnu-radio-host.py manages the subprocess lifecycle,
+    // and the close command is sent from sensor.js:close()
 };
 
 GR_SDR.prototype.hw_startStop = function(on) {
-    // just send the 'streaming' command with appropriate value
-    this.hw_setParam({par:"streaming", val:on?1:0});
-    console.log("GnuRadio::hw_startStop = " + on);
+    // GnuRadio subprocesses stream continuously while alive; no explicit start/stop needed
+    console.log("GnuRadio::hw_startStop = " + on + " (no-op)");
 };
 
 // hw_restart is called when either data from the device seems to have stalled
@@ -178,56 +155,13 @@ GR_SDR.prototype.hw_restart = function() {
 };
 
 GR_SDR.prototype.hw_stalled = function() {
-    // relaunch libairspy and re-establish connection
-    console.log("GnuRadio::hw_stalled");
-    this.restart = true
-    this.hw_delete()
-};
-
-// tune gain to set the noise floor into the -35..-45dB range
-GR_SDR.prototype.grhData = function(line) {
-    FlexDash.set('detections_5min', this.detections)
+    console.log("GnuRadio::hw_stalled — restarting device");
+    this.hw_restart();
 };
 
 GR_SDR.prototype.hw_setParam = function(parSetting, callback) {
-    
-    let val = parSetting.val;
-    let par = parSetting.par;
-
-    let cmd = `${par} ${this.dev.attr.port} ${val}`
-
+    const cmd = `${parSetting.par} ${this.dev.attr.port} ${parSetting.val}`;
     this.matron.emit("grhSubmit", cmd, callback, this);
-
-/*     var cmdBuf = Buffer.alloc(5);
-    let val = parSetting.val;
-    let par = parSetting.par;
-
-    switch (par) {
-        case "frequency":
-            val = Math.round(val * 1.0E6); // MHz to Hz
-            break;
-    }
-
-    var cmdNo = this.gnuRadioCmds[ par ];
-    if (cmdNo && this.cmdSock) {
-        console.log(`GnuRadio: set parameter ${par} (${cmdNo}) to ${val}`);
-        try {
-            if (!callback) 
-                callback = (err) => {
-                    if (err) console.error("Command write failed:", err);
-                    else console.log("Command sent");
-                };
-            cmdBuf.writeUInt8(cmdNo, 0);
-            cmdBuf.writeUInt32BE(val, 1); // note: airspy_tcp expects big-endian
-            this.cmdSock.write(cmdBuf, callback);
-        } catch(e) {
-            this.matron.emit("setParamError", {type:"airspy", port: this.dev.attr.port, par: par, val:val, err: e.toString()})
-        }
-    } else if (cmdSock) {
-        console.warn(`Unknown parameter: ${par}`);
-    } */
-
-    //if (callback) callback();
 };
 
 

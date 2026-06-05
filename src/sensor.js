@@ -97,6 +97,10 @@ Sensor.prototype.devRemoved = function(dev) {
 }
 
 Sensor.prototype.close = function() {
+    if (this.plan.pulseFinder === "gnuradio") {
+        this.matron.emit("grhSubmit", "close " + this.dev.attr.port);
+        return;
+    }
     var plugins = this.plan.plugins;
     for (var i in plugins) {
         var plugin = plugins[i];
@@ -105,7 +109,7 @@ Sensor.prototype.close = function() {
     this.matron.emit("vahSubmit", "close " + this.dev.attr.port);
 };
 
-// devSDtalled event handler, triggered by VAH when rate is out of bounds
+// devStalled event handler, triggered by VAH/GRH when rate is out of bounds or subprocess dies
 Sensor.prototype.devStalled = function(vahDevLabel, message) {
     if (vahDevLabel == 'p'+this.dev.attr.port) {
         console.log("Got devStalled for " + vahDevLabel);
@@ -190,7 +194,6 @@ Sensor.prototype.vahOpenReply = function (reply, self) {
 Sensor.prototype.grOpenReply = function (reply, self) {
     if (reply.error) {
         console.log(`sensor GnuRadio open reply port ${self.dev.attr?.port} got ${JSON.stringify(reply)}\n`);
-        // schedule a retry on this device (every 10 seconds up to 10 times)
         self.matron.emit("devState", self.dev.attr.port, "error", "GnuRadio cannot open device");
         if (++self.numOpenRetries < 3) {
             setTimeout (self.this_init, 10000);
@@ -202,24 +205,19 @@ Sensor.prototype.grOpenReply = function (reply, self) {
     }
     self.isOpen = true;
 
-    
+    // register with GRH for alive monitoring
+    self.matron.emit("grhAccept", "p" + self.dev.attr.port);
+
     // if any schedules exist (because device was restarted, e.g.),
     // don't set them up again.
-
     if (self.schedules === undefined) {
-        // create schedules for the device and its parameters
         self.schedules = [];
-
-        // a schedule for each device parameter
         var dp = self.plan.devParams;
         for (var i in dp) {
-            // create a callback to set the specific parameter
-            // to a value created in the schedule's state
             self.schedules.push(Schedule.Make(dp[i].schedule, self.setParam, {self: self, par: dp[i].name}));
         };
         self.setupDevSchedule(self);
     }
-//    self.startStop("on", "off", self); // Skip scheduler since it doesn't seem to ever be used. I can add it back in if we determine it to be useful.
 };
 Sensor.prototype.getPluginLabel = function(letter) {
     // for now, we assume only one plugin per port and just label
@@ -299,9 +297,10 @@ Sensor.prototype.startStop = function(newState, oldState, self) {
     }
     self.startStopRawFiler(self.on);
     self.hw_startStop(self.on);
-    var cmd = self.on ? "start" : "stop";
-    self.matron.emit("vahStartStop", cmd, self.dev.attr.port, self.startStopReply, self);
-    // self.matron.emit("vahSubmit", cmd, self.startStopReply, self);
+    if (self.plan.pulseFinder !== "gnuradio") {
+        var cmd = self.on ? "start" : "stop";
+        self.matron.emit("vahStartStop", cmd, self.dev.attr.port, self.startStopReply, self);
+    }
     if (self.dev) self.matron.emit("devState", self.dev.attr.port, self.on ? "running" : "stopped");
 };
 
