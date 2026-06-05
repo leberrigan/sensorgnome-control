@@ -167,6 +167,7 @@ class Dashboard {
         this.show_pulses = true
         FlexDash.set('cellular/iccid', '**********************')
         FlexDash.set('wifi/connect/enabled', false)
+        FlexDash.set('wifi/ssid', 'No network')
 
         FlexDash.monitoring = this.monitoring.bind(this)
 
@@ -412,19 +413,27 @@ class Dashboard {
         rows = rows || []
         this.wifi_networks_rows = rows
         const connected = rows.find(r => r[2] === 'Connected')
-        const labels = ['', ...rows.map(r => `${r[0]} (${r[1]} dBm)`)]
+        const labels = ['No network', ...rows.map(r => `${r[0]} (${r[1]} dBm)`)]
         FlexDash.set('wifi/available', labels)
-        FlexDash.set('wifi/ssid', connected ? connected[0] : '')
+        FlexDash.set('wifi/ssid', connected ? connected[0] : 'No network')
         FlexDash.set('wifi/networks/data', rows)
+        if (this.wifi_connecting) {
+            this.wifi_connecting = false
+            if (!connected || connected[0] !== this.wifi_connect_ssid) {
+                FlexDash.set('wifi/connect/enabled', true) // connection failed, re-enable
+            }
+        }
     }
     handle_dash_wifi_connect_ssid(label) {
-        if (!label) {
+        if (!label || label === 'No network') {
             FlexDash.set('wifi/connect/enabled', false)
             return
         }
         const row = (this.wifi_networks_rows || []).find(r => `${r[0]} (${r[1]} dBm)` === label)
         this.wifi_connect_ssid = row ? row[0] : label
         this.wifi_connect_password = ''
+        FlexDash.set('wifi/ssid', this.wifi_connect_ssid)
+        FlexDash.set('wifi/password', '[SET WIFI PASSWORD HERE]')
         FlexDash.set('wifi/connect/enabled', true)
     }
     handle_dash_wifi_connect_password(password) {
@@ -433,7 +442,11 @@ class Dashboard {
     handle_dash_wifi_connect() {
         if (!this.wifi_connect_ssid) return
         WifiMan.setWifiConfig({ ssid: this.wifi_connect_ssid, passphrase: this.wifi_connect_password || '' }).then(() => {})
+        FlexDash.set('wifi/ssid', this.wifi_connect_ssid)
         FlexDash.set('wifi/password', '********')
+        FlexDash.set('wifi/connect/enabled', false)
+        this.wifi_connecting = true
+        setTimeout(() => WifiMan.scanWifiNetworks(), 12000)
     }
     handle_netCellICCID(iccid) { FlexDash.set('cellular/iccid', iccid || '') }
     handle_dash_cellular_iccid_show() { CellMan.fetchAndRevealICCID() }

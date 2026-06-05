@@ -2860,10 +2860,11 @@
       "dynamic": {
         "value": "wifi/ssid",
         "choices": "wifi/available",
-        "labels": "wifi/available"
+        "labels": "wifi/available",
+        "enabled": null
       },
       "id": "w03603",
-      "output": null
+      "output": "wifi_connect_ssid"
     },
     "w04519": {
       "kind": "CustomWidget",
@@ -2886,10 +2887,11 @@
         "color": "grey-lighten-3"
       },
       "dynamic": {
-        "text": "wifi/password"
+        "text": "wifi/password",
+        "enabled": "wifi/connect/enabled"
       },
       "id": "w01126",
-      "output": null
+      "output": "wifi_connect_password"
     },
     "w04105": {
       "kind": "PushButton",
@@ -2903,7 +2905,7 @@
         "enabled": "wifi/connect/enabled"
       },
       "id": "w04105",
-      "output": null
+      "output": "wifi_connect"
     },
     "w06185": {
       "kind": "PushButton",
@@ -2915,7 +2917,7 @@
       },
       "dynamic": {},
       "id": "w06185",
-      "output": null
+      "output": "wifi_networks_scan"
     },
     "w02911": {
       "kind": "SimpleTable",
