@@ -149,6 +149,7 @@ class Dashboard {
         // some static machine info
         FlexDash.set('machineinfo', Machine)
         setTimeout(()=>FlexDash.set('machineinfo', Machine), 15000) // sdCardSize comes delayed
+        FlexDash.set('portmap/refimage', this.portmapRefImage())
         FlexDash.set('software/enable', false)
         FlexDash.set('software/enable_upgrade', false)
         FlexDash.set('software/enable_shutdown', false)
@@ -303,6 +304,12 @@ class Dashboard {
         FlexDash.set(`devices/${info.port}/type`, 'CTTv' + v)
     }
     handle_portmapFile(txt) { FlexDash.set('portmap_file', txt) }
+
+    portmapRefImage() {
+        const m = Machine.machineType.match(/Raspberry Pi (\d+)/)
+        const gen = m?.[1]
+        return ['3', '4', '5'].includes(gen) ? `/rpi${gen}-port-numbering.png` : null
+    }
     handle_dash_update_portmap(portmap) { HubMan.setPortmap(portmap) }
     handle_tagDBInfo(data) { FlexDash.set('tagdb', data) }
     handle_motusUploadResult(data) { FlexDash.set('motus_upload', data) }
@@ -320,12 +327,12 @@ class Dashboard {
         ))
         )
         // sync gnuradio toggle state
-        FlexDash.set('gnuradio/enabled', config.gnuradio_enabled ? "ON" : "OFF")
+        FlexDash.set('gnuradio/enabled', config.gnuradio_enabled)
     }
 
     handle_dash_gnuradio_enabled(enabled) {
         Acquisition.update({ gnuradio_enabled: enabled })
-        // tear down and re-init all devices so the new setting takes effect immediately
+        this.matron.emit("gnuradioEnabled", enabled)
         HubMan.resetDevices()
     }
     handle_dash_burstfinder_method(v) { 

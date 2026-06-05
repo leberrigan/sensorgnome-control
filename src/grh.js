@@ -38,6 +38,9 @@ GRH = function(matron, prog, sockName) {
     this.checkRateTimer = null;
     this.frames = {}; // last frame count&time for each plugin {at: Date.now(), frames:N, bad:N}
 
+    // mirrors Acquisition.gnuradio_enabled; controls whether the subprocess is allowed to run
+    this.gnuradioActive = !!(typeof Acquisition !== 'undefined' && Acquisition.gnuradio_enabled);
+
     // callback closures
     this.this_childDied        = this.childDied.bind(this);
     this.this_logChildError    = this.logChildError.bind(this);
@@ -62,6 +65,7 @@ GRH = function(matron, prog, sockName) {
     matron.on("grhSubmit", this.this_grhSubmit);
     matron.on("grhStartStop", this.this_grhStartStop);
     matron.on("grhAccept", this.this_grhAccept);
+    matron.on("gnuradioEnabled", (enabled) => this.setEnabled(enabled));
 
     this.reapOldGRHandSpawn();
 }
@@ -87,7 +91,7 @@ GRH.prototype.childDied = function(code, signal) {
         this.dataSock.destroy();
         this.dataSock = null;
     }
-    if (! this.quitting)
+    if (!this.quitting && this.gnuradioActive)
         setTimeout(this.this_spawnChild, 5000);
     if (this.connectTimeout) {
         clearTimeout(this.connectTimeout);
@@ -111,8 +115,17 @@ GRH.prototype.doneReaping = function() {
     this.spawnChild();
 };
 
+GRH.prototype.setEnabled = function(enabled) {
+    this.gnuradioActive = !!enabled;
+    if (enabled) {
+        if (!this.child) this.reapOldGRHandSpawn();
+    } else {
+        if (this.child) this.child.kill("SIGTERM");
+    }
+};
+
 GRH.prototype.spawnChild = function() {
-    if (this.quitting)
+    if (this.quitting || !this.gnuradioActive)
         return;
     this.sock = null;
     const args = ["/usr/bin/gnu-radio-host.py", "-s", this.sockPath];

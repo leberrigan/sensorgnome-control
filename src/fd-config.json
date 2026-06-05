@@ -41,7 +41,7 @@
     },
     "w05060": {
       "kind": "SimpleTable",
-      "rows": 1,
+      "rows": 2,
       "cols": 3,
       "static": {
         "title": "Devices",
@@ -739,7 +739,7 @@
     },
     "w09855": {
       "kind": "TextView",
-      "rows": 1,
+      "rows": 2,
       "cols": 3,
       "static": {
         "title": "Port Mapping",
@@ -754,13 +754,14 @@
     },
     "w06015": {
       "kind": "Panel",
-      "rows": 4,
+      "rows": 6,
       "cols": 3,
       "static": {
         "title": "Port Mapping",
         "widgets": [
           "w09855",
-          "w05060"
+          "w05060",
+          "w08815"
         ],
         "solid": false
       },
@@ -3031,13 +3032,25 @@
       "rows": 1,
       "cols": 2,
       "static": {
-        "title": "GnuRadio"
+        "title": "GNU Radio"
       },
       "dynamic": {
         "value": "gnuradio/enabled"
       },
       "id": "w04504",
       "output": "gnuradio_enabled"
+    },
+    "w08815": {
+      "kind": "IFrame",
+      "rows": 1,
+      "cols": 6,
+      "static": {
+        "title": ""
+      },
+      "dynamic": {
+        "url": "portmap/refimage"
+      },
+      "id": "w08815"
     }
   },
   "grids": {
