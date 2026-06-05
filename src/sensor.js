@@ -55,9 +55,13 @@ getSensor = function(matron, dev, devPlan) {
     
     // console.log("Device plan: ", JSON.stringify(devPlan?.plan))
 
-    if (devPlan?.plan?.pulseFinder == "gnuradio") 
-        rv = new GR_SDR.GR_SDR(matron, dev, devPlan); // Device initialization is handled by gnuradio
-    else
+    if (devPlan?.plan?.pulseFinder == "gnuradio") {
+        if (!Acquisition.gnuradio_enabled) {
+            console.log(`GnuRadio disabled — skipping device on port ${dev.attr.port}`);
+            return null;
+        }
+        rv = new GR_SDR.GR_SDR(matron, dev, devPlan);
+    } else
         switch(dev.attr.type) {
             case "funcubePro":
             case "funcubeProPlus":

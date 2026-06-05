@@ -72,6 +72,7 @@ class Dashboard {
             'dash_remote_cmds', 'dash_detection_range', 'dash_alter_bootCount', 'dash_enable_agc',
             "dash_enpi_air_toggle", "dash_enpi_light_toggle", "dash_enpi_detection_range", "dash_enpi_secrets_file",
             'dash_enpi_update',
+            'dash_gnuradio_enabled',
             'dash_show_pulses', 'dash_cellular_priority', 'dash_burstfinder_burst',
             'dash_burstfinder_filter_file', 'dash_burstfinder_filter_ui',
             'dash_burstfinder_method', 'dash_cell_debug', 'dash_cell_scan',
@@ -318,6 +319,14 @@ class Dashboard {
                 [k,v]) => [k, v==true?"on":v==false?"off":v]
         ))
         )
+        // sync gnuradio toggle state
+        FlexDash.set('gnuradio/enabled', config.gnuradio_enabled ? "ON" : "OFF")
+    }
+
+    handle_dash_gnuradio_enabled(enabled) {
+        Acquisition.update({ gnuradio_enabled: enabled })
+        // tear down and re-init all devices so the new setting takes effect immediately
+        HubMan.resetDevices()
     }
     handle_dash_burstfinder_method(v) { 
         if (['burstfinder','pulsefilter'].includes(v)) this.updateBFConfig("method", v)

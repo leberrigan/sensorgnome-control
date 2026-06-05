@@ -4,7 +4,7 @@ var Fs = require("fs")
 var Fsp = require("fs").promises
 
 // fields that can be updated
-const UPDATABLE = [ 'label', 'memo', 'lotek_freq', 'agc', 'burstfinder', 'rtlsdr']
+const UPDATABLE = [ 'label', 'memo', 'lotek_freq', 'agc', 'burstfinder', 'rtlsdr', 'gnuradio_enabled']
 
 // Acquisition settings for receivers and other sensors, including operating plans
 class Acquisition {
@@ -21,6 +21,8 @@ class Acquisition {
             }
             // ensure AGC enable is defined
             d.agc = !!d.agc
+            // ensure gnuradio_enabled is defined, default off
+            if (d.gnuradio_enabled === undefined) d.gnuradio_enabled = false
             // insert default burstfinder output settings
             const bf_def = {
                 filter_file: false,
