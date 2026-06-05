@@ -10,6 +10,8 @@
     <style>
       /* Fix Vuetify 3.0.x: active overlays stuck at opacity:0 due to broken keyframe animations */
       .v-overlay--active>.v-overlay__content{opacity:1!important;pointer-events:auto!important}
+      /* Fix Vuetify 2→3: .container utility class removed in V3, used by std-grid.vue */
+      .container{width:100%;padding:12px;margin-right:auto;margin-left:auto}
     </style>
     <script>
       /* Fix Vuetify 3.0.x: VTextField type="number" emits InputEvent instead of value string */

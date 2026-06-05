@@ -502,12 +502,32 @@ class Dashboard {
     handle_dash_enpi_light_toggle(toggle) { Enpi.set('light/toggle',toggle) }
 
     
+    // Lazy-init TimeSeries for an enpi sensor on first data; call ts_enpi_setup once.
+    _enpiEnsureSensor(sensor) {
+        if (this.enpi?.[sensor]?.ts) return
+        if (!this.enpi) this.enpi = {}
+        const schemas = {
+            light: ['readings', 'light_level', 'temp'],
+            air:   ['readings', 'temp', 'pressure', 'humidity', 'pm1', 'pm2_5', 'pm10'],
+        }
+        this.enpi[sensor] = {
+            ts: Object.fromEntries(
+                (schemas[sensor] || []).map(dtype => [dtype, new TimeSeries(ts_dir, `enpi-${sensor}-${dtype}`)])
+            )
+        }
+        if (!this.enpi_setup_done) {
+            this.enpi_setup_done = true
+            this.ts_enpi_setup()
+        }
+    }
+
     // process data from air quality sensor
     handle_enpi_air_gotData(data) {
         // ts,temp,pressure,humidity,pm1,pm2.5,pm10, pc0.3, pc0.5,pc1,pc2.5,pc5,pc10
         try {
             const f = typeof data === "string" ? data.split(',') : data
             if (f.length != 13) return
+            this._enpiEnsureSensor('air')
             const time = Math.round(parseFloat(f[0])*1000)
             const temp = parseFloat(f[1])
             const pressure = parseFloat(f[2]) / 10 // hpa to kpa
@@ -532,6 +552,7 @@ class Dashboard {
         try {
             const f = typeof data === "string" ? data.split(',') : data
             if (f.length != 6) return
+            this._enpiEnsureSensor('light')
             const time = Math.round(parseFloat(f[0])*1000)
             const light_level = parseFloat(f[1])
             const temp = parseFloat(f[5])
@@ -544,12 +565,22 @@ class Dashboard {
     }
     
     ts_enpi_setup() {
-        
         setInterval(() => this.ts_enpi_save(), 60000)
-
-        this.enpi_ts_ix = 2 // Day 
+        this.enpi_ts_ix = 2 // Day
         this.handle_dash_enpi_detection_range(TimeSeries.ranges[this.enpi_ts_ix])
-        this.ts_enpi_refresh()
+    }
+
+    handle_dash_enpi_detection_range(range) {
+        try {
+            const ix = TimeSeries.ranges.indexOf(range)
+            if (ix < 0) { console.log("handle_dash_enpi_detection_range: bad range", range); return }
+            this.enpi_ts_ix = ix
+            this.ts_enpi_refresh()
+            if (this.enpiRefreshInterval) clearInterval(this.enpiRefreshInterval)
+            this.enpiRefreshInterval = setInterval(() => this.ts_enpi_refresh(), TimeSeries.intervals[ix])
+        } catch (e) {
+            console.warn("ts_enpi_refresh", e)
+        }
     }
 
     ts_enpi_show( sensor, combinedData ) {
