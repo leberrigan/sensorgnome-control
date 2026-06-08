@@ -4,7 +4,7 @@
         },
         "label": "changeMe",
         "memo": "memo for you about this SensorGnome",
-        "gnuradio_enabled": false,
+        "gnuradio_enabled": true,
         "lotek_freq": 166.38,
         "module_options": {
             "find_tags": {
@@ -278,7 +278,7 @@
                     "port": ".*",
                     "devType": "airspyhf"
                 },
-                "rate": 192000,
+                "rate": 48000,
                 "channels": 2,
                 "pulseFinder":"gnuradio",
                 "schedule": {
@@ -309,7 +309,7 @@
                             },
                             {
                                 "name": "target_rate",
-                                "value": 192000
+                                "value": 48000
                             },
                             {
                                 "name": "samp_rate",
@@ -321,7 +321,7 @@
                             },
                             {
                                 "name": "gain",
-                                "value": "{\"rf\":-24,\"lna\":6}"
+                                "value": "{\"rf\":0,\"lna\":6}"
                             },
                             {
                                 "name": "cutoff_freq",
@@ -352,7 +352,7 @@
                     "port": ".*",
                     "devType": "funcubeProPlus"
                 },
-                "rate": 192000,
+                "rate": 48000,
                 "channels": 2,
                 "pulseFinder": "gnuradio",
                 "schedule": {
@@ -390,11 +390,11 @@
                             },
                             {
                                 "name": "target_rate",
-                                "value": 192000
+                                "value": 48000
                             },
                             {
                                 "name": "samp_rate",
-                                "value": 192000
+                                "value": 48000
                             },
                             {
                                 "name": "additional_args",

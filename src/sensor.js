@@ -55,13 +55,17 @@ getSensor = function(matron, dev, devPlan) {
     
     // console.log("Device plan: ", JSON.stringify(devPlan?.plan))
 
-    if (devPlan?.plan?.pulseFinder == "gnuradio") {
-        if (!Acquisition.gnuradio_enabled) {
-            console.log(`GnuRadio disabled — skipping device on port ${dev.attr.port}`);
-            return null;
-        }
+    if (devPlan?.plan?.pulseFinder == "gnuradio" && Acquisition.gnuradio_enabled) {
         rv = new GR_SDR.GR_SDR(matron, dev, devPlan);
-    } else
+    } else if (devPlan?.plan?.pulseFinder == "gnuradio") {
+        // GnuRadio disabled: only USB audio devices have a working VAMP fallback
+        if (dev.attr.type === "funcubePro" || dev.attr.type === "funcubeProPlus" || dev.attr.type === "usbAudio") {
+            rv = new USBAudio.USBAudio(matron, dev, devPlan);
+        } else {
+            console.log(`GnuRadio disabled — no VAMP fallback for ${dev.attr.type} on port ${dev.attr.port}, skipping`);
+            rv = null;
+        }
+    } else {
         switch(dev.attr.type) {
             case "funcubePro":
             case "funcubeProPlus":
@@ -77,6 +81,7 @@ getSensor = function(matron, dev, devPlan) {
             default:
                 rv = null;
         }
+    }
 
     if (rv)
         setTimeout(rv.this_init, 250); // Trigger initialization after 250 ms
@@ -139,7 +144,7 @@ Sensor.prototype.init = function() {
 };
 
 Sensor.prototype.initDone = function() {
-    if (this.plan?.plugins[0]?.name == "grPulseDetect") {
+    if (this instanceof GR_SDR.GR_SDR) {
         // Expects commands in this order: dev_type port device samp_rate target_rate freq gain additional_args
         var cmd = `open ${this.dev.attr.type} ${this.dev.attr.port} ${this.getDeviceID()} ${this.plan.samp_rate} ${this.plan.rate} ${this.plan.frequency*1e6} ${this.plan.gain} ${this.plan.additional_args}`
         //"open " + this.dev.attr.port + " " + this.hw_devPath() + " " + this.plan.rate + " " + this.plan.channels;

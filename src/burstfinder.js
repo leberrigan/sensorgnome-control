@@ -17,7 +17,7 @@ class BurstFinder {
 
         this.CMD_PATH = "/usr/bin/python3"
         this.BY = "/run/bursts.yaml"
-        this.CMD_ARGS = [ this.prog + "/burstfinder.py", "--codes", this.BY ] // stdin->stdout is default
+        this.CMD_ARGS = [ this.prog + "/burstfinder.py", "--codes", this.BY, "-b" ] // stdin->stdout is default
         this.CMD_ENV = { PYTHONUNBUFFERED: 1 } // ensure stdout is unbuffered
     }
 

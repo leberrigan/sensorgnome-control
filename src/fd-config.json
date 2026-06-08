@@ -41,8 +41,8 @@
     },
     "w05060": {
       "kind": "SimpleTable",
-      "rows": 2,
-      "cols": 3,
+      "rows": 1,
+      "cols": 6,
       "static": {
         "title": "Devices",
         "columns": [
@@ -739,8 +739,8 @@
     },
     "w09855": {
       "kind": "TextView",
-      "rows": 2,
-      "cols": 3,
+      "rows": 1,
+      "cols": 6,
       "static": {
         "title": "Port Mapping",
         "editable": true,
@@ -750,17 +750,17 @@
         "text": "portmap_file"
       },
       "id": "w09855",
-      "output": "update_portmap"
+      "output": "df_tags"
     },
     "w06015": {
       "kind": "Panel",
-      "rows": 6,
+      "rows": 7,
       "cols": 3,
       "static": {
         "title": "Port Mapping",
         "widgets": [
-          "w09855",
           "w05060",
+          "w09855",
           "w08815"
         ],
         "solid": false

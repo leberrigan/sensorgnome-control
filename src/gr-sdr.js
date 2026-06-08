@@ -53,7 +53,9 @@ GR_SDR.prototype.getDeviceID = function() {
         const output = ChildProcess.execSync(`udevadm info -q all -n ${path}`).toString();
         const shortMatch = output.match(/ID_SERIAL_SHORT=([^\n]+)/);
         if (shortMatch) {
-            const serial = shortMatch[1].trim();
+            let serial = shortMatch[1].trim();
+            // udevadm prefixes AirspyHF+ serials with "AIRSPYHF_SN:" but osmosdr wants only the hex part
+            if (serial.startsWith('AIRSPYHF_SN:')) serial = serial.slice('AIRSPYHF_SN:'.length);
             console.log(`GnuRadio device serial (${this.dev.attr.type} @ ${path}):`, serial);
             return serial;
         }
@@ -86,6 +88,8 @@ GR_SDR.prototype.grhDied = function() {
 };
 
 GR_SDR.prototype.devRemoved = function(dev) {
+    if (dev && dev.path != this.dev.path)
+        return;
     // clean up GRH-specific listeners before delegating to base class
     this.matron.removeListener("grhDied", this.this_grhDied);
     // unregister from rate monitoring
