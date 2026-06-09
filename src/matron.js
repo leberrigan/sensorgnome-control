@@ -36,9 +36,9 @@ Matron.prototype.devAdded = function(dev) {
         this.devices[dev.attr.port] = new CornellTagXCVR(this, dev, null);
     }
     
-    // for DigiBabel, we don't require or use a plan
+    // DigiBabel and NanoBabel share the same USB VID:PID (0403:6015); probe to identify
     if (dev.attr.type == "DigiBabel") {
-        this.devices[dev.attr.port] = new DigiBabel(this, dev, null);
+        this.devices[dev.attr.port] = new LotekProbe(this, dev, null);
     }
 };
 
