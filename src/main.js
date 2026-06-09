@@ -78,7 +78,9 @@ RTLSDR        = require("./rtlsdr.js");
 AIRSPY        = require("./airspy.js");
 GR_SDR        = require("./gr-sdr.js");
 CornellTagXCVR= require("./cornelltagxcvr.js");
-DigiBabel     = require("./digibabel.js");
+DigiBabel     = require("./digibabel.js")
+NanoBabel     = require("./nanobabel.js")
+LotekProbe    = require("./lotekprobe.js");
 
 // Environmental sensors
 Enpi          = new (require('./enpi.js').Enpi)(TheMatron, ENPI)

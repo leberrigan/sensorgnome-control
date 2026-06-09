@@ -53,7 +53,7 @@ class Dashboard {
             'df', 'sdcardUse', 'vahData', 'grhData', 'netDefaultRoute', 'netInet', 'netMotus', 'netWifiState',
             'netHotspotState', 'netWifiConfig', 'portmapFile', 'tagDBInfo', 'motusRecv',
             'motusUploadResult', 'netDefaultGw', 'netDNS', 'lotekFreq', 'netCellState', 'netCellReason', "netScanStatus",
-            'netCellInfo', 'netCellConfig', 'cttRadioVersion', 'digibabelRadioVersion', 'vahRate', 'vahFrames', 'devState',
+            'netCellInfo', 'netCellConfig', 'cttRadioVersion', 'digibabelRadioVersion', 'nanobabelIdentified', 'vahRate', 'vahFrames', 'devState',
             'rtlInfo', 'acquisition', 'gotBurst','airspyInfo',
             "enpi_light_status", "enpi_air_status", "enpi_light_toggle", "enpi_air_toggle","enpi_air_gotData","enpi_light_gotData",
             'enpi_status', 'enpi_sample_rate','enpi_sample_schedule','enpi_aws_buket_name', 'enpi_upload_status',
@@ -298,6 +298,9 @@ class Dashboard {
     handle_digibabelRadioVersion(info) {
         const v = info.version.replace(/\..*/, '')
         FlexDash.set(`devices/${info.port}/type`, 'DigiBabel.v' + v)
+    }
+    handle_nanobabelIdentified(info) {
+        FlexDash.set(`devices/${info.port}/type`, 'NanoBabel')
     }
     handle_cttRadioVersion(info) {
         const v = info.version.replace(/\..*/, '')
