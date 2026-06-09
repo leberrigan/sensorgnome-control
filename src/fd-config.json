@@ -687,7 +687,7 @@
     "w00244": {
       "kind": "Toggle",
       "rows": 2,
-      "cols": 1,
+      "cols": 2,
       "static": {
         "title": "",
         "on_value": "ON",
@@ -721,7 +721,7 @@
     "w05477": {
       "kind": "Stat",
       "rows": 2,
-      "cols": 3,
+      "cols": 2,
       "static": {
         "title": "",
         "high_regexp": "CONNECTED",
@@ -2736,7 +2736,7 @@
     "w06592": {
       "kind": "Gauge",
       "rows": 1,
-      "cols": 3,
+      "cols": 2,
       "static": {
         "title": "Signal Strength",
         "value": 90,
@@ -2780,7 +2780,7 @@
     "w00320": {
       "kind": "Toggle",
       "rows": 1,
-      "cols": 1,
+      "cols": 2,
       "static": {
         "title": "",
         "off_value": "OFF",
