@@ -58,14 +58,14 @@ class BurstFinder {
         
         this.child.stderr.on("data", x => {
             for (let line of x.toString().split('\n')) {
-                if (line.trim()) console.log("Burstfinder.py:", line)
+                if (line.trim()) console.log("Burstfinder:", line)
             }
         })
         this.child.stderr.on("error", x => {})
     }
 
     restart() {
-        console.log("Restarting burstfinder.py")
+        console.log("Restarting burstfinder")
         if (this.child) {
             this.child.kill("SIGKILL") // childDied() will restart it...
         } else {
@@ -77,7 +77,7 @@ class BurstFinder {
         this.child = null
         if (!this.quitting) {
             setTimeout(() => this.start(), 5000)
-            console.log("burstfinder.py died, restarting in 5 secs")
+            console.log("burstfinder died, restarting in 5 secs")
         }
     }
 
@@ -94,7 +94,7 @@ class BurstFinder {
             this.child.stdin.write(x.trimStart('p') + '\n')
             console.log("TO BF: " + x.trimStart('p'))
         } catch(e) {
-            console.log("Error writing to burstfinder.py:", e)
+            console.log("Error writing to burstfinder:", e)
         }
     }
 

@@ -208,7 +208,7 @@ class Dashboard {
         const isRTL       = typeLow === 'rtlsdr' || typeLow.startsWith('rtlsdr/')
         const isSQM       = typeLow.startsWith('sqm')
 
-        const showFreq  = isAirSpy || isFunCube || isRTL
+        const showFreq  = isNanoBabel || isAirSpy || isFunCube || isRTL
         const showGRH   = isNanoBabel || isAirSpy || isFunCube || isRTL
         const grhFixed  = isAirSpy   // AirSpy/AirSpyHF GRH is always on; cannot switch to VAH
         const showGain  = isNanoBabel || isAirSpy || isFunCube || isRTL
@@ -221,7 +221,7 @@ class Dashboard {
         ]
 
         if (isSQM) {
-            innerWidgets.push({ kind: "Stat", title: "", cols: 2, static: { value: "SENSOR" } })
+            innerWidgets.push({ kind: "Stat", title: "", cols: 2, static: { value: "SENSOR", zoom: 0.7 } })
             return { kind: "DynamicPanel", cols: 6, card: true, static: { widgets: innerWidgets } }
         }
 
@@ -233,20 +233,25 @@ class Dashboard {
             dynamic: { value: `devices/${port}/state` },
         })
 
+        // Spacer at col 1 of row 2 — keeps the port number column visually left-anchored
+        if (isDigiBabel || showFreq || showGRH || showGain) {
+            innerWidgets.push({ kind: "Label", cols: 1, static: { label: "" } })
+        }
+
         if (isDigiBabel) {
-            // Row 2: payload[2] encoding[2]
+            // Row 2: spacer[1] payload[2] encoding[2]
             innerWidgets.push({ kind: "Toggle", title: "payload",  cols: 2, static: { value: false, enabled: false } })
             innerWidgets.push({ kind: "Stat",   title: "encoding", cols: 2, static: { value: "CTT" } })
             return { kind: "DynamicPanel", cols: 6, card: true, static: { widgets: innerWidgets } }
         }
 
-        // Row 2 for Lotek/NanoBabel radios: freq[2] GRH[2] attn[2]
+        // Row 2: spacer[1] freq[1] GRH[2] gain[2]
         if (showFreq) {
             innerWidgets.push({
-                kind: "TextField",
-                title: "freq",
-                cols: 2,
-                dynamic: { text: `devices/${port}/frequency` }
+                kind: "Label",
+                cols: 1,
+                static: {},
+                dynamic: { label: `devices/${port}/frequency` },
             })
         }
 
@@ -476,6 +481,7 @@ class Dashboard {
     handle_nanobabelIdentified(info) {
         const port = info.port
         FlexDash.set(`devices/${port}/type`, 'NanoBabel')
+        FlexDash.set(`devices/${port}/frequency`, "166.380 MHz")
         // attr.radio is now "NanoBabel" — refresh the radio counter
         FlexDash.set(`radios`, this.updateNumRadios())
         // devAdded ran tsAddDevice before the probe completed, so it created a CTT-style
