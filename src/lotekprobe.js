@@ -109,6 +109,7 @@ class LotekProbe {
         matron.devices[dev.attr.port] = new DigiBabel(matron, dev, options)
       } else {
         dev.attr.type = 'NanoBabel'
+        dev.attr.radio = 'NanoBabel'
         matron.emit('nanobabelIdentified', { port: dev.attr.port })
         matron.devices[dev.attr.port] = new NanoBabel(matron, dev, options)
       }

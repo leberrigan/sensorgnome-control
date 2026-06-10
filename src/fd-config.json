@@ -225,7 +225,7 @@
         "color": ""
       },
       "dynamic": {
-        "value": "radios/vah"
+        "value": "radios/ppm"
       },
       "id": "w02325"
     },
@@ -239,7 +239,7 @@
         "color": ""
       },
       "dynamic": {
-        "value": "radios/ctt"
+        "value": "radios/fsk"
       },
       "id": "w06813"
     },

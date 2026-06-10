@@ -331,8 +331,8 @@ class Dashboard {
     // update the number of radios connected on devAdded/Removed
     updateNumRadios() {
         return {
-            ctt: Object.values(HubMan.devs).filter(d => d.attr?.radio.startsWith("CTT") || d.attr?.radio == "DigiBabel").length,
-            vah: Object.values(HubMan.devs).filter(d => ["VAH", "GRH"].includes( d.attr?.radio) ).length,
+            fsk: Object.values(HubMan.devs).filter(d => d.attr?.radio.startsWith("CTT") || d.attr?.radio == "DigiBabel" || d.attr?.radio == "NanoBabel").length,
+            ppm: Object.values(HubMan.devs).filter(d => ["VAH", "GRH"].includes( d.attr?.radio) ).length,
         //    grh: Object.values(HubMan.devs).filter(d => d.attr?.radio == "GRH").length,
             sensors: Object.values(HubMan.devs).filter(d => d.attr?.radio == "none").length,
             all: Object.values(HubMan.devs).filter(d => d.attr?.radio && d.attr?.radio != "none" ).length,
@@ -431,7 +431,17 @@ class Dashboard {
         FlexDash.set(`devices/${info.port}/type`, 'DigiBabel.v' + v)
     }
     handle_nanobabelIdentified(info) {
-        FlexDash.set(`devices/${info.port}/type`, 'NanoBabel')
+        const port = info.port
+        FlexDash.set(`devices/${port}/type`, 'NanoBabel')
+        // attr.radio is now "NanoBabel" — refresh the radio counter
+        FlexDash.set(`radios`, this.updateNumRadios())
+        // devAdded ran tsAddDevice before the probe completed, so it created a CTT-style
+        // time series (because attr.radio was still "DigiBabel"). Recreate it correctly.
+        const dev = HubMan.devs[port]
+        if (dev) {
+            this.tsRemoveDevice(dev)
+            this.tsAddDevice(dev)
+        }
         // NanoBabel starts life typed as DigiBabel; reclassification changes the widget layout
         this.rebuildDevicePanelWidgets()
     }
@@ -870,6 +880,7 @@ class Dashboard {
         switch (dev.attr.radio) {
         case "CTT/Cornell": prefix = "ctt"; break
         case "DigiBabel": prefix = "ctt"; break
+        case "NanoBabel": prefix = "lotek"; break
         case "VAH": prefix = "lotek"; break
         case "GNU": prefix = "lotek"; break
         default: return null
@@ -885,7 +896,7 @@ class Dashboard {
             this.ts[port] = {
                 tags: new TimeSeries(ts_dir, "ctt-tags-"+dev.attr.port),
             }
-        } else if (dev.attr.type == "funcubeProPlus" || dev.attr.type == "funcubePro" || dev.attr.type == "rtlsdr" || dev.attr.type == "airspy") {
+        } else if (dev.attr.type == "funcubeProPlus" || dev.attr.type == "funcubePro" || dev.attr.type == "rtlsdr" || dev.attr.type == "airspy" || dev.attr.type == "NanoBabel") {
             // Lotek devices produce tag detections, pulses and noise figures
             this.ts[port] = {
                 tags: new TimeSeries(ts_dir, "lotek-tags-"+dev.attr.port),
