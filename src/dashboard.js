@@ -1205,7 +1205,7 @@ class Dashboard {
             const ts = (new Date(parseFloat(ll[1])*1000)).toISOString().replace(/.*T/, '').replace(/\..+/, '')
             const snr = (parseFloat(ll[5]) - parseFloat(ll[7])).toFixed(1)
             return `TAG ${ll[0]} ${ts}: ${ll[2]} ${ll[3]}kHz snr:${snr}dB (${ll[5]}/${ll[7]}dB)`
-        } else if (line[0] == 'T') {
+        } else if (line[0] == 'T' || line[0] == 'n') {
             // CTT tag:
             return `TAG ${line}`
         } else {
