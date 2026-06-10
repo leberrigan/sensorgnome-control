@@ -182,17 +182,75 @@ class Dashboard {
         FlexDash.set('device_panel_widgets', [])
     }
 
-    // Build the widget config array for a single device port used by DynamicPanel
+    // Build the widget config array for a single device port used by DynamicPanel.
+    // Widget layout is device-type-specific.
     buildDeviceWidgets(port) {
-        return [
+        const dev = HubMan.devs[port]
+        if (!dev) return []
+        const typeLow = (dev.attr?.type || '').toLowerCase()
+
+        const isCTT       = typeLow === 'ctt/cornellrcvr' || typeLow.startsWith('cttv')
+        const isDigiBabel = typeLow.startsWith('digibabel')
+        const isNanoBabel = typeLow === 'nanobabel'
+        const isAirSpy    = typeLow === 'airspy' || typeLow === 'airspyhf' || typeLow.startsWith('airspy/')
+        const isFunCube   = typeLow === 'funcubeproplus' || typeLow === 'funcubepro'
+        const isRTL       = typeLow === 'rtlsdr' || typeLow.startsWith('rtlsdr/')
+        const isSQM       = typeLow.startsWith('sqm')
+
+        const showFreq  = isAirSpy || isFunCube || isRTL
+        const showGRH   = isNanoBabel || isAirSpy || isFunCube || isRTL
+        const grhFixed  = isAirSpy   // AirSpy/AirSpyHF GRH is always on
+        const showAttn  = isNanoBabel || isAirSpy || isFunCube || isRTL
+
+        const widgets = [
             { kind: "Label", label: `Port ${port}`, size: "200%", weight: "700", justify: "left" },
             { kind: "Label", dynamic: { label: `devices/${port}/port_path` }, justify: "left" },
             { kind: "Label", dynamic: { label: `devices/${port}/type` }, justify: "left" },
-            { kind: "Stat", dynamic: { value: `devices/${port}/state` } },
-            { kind: "TextField", dynamic: { text: `devices/${port}/frequency` }, output: `dev_freq/${port}` },
-            { kind: "Toggle", dynamic: { value: `devices/${port}/grh` }, output: `dev_grh/${port}` },
-            { kind: "Toggle", enabled: false },
         ]
+
+        if (isSQM) {
+            widgets.push({ kind: "Stat", value: "SENSOR" })
+            return widgets
+        }
+
+        // Status for all radio-type devices
+        widgets.push({ kind: "Stat", dynamic: { value: `devices/${port}/state` } })
+
+        if (isDigiBabel) {
+            // DigiBabel-specific controls
+            widgets.push({ kind: "Toggle", value: false, enabled: false })  // payload
+            widgets.push({ kind: "Stat", value: "CTT" })                   // encoding
+            return widgets
+        }
+
+        if (showFreq) {
+            widgets.push({
+                kind: "TextField",
+                dynamic: { text: `devices/${port}/frequency` },
+                output: `dev_freq/${port}`,
+            })
+        }
+
+        if (showGRH) {
+            if (grhFixed) {
+                // AirSpy / AirSpyHF: always GRH, cannot switch; show as disabled ON
+                widgets.push({ kind: "Toggle", value: true, enabled: false })
+            } else {
+                widgets.push({
+                    kind: "Toggle",
+                    dynamic: { value: `devices/${port}/grh` },
+                    output: `dev_grh/${port}`,
+                })
+            }
+        }
+
+        if (showAttn) {
+            // Placeholder until per-device attenuation method is decided.
+            // NanoBabel: always disabled. Others: disabled until backend is implemented.
+            widgets.push({ kind: "Toggle", value: false, enabled: false })
+        }
+
+        return widgets
     }
 
     // Rebuild and publish the flat widget array for all connected devices
@@ -369,6 +427,8 @@ class Dashboard {
     }
     handle_nanobabelIdentified(info) {
         FlexDash.set(`devices/${info.port}/type`, 'NanoBabel')
+        // NanoBabel starts life typed as DigiBabel; reclassification changes the widget layout
+        this.rebuildDevicePanelWidgets()
     }
     handle_cttRadioVersion(info) {
         const v = info.version.replace(/\..*/, '')
