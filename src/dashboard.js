@@ -21,6 +21,14 @@ const ts_dir = "/data/ts"
 
 const LotekFreqs = [ 166.380, 150.100, 150.500 ]
 
+// Maps dBm to a human-readable quality label; poor/good are the dBm boundary values.
+function signalQuality(dbm, poor, good) {
+    if (dbm == null) return 'None'
+    if (dbm < poor)  return 'Poor'
+    if (dbm < good)  return 'Good'
+    return 'Excellent'
+}
+
 // Returns a hex colour sweeping red→amber→green across the gauge's dBm range.
 // flexdash 0.4.90's color2hhex() only handles hex and Vuetify named colours, not hsl().
 function signalColor(dbm, min, max) {
@@ -194,7 +202,8 @@ class Dashboard {
         const isCTT       = typeLow === 'ctt/cornellrcvr' || typeLow.startsWith('cttv')
         const isDigiBabel = typeLow.startsWith('digibabel')
         const isNanoBabel = typeLow === 'nanobabel'
-        const isAirSpy    = typeLow === 'airspy' || typeLow === 'airspyhf' || typeLow.startsWith('airspy/')
+        const isAirSpyHF  = typeLow === 'airspyhf'
+        const isAirSpy    = typeLow === 'airspy' || isAirSpyHF || typeLow.startsWith('airspy/')
         const isFunCube   = typeLow === 'funcubeproplus' || typeLow === 'funcubepro'
         const isRTL       = typeLow === 'rtlsdr' || typeLow.startsWith('rtlsdr/')
         const isSQM       = typeLow.startsWith('sqm')
@@ -202,6 +211,7 @@ class Dashboard {
         const showFreq  = isAirSpy || isFunCube || isRTL
         const showGRH   = isNanoBabel || isAirSpy || isFunCube || isRTL
         const grhFixed  = isAirSpy   // AirSpy/AirSpyHF GRH is always on; cannot switch to VAH
+        const showGain  = isNanoBabel || isAirSpy || isFunCube || isRTL
 
         // Row 1: port[1] port_path[1] type[2] status/sensor[2]
         const innerWidgets = [
@@ -254,6 +264,28 @@ class Dashboard {
             }
         }
 
+        if (showGain) {
+            let choices, labels, defaultVal
+            if (isAirSpyHF) {
+                choices = ["0","6","12","18","24"]; labels = ["0 dB","6 dB","12 dB","18 dB","24 dB"]; defaultVal = "0"
+            } else if (isAirSpy) {
+                choices = ["0","3","6","9","12","15","18","21"]; labels = ["0","3","6","9","12","15","18","21"]; defaultVal = "12"
+            } else if (isFunCube) {
+                choices = ["0","1"]; labels = ["LNA off","LNA on"]; defaultVal = "1"
+            } else {
+                // RTL-SDR / NanoBabel: gain in tenths of dB (R820T/R820T2 steps)
+                choices = ["0","77","144","207","297","386","445","496"]
+                labels  = ["0 dB","7.7 dB","14.4 dB","20.7 dB","29.7 dB","38.6 dB","44.5 dB","49.6 dB"]
+                defaultVal = "297"
+            }
+            innerWidgets.push({
+                kind: "DropdownSelect", title: "gain", cols: 2,
+                static: { choices, labels, value: defaultVal, color: "white" },
+                dynamic: { value: `devices/${port}/attn` },
+                output: `dev_attn/${port}`,
+            })
+        }
+
         return { kind: "DynamicPanel", cols: 6, card: true, static: { widgets: innerWidgets } }
     }
 
@@ -282,6 +314,13 @@ class Dashboard {
         FlexDash.set(`devices/${port}/grh`, grh)
         this.matron.emit('devGrhChg', { port, grh })
         console.log(`Device port ${port}: GRH ${grh ? 'enabled' : 'disabled'}`)
+    }
+
+    handle_dev_attn(port, value) {
+        const v = String(value)
+        FlexDash.set(`devices/${port}/attn`, v)
+        this.matron.emit('devAttnChg', { port, attn: v })
+        console.log(`Device port ${port}: gain/attn set to ${v}`)
     }
 
     getUptime() {
@@ -398,6 +437,7 @@ class Dashboard {
         FlexDash.set(`devices/${port}/frequency`,
             ['VAH', 'GRH'].includes(info.attr?.radio) && Acquisition.lotek_freq != null ? `${Acquisition.lotek_freq} MHz` : null
         )
+        FlexDash.set(`devices/${port}/attn`, null)
         FlexDash.set(`radios`, this.updateNumRadios())
         this.tsAddDevice(info)
         this.handle_devState()
@@ -406,10 +446,12 @@ class Dashboard {
             const h = {
                 freq: (v) => this.handle_dev_freq(port, v),
                 grh:  (v) => this.handle_dev_grh(port, v),
+                attn: (v) => this.handle_dev_attn(port, v),
             }
             this._devHandlers[port] = h
             this.matron.on(`dash_dev_freq/${port}`, h.freq)
             this.matron.on(`dash_dev_grh/${port}`, h.grh)
+            this.matron.on(`dash_dev_attn/${port}`, h.attn)
         }
         this.rebuildDevicePanelWidgets()
     }
@@ -422,6 +464,7 @@ class Dashboard {
         if (this._devHandlers?.[port]) {
             this.matron.off(`dash_dev_freq/${port}`, this._devHandlers[port].freq)
             this.matron.off(`dash_dev_grh/${port}`, this._devHandlers[port].grh)
+            this.matron.off(`dash_dev_attn/${port}`, this._devHandlers[port].attn)
             delete this._devHandlers[port]
         }
         this.rebuildDevicePanelWidgets()
@@ -573,14 +616,16 @@ class Dashboard {
         CellMan.setCellConfig({ 'bad-imsi-prefixes': data })
     }
     handle_netCellSignal(s) {
-        FlexDash.set('cellular/signal/dbm',   s?.dbm ?? null)
-        FlexDash.set('cellular/signal/label',  s ? `${s.dbm} dBm (${s.rat})` : '—')
-        FlexDash.set('cellular/signal/color',  signalColor(s?.dbm, -120, -50))
+        FlexDash.set('cellular/signal/dbm',     s?.dbm ?? null)
+        FlexDash.set('cellular/signal/label',   s ? `${s.dbm} dBm (${s.rat})` : '—')
+        FlexDash.set('cellular/signal/color',   signalColor(s?.dbm, -120, -50))
+        FlexDash.set('cellular/signal/quality', signalQuality(s?.dbm, -105, -85))
     }
     handle_netWifiSignal(s) {
-        FlexDash.set('net_wifi_signal/dbm',   s?.dbm ?? null)
-        FlexDash.set('net_wifi_signal/label',  s ? `${s.dbm} dBm` : '—')
-        FlexDash.set('net_wifi_signal/color',  signalColor(s?.dbm, -90, -30))
+        FlexDash.set('net_wifi_signal/dbm',     s?.dbm ?? null)
+        FlexDash.set('net_wifi_signal/label',   s ? `${s.dbm} dBm` : '—')
+        FlexDash.set('net_wifi_signal/color',   signalColor(s?.dbm, -90, -30))
+        FlexDash.set('net_wifi_signal/quality', signalQuality(s?.dbm, -75, -55))
     }
     handle_netWifiIP(ip) { FlexDash.set('net_wifi_ip', ip || '—') }
     handle_netWifiNetworks(rows) {

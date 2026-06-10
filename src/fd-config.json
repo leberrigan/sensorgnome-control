@@ -2734,46 +2734,36 @@
       "output": null
     },
     "w06592": {
-      "kind": "Gauge",
+      "kind": "Stat",
       "rows": 1,
       "cols": 2,
       "static": {
         "title": "Signal Strength",
-        "value": 90,
-        "unit": "dBm",
-        "stretch": false,
-        "low_threshold": -110,
-        "high_threshold": -90,
-        "low_color": "#C62828",
-        "high_color": "#2E7D32",
-        "color": "#FF8F00",
-        "min": -120,
-        "max": -50
+        "high_regexp": "Good|Excellent",
+        "high_color": "#4CAF50",
+        "low_regexp": "Poor",
+        "low_color": "#F44336",
+        "color": "#000000"
       },
       "dynamic": {
-        "value": "cellular/signal/dbm",
-        "color": "cellular/signal/color"
+        "value": "cellular/signal/quality"
       },
       "id": "w06592"
     },
     "w05306": {
-      "kind": "Gauge",
+      "kind": "Stat",
       "rows": 2,
       "cols": 2,
       "static": {
         "title": "Signal Strength",
-        "low_color": "#C62828",
-        "low_threshold": -75,
-        "high_threshold": -55,
-        "high_color": "#2E7D32",
-        "color": "#FF8F00",
-        "unit": "dBm",
-        "max": -30,
-        "min": -90
+        "high_regexp": "Good|Excellent",
+        "high_color": "#4CAF50",
+        "low_regexp": "Poor",
+        "low_color": "#F44336",
+        "color": "#000000"
       },
       "dynamic": {
-        "value": "net_wifi_signal/dbm",
-        "color": "net_wifi_signal/color"
+        "value": "net_wifi_signal/quality"
       },
       "id": "w05306"
     },
@@ -2857,7 +2847,8 @@
       "cols": 4,
       "static": {
         "title": "",
-        "value": ""
+        "value": "",
+        "color": "white"
       },
       "dynamic": {
         "value": "wifi/ssid",
