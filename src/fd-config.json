@@ -3055,7 +3055,7 @@
     "w00042": {
       "kind": "DynamicPanel",
       "rows": 6,
-      "cols": 3,
+      "cols": 6,
       "static": {
         "title": "Device Status"
       },

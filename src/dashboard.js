@@ -183,7 +183,9 @@ class Dashboard {
     }
 
     // Build the widget config array for a single device port used by DynamicPanel.
-    // Widget layout is device-type-specific.
+    // Row 1 (cols 1+1+2+2=6): port | port_path | type | status
+    // Row 2 (cols vary):       freq[2] | GRH[2] | attn[2]  (radio types only)
+    // Widget layout is device-type-specific; cols values map to the 6-column internal grid.
     buildDeviceWidgets(port) {
         const dev = HubMan.devs[port]
         if (!dev) return []
@@ -199,55 +201,63 @@ class Dashboard {
 
         const showFreq  = isAirSpy || isFunCube || isRTL
         const showGRH   = isNanoBabel || isAirSpy || isFunCube || isRTL
-        const grhFixed  = isAirSpy   // AirSpy/AirSpyHF GRH is always on
+        const grhFixed  = isAirSpy   // AirSpy/AirSpyHF GRH is always on; cannot switch to VAH
         const showAttn  = isNanoBabel || isAirSpy || isFunCube || isRTL
 
+        // Row 1: port[1] port_path[1] type[2] status/sensor[2]
         const widgets = [
-            { kind: "Label", label: `Port ${port}`, size: "200%", weight: "700", justify: "left" },
-            { kind: "Label", dynamic: { label: `devices/${port}/port_path` }, justify: "left" },
-            { kind: "Label", dynamic: { label: `devices/${port}/type` }, justify: "left" },
+            { kind: "Label", label: `Port ${port}`, size: "200%", weight: "700", justify: "left", cols: 1 },
+            { kind: "Label", dynamic: { label: `devices/${port}/port_path` }, justify: "left", cols: 1 },
+            { kind: "Label", dynamic: { label: `devices/${port}/type` }, justify: "left", cols: 2 },
         ]
 
         if (isSQM) {
-            widgets.push({ kind: "Stat", value: "SENSOR" })
+            widgets.push({ kind: "Stat", value: "SENSOR", cols: 2 })
             return widgets
         }
 
-        // Status for all radio-type devices
-        widgets.push({ kind: "Stat", dynamic: { value: `devices/${port}/state` } })
+        widgets.push({ kind: "Stat", dynamic: { value: `devices/${port}/state` }, cols: 2 })
 
         if (isDigiBabel) {
-            // DigiBabel-specific controls
-            widgets.push({ kind: "Toggle", value: false, enabled: false })  // payload
-            widgets.push({ kind: "Stat", value: "CTT" })                   // encoding
+            // Row 2: payload[2] encoding[2]
+            widgets.push({ kind: "Toggle", value: false, enabled: false, cols: 2 })   // payload
+            widgets.push({ kind: "Stat", value: "CTT", cols: 2 })                     // encoding
             return widgets
         }
 
+        // Row 2 for Lotek/NanoBabel radios: freq[2] GRH[2] attn[2]
         if (showFreq) {
             widgets.push({
                 kind: "TextField",
                 dynamic: { text: `devices/${port}/frequency` },
                 output: `dev_freq/${port}`,
+                cols: 2,
             })
         }
 
         if (showGRH) {
             if (grhFixed) {
-                // AirSpy / AirSpyHF: always GRH, cannot switch; show as disabled ON
-                widgets.push({ kind: "Toggle", value: true, enabled: false })
+                widgets.push({ kind: "Toggle", value: true, enabled: false, cols: 2 })
             } else {
                 widgets.push({
                     kind: "Toggle",
                     dynamic: { value: `devices/${port}/grh` },
                     output: `dev_grh/${port}`,
+                    cols: 2,
                 })
             }
         }
 
         if (showAttn) {
-            // Placeholder until per-device attenuation method is decided.
-            // NanoBabel: always disabled. Others: disabled until backend is implemented.
-            widgets.push({ kind: "Toggle", value: false, enabled: false })
+            // Placeholder DropdownSelect — disabled until per-device attenuation is implemented.
+            widgets.push({
+                kind: "DropdownSelect",
+                choices: ["off"],
+                labels: ["Off"],
+                value: "off",
+                enabled: false,
+                cols: 2,
+            })
         }
 
         return widgets
