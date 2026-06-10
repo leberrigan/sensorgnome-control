@@ -178,9 +178,50 @@ class Dashboard {
 
         setTimeout(() => this.updateNetUsage(), 10*1000)
         setInterval(() => this.updateNetUsage(), 300*1000)
-        
+
+        FlexDash.set('device_panel_widgets', [])
     }
-    
+
+    // Build the widget config array for a single device port used by DynamicPanel
+    buildDeviceWidgets(port) {
+        return [
+            { kind: "Label", label: `Port ${port}`, size: "200%", weight: "700", justify: "left" },
+            { kind: "Label", dynamic: { label: `devices/${port}/port_path` }, justify: "left" },
+            { kind: "Label", dynamic: { label: `devices/${port}/type` }, justify: "left" },
+            { kind: "Stat", dynamic: { value: `devices/${port}/state` } },
+            { kind: "TextField", dynamic: { text: `devices/${port}/frequency` }, output: `dev_freq/${port}` },
+            { kind: "Toggle", dynamic: { value: `devices/${port}/grh` }, output: `dev_grh/${port}` },
+            { kind: "Toggle", enabled: false },
+        ]
+    }
+
+    // Rebuild and publish the flat widget array for all connected devices
+    rebuildDevicePanelWidgets() {
+        const widgets = []
+        for (const port of Object.keys(HubMan.devs).sort((a, b) => parseInt(a) - parseInt(b))) {
+            widgets.push(...this.buildDeviceWidgets(port))
+        }
+        FlexDash.set('device_panel_widgets', widgets)
+    }
+
+    handle_dev_freq(port, freq) {
+        const f = parseFloat(freq)
+        if (isNaN(f) || f < 100 || f > 1000) {
+            console.log(`Device port ${port}: invalid frequency value ${freq}`)
+            return
+        }
+        FlexDash.set(`devices/${port}/frequency`, f)
+        this.matron.emit('devFreqChg', { port, freq: f })
+        console.log(`Device port ${port}: frequency set to ${f} MHz`)
+    }
+
+    handle_dev_grh(port, value) {
+        const grh = value === true || value === 'true' || value === 1
+        FlexDash.set(`devices/${port}/grh`, grh)
+        this.matron.emit('devGrhChg', { port, grh })
+        console.log(`Device port ${port}: GRH ${grh ? 'enabled' : 'disabled'}`)
+    }
+
     getUptime() {
         let uptime = parseInt(Fs.readFileSync("/proc/uptime").toString(), 10)
         if (!(uptime > 0)) uptime = 0
@@ -274,6 +315,10 @@ class Dashboard {
             const title = cnt>0 ? `${cnt} errors` : '--'
             //console.log("Radio state:", JSON.stringify({ color, enabled: cnt>0, title, text }))
             FlexDash.set('radio_state', { color, enabled: cnt>0, errors: cnt, title, text }) // title doesn't work :-(
+            // update per-device state display
+            for (const [port, dev] of Object.entries(HubMan.devs)) {
+                if (dev.state !== undefined) FlexDash.set(`devices/${port}/state`, dev.state)
+            }
         }, 10)
     }
     
@@ -284,16 +329,39 @@ class Dashboard {
     handle_setParam(info) { } // FlexDash.set('param', info) } // {param, value, error}
     handle_setParamError(info) { } // FlexDash.set('param', info) } // {param, error}
     handle_devAdded(info) {
-        FlexDash.set(`devices/${info.attr.port}`, this.genDevInfo(info))
+        const port = info.attr.port
+        FlexDash.set(`devices/${port}`, this.genDevInfo(info))
+        FlexDash.set(`devices/${port}/state`, info.state || 'init')
+        FlexDash.set(`devices/${port}/grh`, info.attr?.radio === 'GRH')
+        FlexDash.set(`devices/${port}/frequency`,
+            ['VAH', 'GRH'].includes(info.attr?.radio) ? (Acquisition.lotek_freq || null) : null)
         FlexDash.set(`radios`, this.updateNumRadios())
         this.tsAddDevice(info)
         this.handle_devState()
+        if (!this._devHandlers) this._devHandlers = {}
+        if (!this._devHandlers[port]) {
+            const h = {
+                freq: (v) => this.handle_dev_freq(port, v),
+                grh:  (v) => this.handle_dev_grh(port, v),
+            }
+            this._devHandlers[port] = h
+            this.matron.on(`dash_dev_freq/${port}`, h.freq)
+            this.matron.on(`dash_dev_grh/${port}`, h.grh)
+        }
+        this.rebuildDevicePanelWidgets()
     }
-    handle_devRemoved(info){
-        FlexDash.unset(`devices/${info.attr.port}`)
+    handle_devRemoved(info) {
+        const port = info.attr.port
+        FlexDash.unset(`devices/${port}`)
         FlexDash.set(`radios`, this.updateNumRadios())
         this.tsRemoveDevice(info)
         this.handle_devState()
+        if (this._devHandlers?.[port]) {
+            this.matron.off(`dash_dev_freq/${port}`, this._devHandlers[port].freq)
+            this.matron.off(`dash_dev_grh/${port}`, this._devHandlers[port].grh)
+            delete this._devHandlers[port]
+        }
+        this.rebuildDevicePanelWidgets()
     }
     handle_digibabelRadioVersion(info) {
         const v = info.version.replace(/\..*/, '')
@@ -316,7 +384,12 @@ class Dashboard {
     handle_dash_update_portmap(portmap) { HubMan.setPortmap(portmap) }
     handle_tagDBInfo(data) { FlexDash.set('tagdb', data) }
     handle_motusUploadResult(data) { FlexDash.set('motus_upload', data) }
-    handle_lotekFreq(f) { FlexDash.set('lotek_freq', f) }
+    handle_lotekFreq(f) {
+        FlexDash.set('lotek_freq', f)
+        for (const [port, dev] of Object.entries(HubMan.devs)) {
+            if (['VAH', 'GRH'].includes(dev.attr?.radio)) FlexDash.set(`devices/${port}/frequency`, f)
+        }
+    }
     handle_dash_show_pulses(v) {
         FlexDash.set('lotek_show_pulses', v=="on" ? "on" : "off")
         this.show_pulses = v == "on"

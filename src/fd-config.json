@@ -3051,6 +3051,18 @@
         "url": "portmap/refimage"
       },
       "id": "w08815"
+    },
+    "w00042": {
+      "kind": "DynamicPanel",
+      "rows": 6,
+      "cols": 3,
+      "static": {
+        "title": "Device Status"
+      },
+      "dynamic": {
+        "widgets": "device_panel_widgets"
+      },
+      "id": "w00042"
     }
   },
   "grids": {
@@ -3084,6 +3096,7 @@
       "widgets": [
         "w01814",
         "w04943",
+        "w00042",
         "w06015",
         "w02087",
         "w00699"
