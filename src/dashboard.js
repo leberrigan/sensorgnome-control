@@ -206,22 +206,32 @@ class Dashboard {
 
         // Row 1: port[1] port_path[1] type[2] status/sensor[2]
         const widgets = [
-            { kind: "Label", label: `Port ${port}`, size: "200%", weight: "700", justify: "left", cols: 1 },
-            { kind: "Label", dynamic: { label: `devices/${port}/port_path` }, justify: "left", cols: 1 },
-            { kind: "Label", dynamic: { label: `devices/${port}/type` }, justify: "left", cols: 2 },
+            { kind: "Label", title: "port",  label: `${port}`, size: "200%", weight: "700", justify: "left", cols: 1 },
+            { kind: "Label", title: "path",  dynamic: { label: `devices/${port}/port_path` }, justify: "left", cols: 1 },
+            { kind: "Label", title: "type",  dynamic: { label: `devices/${port}/type` }, justify: "left", cols: 2 },
         ]
 
         if (isSQM) {
-            widgets.push({ kind: "Stat", value: "SENSOR", cols: 2 })
+            widgets.push({ kind: "Stat", title: "", value: "SENSOR", cols: 2 })
             return widgets
         }
 
-        widgets.push({ kind: "Stat", dynamic: { value: `devices/${port}/state` }, cols: 2 })
+        widgets.push({
+            kind: "Stat",
+            title: "",
+            zoom: 0.7,
+            high_regexp: "running",
+            high_color: "green-darken-3",
+            low_regexp: "(stopped|error)",
+            low_color: "red-darken-3",
+            dynamic: { value: `devices/${port}/state` },
+            cols: 2,
+        })
 
         if (isDigiBabel) {
             // Row 2: payload[2] encoding[2]
-            widgets.push({ kind: "Toggle", value: false, enabled: false, cols: 2 })   // payload
-            widgets.push({ kind: "Stat", value: "CTT", cols: 2 })                     // encoding
+            widgets.push({ kind: "Toggle", title: "payload",  value: false, enabled: false, cols: 2 })
+            widgets.push({ kind: "Stat",   title: "encoding", value: "CTT", cols: 2 })
             return widgets
         }
 
@@ -229,6 +239,7 @@ class Dashboard {
         if (showFreq) {
             widgets.push({
                 kind: "TextField",
+                title: "freq",
                 dynamic: { text: `devices/${port}/frequency` },
                 output: `dev_freq/${port}`,
                 cols: 2,
@@ -237,10 +248,11 @@ class Dashboard {
 
         if (showGRH) {
             if (grhFixed) {
-                widgets.push({ kind: "Toggle", value: true, enabled: false, cols: 2 })
+                widgets.push({ kind: "Toggle", title: "GRH", value: true, enabled: false, cols: 2 })
             } else {
                 widgets.push({
                     kind: "Toggle",
+                    title: "GRH",
                     dynamic: { value: `devices/${port}/grh` },
                     output: `dev_grh/${port}`,
                     cols: 2,
@@ -252,6 +264,7 @@ class Dashboard {
             // Placeholder DropdownSelect — disabled until per-device attenuation is implemented.
             widgets.push({
                 kind: "DropdownSelect",
+                title: "attenuate",
                 choices: ["off"],
                 labels: ["Off"],
                 value: "off",
