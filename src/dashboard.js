@@ -202,7 +202,6 @@ class Dashboard {
         const showFreq  = isAirSpy || isFunCube || isRTL
         const showGRH   = isNanoBabel || isAirSpy || isFunCube || isRTL
         const grhFixed  = isAirSpy   // AirSpy/AirSpyHF GRH is always on; cannot switch to VAH
-        const showAttn  = isNanoBabel || isAirSpy || isFunCube || isRTL
 
         // Row 1: port[1] port_path[1] type[2] status/sensor[2]
         const innerWidgets = [
@@ -254,16 +253,6 @@ class Dashboard {
                     output: `dev_grh/${port}`,
                 })
             }
-        }
-
-        if (showAttn) {
-            // Placeholder DropdownSelect — disabled until per-device attenuation is implemented.
-            innerWidgets.push({
-                kind: "DropdownSelect",
-                title: "attenuate",
-                cols: 2,
-                static: { choices: ["off"], labels: ["Off"], value: "off", enabled: false },
-            })
         }
 
         return { kind: "DynamicPanel", cols: 6, card: true, static: { widgets: innerWidgets } }
