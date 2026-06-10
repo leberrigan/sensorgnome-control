@@ -236,8 +236,7 @@ class Dashboard {
                 kind: "TextField",
                 title: "freq",
                 cols: 2,
-                dynamic: { text: `devices/${port}/frequency` },
-                output: `dev_freq/${port}`,
+                dynamic: { text: `devices/${port}/frequency` }
             })
         }
 
@@ -273,7 +272,7 @@ class Dashboard {
             console.log(`Device port ${port}: invalid frequency value ${freq}`)
             return
         }
-        FlexDash.set(`devices/${port}/frequency`, f)
+        FlexDash.set(`devices/${port}/frequency`, `${f} MHz`)
         this.matron.emit('devFreqChg', { port, freq: f })
         console.log(`Device port ${port}: frequency set to ${f} MHz`)
     }
@@ -397,7 +396,8 @@ class Dashboard {
         FlexDash.set(`devices/${port}/state`, info.state || 'init')
         FlexDash.set(`devices/${port}/grh`, info.attr?.radio === 'GRH')
         FlexDash.set(`devices/${port}/frequency`,
-            ['VAH', 'GRH'].includes(info.attr?.radio) ? (Acquisition.lotek_freq || null) : null)
+            ['VAH', 'GRH'].includes(info.attr?.radio) && Acquisition.lotek_freq != null ? `${Acquisition.lotek_freq} MHz` : null
+        )
         FlexDash.set(`radios`, this.updateNumRadios())
         this.tsAddDevice(info)
         this.handle_devState()
@@ -452,7 +452,7 @@ class Dashboard {
     handle_lotekFreq(f) {
         FlexDash.set('lotek_freq', f)
         for (const [port, dev] of Object.entries(HubMan.devs)) {
-            if (['VAH', 'GRH'].includes(dev.attr?.radio)) FlexDash.set(`devices/${port}/frequency`, f)
+            if (['VAH', 'GRH'].includes(dev.attr?.radio)) FlexDash.set(`devices/${port}/frequency`, `${f} MHz`)
         }
     }
     handle_dash_show_pulses(v) {

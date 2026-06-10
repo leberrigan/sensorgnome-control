@@ -220,7 +220,7 @@
       "rows": 1,
       "cols": 2,
       "static": {
-        "title": "Lotek radios",
+        "title": "PPM radios",
         "value": "2",
         "color": ""
       },
@@ -234,7 +234,7 @@
       "rows": 1,
       "cols": 2,
       "static": {
-        "title": "CTT radios",
+        "title": "FSK radios",
         "value": "2",
         "color": ""
       },
