@@ -20,7 +20,7 @@ per-device controls when radios are plugged in.
 | `devices/${port}/state` | state string: init/running/error-xxx |
 | `devices/${port}/frequency` | MHz as number, null for non-Lotek devices |
 | `devices/${port}/grh` | boolean — true if device is using GRH backend |
-| `device_panel_widgets` | flat array of widget configs for all devices |
+| `device_panel_widgets` | array of per-device DynamicPanel card configs |
 
 ## Output events (dashboard input from user)
 | Event | Handler | Action |
@@ -31,8 +31,8 @@ per-device controls when radios are plugged in.
 Handlers registered dynamically in handle_devAdded, removed in handle_devRemoved.
 
 ## Files changed
-1. `flexdash/src/widgets/dynamic-panel.vue` — DynamicChild gains `$conn` injection + `onSend` output
-2. `sensorgnome-control/src/dashboard.js` — buildDeviceWidgets, rebuildDevicePanelWidgets, handler updates
+1. `flexdash/src/widgets/dynamic-panel.vue` — DynamicChild gains `$conn` injection + `onSend` output; genBindings reads from `config.static`; DynamicPanel gains `card` prop + `.dp-card` CSS
+2. `sensorgnome-control/src/dashboard.js` — buildDeviceWidgets uses `static:{}` nesting + returns one DynamicPanel card per device; rebuildDevicePanelWidgets pushes one card per device (not spread)
 3. `sensorgnome-control/src/fd-config.json` — new widget `w00042` (DynamicPanel), added to grid g03145
 
 ## Pending / not yet done
