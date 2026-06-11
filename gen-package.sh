@@ -6,16 +6,16 @@ mkdir $DESTDIR
 # npm update to pull in the latest versions of all dependencies
 (cd src; npm --no-fund update)
 
-# install FlexDash in there
-mkdir src/public/flexdash
-curl -L https://flexdash-982081078525-us-east-1-an.s3.us-east-1.amazonaws.com/flexdash-0.4.90.tgz | \
-    tar xzf - -C src/public/flexdash
+# Build FlexDash from local fork and install into public/
+(cd ../flexdash && npm --no-fund install && npm run build)
+mkdir -p src/public/flexdash
+cp -r ../flexdash/dist/. src/public/flexdash/
 
-# update asset hashes in flexdash.html from the build manifest
+# Inject hashed bundle filenames into flexdash.html using the Vite manifest
 FD_JS=$(python3 -c "import json; m=json.load(open('src/public/flexdash/manifest.json')); print(m['index.html']['file'])")
 FD_CSS=$(python3 -c "import json; m=json.load(open('src/public/flexdash/manifest.json')); print(m['index.html']['css'][0])")
-sed -i "s|flexdash/assets/index\.[0-9a-f]*\.js|flexdash/${FD_JS}|g" src/public/flexdash.html
-sed -i "s|flexdash/assets/index\.[0-9a-f]*\.css|flexdash/${FD_CSS}|g" src/public/flexdash.html
+sed -i "s|BUNDLE_JS|${FD_JS}|g" src/public/flexdash.html
+sed -i "s|BUNDLE_CSS|${FD_CSS}|g" src/public/flexdash.html
 echo "Updated flexdash.html: JS=${FD_JS} CSS=${FD_CSS}"
 
 # install the control application files as user gnome=1000
