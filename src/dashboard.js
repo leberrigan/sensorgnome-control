@@ -249,7 +249,7 @@ class Dashboard {
         if (showFreq) {
             innerWidgets.push({
                 kind: "Label",
-                cols: 1,
+                cols: 2,
                 static: {},
                 dynamic: { label: `devices/${port}/frequency` },
             })
@@ -257,12 +257,12 @@ class Dashboard {
 
         if (showGRH) {
             if (grhFixed) {
-                innerWidgets.push({ kind: "Toggle", title: "GRH", cols: 2, static: { value: true, enabled: false } })
+                innerWidgets.push({ kind: "Toggle", title: "GRH", cols: 1, static: { value: true, enabled: false } })
             } else {
                 innerWidgets.push({
                     kind: "Toggle",
                     title: "GRH",
-                    cols: 2,
+                    cols: 1,
                     dynamic: { value: `devices/${port}/grh` },
                     output: `dev_grh/${port}`,
                 })
@@ -503,7 +503,9 @@ class Dashboard {
     portmapRefImage() {
         const m = Machine.machineType.match(/Raspberry Pi (\d+)/)
         const gen = m?.[1]
-        return ['3', '4', '5'].includes(gen) ? `/rpi${gen}-port-numbering.png` : null
+        if (!['3', '4', '5'].includes(gen)) return null
+        const family = (gen === '3' || gen === '4') ? '34' : gen
+        return `/rpi${family}-usb-ports.png`
     }
     handle_dash_update_portmap(portmap) { HubMan.setPortmap(portmap) }
     handle_tagDBInfo(data) { FlexDash.set('tagdb', data) }

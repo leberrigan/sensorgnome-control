@@ -3054,6 +3054,20 @@
         "widgets": "device_panel_widgets"
       },
       "id": "w00042"
+    },
+    "w04103": {
+      "kind": "UsbPortMap",
+      "rows": 4,
+      "cols": 6,
+      "static": {
+        "title": "UsbPortMap"
+      },
+      "dynamic": {
+        "devices": "devices",
+        "portmap": "portmap_file",
+        "model_image": "portmap/refimage"
+      },
+      "id": "w04103"
     }
   },
   "grids": {
@@ -3090,7 +3104,8 @@
         "w00042",
         "w06015",
         "w02087",
-        "w00699"
+        "w00699",
+        "w04103"
       ],
       "id": "g03145",
       "max_cols": 6
