@@ -261,8 +261,8 @@ class Dashboard {
 
         if (isDigiBabel) {
             // Row 2: payload[2] encoding[2]
-            innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: false, enabled: false } })
-            innerWidgets.push({ kind: "Stat",   cols: 2, static: { value: "CTT" } })
+            innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: false, enabled: false, show_value: true, off_value: "No payload", on_value: "Payload" } })
+            innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: false, enabled: false, show_value: true, off_value: "CTT encoding", on_value: "Lotek encoding" } })
             return { kind: "DynamicPanel", cols: 6, static: { card: true, widgets: innerWidgets } }
         }
 
@@ -338,10 +338,19 @@ class Dashboard {
     handle_dev_grh(port, value) {
         const grh = value === "GRH" || value === true || value === 'true' || value === 1
         const modeStr = grh ? "GRH" : "VAH"
-        FlexDash.set(`devices/${port}/grh`, modeStr)
 
-        // Update gain availability for this port
         const typeLowG = (HubMan.devs[port]?.attr?.type || '').toLowerCase()
+
+        // NanoBabel is managed through the DigiBabel probe subsystem, not the standard
+        // sensor factory. Re-adding it as 'NanoBabel' type has no matching plan and the
+        // sensor always returns null, leaving the device stuck at init. Mode switching
+        // for NanoBabel requires a physical replug.
+        if (typeLowG === 'nanobabel') {
+            this.devicesLogPush(`Port ${port}: NanoBabel mode switching not supported (replug to change)`)
+            return
+        }
+
+        FlexDash.set(`devices/${port}/grh`, modeStr)
         FlexDash.set(`devices/${port}/gain_enabled`, !(typeLowG === 'funcubepro' && grh))
 
         this.devicesLogPush(`Port ${port}: switching to ${modeStr}...`)
@@ -361,11 +370,17 @@ class Dashboard {
         this.matron.emit('devRemoved', devCopy)
         delete HubMan.devs[port]
 
+        // Audio devices (funcubePro/funcubeProPlus) share their ALSA handle between the
+        // GRH subprocess and VAH. Give GRH's subprocess extra time to die and release the
+        // ALSA device before VAH tries to open it.
+        const isAudioDev = typeLowG === 'funcubepro' || typeLowG === 'funcubeproplus'
+        const delay = isAudioDev ? 2000 : 500
+
         setTimeout(() => {
             HubMan.devs[port] = devCopy
             this.matron.emit('devAdded', devCopy)
             this.devicesLogPush(`Port ${port}: ${modeStr} active`)
-        }, 500)
+        }, delay)
     }
 
     handle_dev_attn(port, value) {
@@ -511,12 +526,15 @@ class Dashboard {
         FlexDash.set(`devices/${port}`, this.genDevInfo(info))
         FlexDash.set(`devices/${port}/state`, info.state || 'init')
         FlexDash.set(`devices/${port}/grh`, info.attr?.radio === 'GRH' ? "GRH" : "VAH")
-        FlexDash.set(`devices/${port}/frequency`,
-            ['VAH', 'GRH'].includes(info.attr?.radio) && Acquisition.lotek_freq != null ? `${Acquisition.lotek_freq} MHz` : null
-        )
+        const tDA = (info.attr?.type || '').toLowerCase()
+        const devFreq = ['VAH', 'GRH'].includes(info.attr?.radio) && Acquisition.lotek_freq != null
+            ? `${Acquisition.lotek_freq} MHz`
+            : (tDA === 'ctt/cornellrcvr' || tDA.startsWith('cttv') || tDA.startsWith('digibabel'))
+                ? "434 MHz"
+                : null
+        FlexDash.set(`devices/${port}/frequency`, devFreq)
         FlexDash.set(`devices/${port}/attn`, null)
-        const radioFreq = ['VAH', 'GRH'].includes(info.attr?.radio) ? Acquisition.lotek_freq : null
-        FlexDash.set(`devices/${port}/color`, devPortColor(info.attr?.type, radioFreq))
+        FlexDash.set(`devices/${port}/color`, devPortColor(info.attr?.type, devFreq))
 
         // Gain available for all devices except funcubePro in GRH mode
         const typeLowDA = (info.attr?.type || '').toLowerCase()
