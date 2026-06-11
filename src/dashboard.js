@@ -44,6 +44,30 @@ function signalColor(dbm, min, max) {
     return `#${f(0)}${f(8)}${f(4)}`
 }
 
+// Port colour matching usb-port-map.vue's portFill logic.
+function devPortColor(type, freq) {
+    const f = parseFloat(freq)
+    if (!isNaN(f) && f > 0) {
+        if (f > 430 && f < 436) return '#7C3AED'  // FSK UHF
+        if (f > 140 && f < 200) return '#0D9488'  // PPM VHF
+        return '#6B7280'
+    }
+    const t = (type || '').toLowerCase()
+    if (t.startsWith('rtlsdr') || t.startsWith('airspy') || t === 'funcubeproplus') return '#7C3AED'
+    if (t === 'funcubepro' || t === 'usbaudio') return '#0D9488'
+    return '#6B7280'
+}
+
+// Read a named devParam's configured value from the matching acquisition plan.
+function getAcqParam(devType, paramName) {
+    const plan = (Acquisition.plans || []).find(p => {
+        try { return new RegExp(p.key.devType).test(devType) } catch { return false }
+    })
+    if (!plan) return null
+    const param = (plan.devParams || []).find(p => p.name === paramName)
+    return param?.schedule?.value ?? null
+}
+
 // The Dashboard class communicates between the web UI (FlexDash) and the "core" processing,
 // mainly using the "Matron" event system. It consists of a number of handlers divided into two
 // groups: the "handleSomeEvent" handlers that react to Matron events and propagate the data to
@@ -215,20 +239,18 @@ class Dashboard {
 
         // Row 1: port[1] port_path[1] type[2] status/sensor[2]
         const innerWidgets = [
-            { kind: "Label", title: "port", cols: 1, static: { label: `${port}`, size: "200%", weight: "700", justify: "left" } },
-            { kind: "Label", title: "path", cols: 1, static: { justify: "left" }, dynamic: { label: `devices/${port}/port_path` } },
-            { kind: "Label", title: "type", cols: 2, static: { justify: "left" }, dynamic: { label: `devices/${port}/type` } },
+            { kind: "Label", cols: 1, static: { label: `${port}`, size: "200%", weight: "700", justify: "left" }, dynamic: { color: `devices/${port}/color` } },
+            { kind: "Label", cols: 1, static: { justify: "left" }, dynamic: { label: `devices/${port}/port_path` } },
+            { kind: "Label", cols: 2, static: { justify: "left" }, dynamic: { label: `devices/${port}/type` } },
         ]
 
         if (isSQM) {
-            innerWidgets.push({ kind: "Stat", title: "", cols: 2, static: { value: "SENSOR", zoom: 0.7 } })
+            innerWidgets.push({ kind: "Stat", cols: 2, static: { value: "SENSOR", zoom: 0.7 } })
             return { kind: "DynamicPanel", cols: 6, card: true, static: { widgets: innerWidgets } }
         }
 
         innerWidgets.push({
-            kind: "Stat",
-            title: "",
-            cols: 2,
+            kind: "Stat", cols: 2,
             static: { zoom: 0.7, high_regexp: "running", high_color: "green-darken-3", low_regexp: "(stopped|error)", low_color: "red-darken-3" },
             dynamic: { value: `devices/${port}/state` },
         })
@@ -240,16 +262,15 @@ class Dashboard {
 
         if (isDigiBabel) {
             // Row 2: spacer[1] payload[2] encoding[2]
-            innerWidgets.push({ kind: "Toggle", title: "payload",  cols: 2, static: { value: false, enabled: false } })
-            innerWidgets.push({ kind: "Stat",   title: "encoding", cols: 2, static: { value: "CTT" } })
+            innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: false, enabled: false } })
+            innerWidgets.push({ kind: "Stat",   cols: 2, static: { value: "CTT" } })
             return { kind: "DynamicPanel", cols: 6, card: true, static: { widgets: innerWidgets } }
         }
 
         // Row 2: spacer[1] freq[1] GRH[2] gain[2]
         if (showFreq) {
             innerWidgets.push({
-                kind: "Label",
-                cols: 2,
+                kind: "Label", cols: 1,
                 static: {},
                 dynamic: { label: `devices/${port}/frequency` },
             })
@@ -257,12 +278,11 @@ class Dashboard {
 
         if (showGRH) {
             if (grhFixed) {
-                innerWidgets.push({ kind: "Toggle", title: "GRH", cols: 1, static: { value: true, enabled: false } })
+                innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: "GRH", enabled: false, show_value: true, on_value: "GRH", off_value: "VAH" } })
             } else {
                 innerWidgets.push({
-                    kind: "Toggle",
-                    title: "GRH",
-                    cols: 1,
+                    kind: "Toggle", cols: 2,
+                    static: { show_value: true, on_value: "GRH", off_value: "VAH" },
                     dynamic: { value: `devices/${port}/grh` },
                     output: `dev_grh/${port}`,
                 })
@@ -274,17 +294,19 @@ class Dashboard {
             if (isAirSpyHF) {
                 choices = ["0","6","12","18","24"]; labels = ["0 dB","6 dB","12 dB","18 dB","24 dB"]; defaultVal = "0"
             } else if (isAirSpy) {
-                choices = ["0","3","6","9","12","15","18","21"]; labels = ["0","3","6","9","12","15","18","21"]; defaultVal = "12"
+                choices = Array.from({length: 22}, (_, i) => String(i)); labels = choices
+                defaultVal = String(getAcqParam('airspy', 'sensitivity_gain') ?? 12)
             } else if (isFunCube) {
                 choices = ["0","1"]; labels = ["LNA off","LNA on"]; defaultVal = "1"
             } else {
                 // RTL-SDR / NanoBabel: gain in tenths of dB (R820T/R820T2 steps)
-                choices = ["0","77","144","207","297","386","445","496"]
-                labels  = ["0 dB","7.7 dB","14.4 dB","20.7 dB","29.7 dB","38.6 dB","44.5 dB","49.6 dB"]
-                defaultVal = "297"
+                choices = ["0","77","144","207","297","386","402","439","496"]
+                labels  = ["0 dB","7.7 dB","14.4 dB","20.7 dB","29.7 dB","38.6 dB","40.2 dB","43.9 dB","49.6 dB"]
+                const rawGain = getAcqParam(isNanoBabel ? 'rtlsdr' : typeLow, 'tuner_gain') ?? 29.7
+                defaultVal = String(Math.round(rawGain * 10))
             }
             innerWidgets.push({
-                kind: "DropdownSelect", title: "gain", cols: 2,
+                kind: "DropdownSelect", cols: 2,
                 static: { choices, labels, value: defaultVal, color: "white" },
                 dynamic: { value: `devices/${port}/attn` },
                 output: `dev_attn/${port}`,
@@ -315,8 +337,8 @@ class Dashboard {
     }
 
     handle_dev_grh(port, value) {
-        const grh = value === true || value === 'true' || value === 1
-        FlexDash.set(`devices/${port}/grh`, grh)
+        const grh = value === "GRH" || value === true || value === 'true' || value === 1
+        FlexDash.set(`devices/${port}/grh`, grh ? "GRH" : "VAH")
         this.matron.emit('devGrhChg', { port, grh })
         console.log(`Device port ${port}: GRH ${grh ? 'enabled' : 'disabled'}`)
     }
@@ -352,15 +374,15 @@ class Dashboard {
     }
 
     handle_rtlInfo(port, info) {
-        if (port && info?.tuner_type) {
-            FlexDash.set(`devices/${port}/type`, 'rtlsdr/'+info.tuner_type)
-        }
+        if (!port) return
+        if (info?.tuner_type) FlexDash.set(`devices/${port}/type`, 'rtlsdr/'+info.tuner_type)
+        if (info?.tuner_gain != null) FlexDash.set(`devices/${port}/attn`, String(info.tuner_gain))
     }
 
     handle_airspyInfo(port, info) {
-        if (port && info?.tuner_type) {
-            FlexDash.set(`devices/${port}/type`, 'airspy/'+info.tuner_type)
-        }
+        if (!port) return
+        if (info?.tuner_type) FlexDash.set(`devices/${port}/type`, 'airspy/'+info.tuner_type)
+        if (info?.sensitivity_gain != null) FlexDash.set(`devices/${port}/attn`, String(info.sensitivity_gain))
     }
     handle_dash_alter_bootCount(obj) {
         if (!obj?.bootCount) return
@@ -438,11 +460,12 @@ class Dashboard {
         const port = info.attr.port
         FlexDash.set(`devices/${port}`, this.genDevInfo(info))
         FlexDash.set(`devices/${port}/state`, info.state || 'init')
-        FlexDash.set(`devices/${port}/grh`, info.attr?.radio === 'GRH')
+        FlexDash.set(`devices/${port}/grh`, info.attr?.radio === 'GRH' ? "GRH" : "VAH")
         FlexDash.set(`devices/${port}/frequency`,
             ['VAH', 'GRH'].includes(info.attr?.radio) && Acquisition.lotek_freq != null ? `${Acquisition.lotek_freq} MHz` : null
         )
         FlexDash.set(`devices/${port}/attn`, null)
+        FlexDash.set(`devices/${port}/color`, devPortColor(info.attr?.type, Acquisition.lotek_freq))
         FlexDash.set(`radios`, this.updateNumRadios())
         this.tsAddDevice(info)
         this.handle_devState()
@@ -482,6 +505,7 @@ class Dashboard {
         const port = info.port
         FlexDash.set(`devices/${port}/type`, 'NanoBabel')
         FlexDash.set(`devices/${port}/frequency`, "166.380 MHz")
+        FlexDash.set(`devices/${port}/color`, devPortColor('NanoBabel', 166.380))
         // attr.radio is now "NanoBabel" — refresh the radio counter
         FlexDash.set(`radios`, this.updateNumRadios())
         // devAdded ran tsAddDevice before the probe completed, so it created a CTT-style
@@ -513,7 +537,10 @@ class Dashboard {
     handle_lotekFreq(f) {
         FlexDash.set('lotek_freq', f)
         for (const [port, dev] of Object.entries(HubMan.devs)) {
-            if (['VAH', 'GRH'].includes(dev.attr?.radio)) FlexDash.set(`devices/${port}/frequency`, `${f} MHz`)
+            if (['VAH', 'GRH'].includes(dev.attr?.radio)) {
+                FlexDash.set(`devices/${port}/frequency`, `${f} MHz`)
+                FlexDash.set(`devices/${port}/color`, devPortColor(dev.attr?.type, f))
+            }
         }
     }
     handle_dash_show_pulses(v) {
