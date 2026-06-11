@@ -474,16 +474,14 @@
     },
     "w01814": {
       "kind": "Panel",
-      "rows": 2,
+      "rows": 1,
       "cols": 3,
       "static": {
         "title": "",
         "widgets": [
           "w02325",
           "w06813",
-          "w05188",
-          "w07260",
-          "w01644"
+          "w05188"
         ],
         "solid": false
       },
@@ -752,22 +750,6 @@
       "id": "w09855",
       "output": "df_tags"
     },
-    "w06015": {
-      "kind": "Panel",
-      "rows": 7,
-      "cols": 3,
-      "static": {
-        "title": "Port Mapping",
-        "widgets": [
-          "w05060",
-          "w09855",
-          "w08815"
-        ],
-        "solid": false
-      },
-      "dynamic": {},
-      "id": "w06015"
-    },
     "w08687": {
       "kind": "Stat",
       "rows": 1,
@@ -877,22 +859,6 @@
       },
       "id": "w03109",
       "output": null
-    },
-    "w02087": {
-      "kind": "Panel",
-      "rows": 6,
-      "cols": 3,
-      "static": {
-        "title": "Direction Finding",
-        "widgets": [
-          "w04955",
-          "w02073",
-          "w01579",
-          "w02533"
-        ]
-      },
-      "dynamic": {},
-      "id": "w02087"
     },
     "w04955": {
       "kind": "PropsTable",
@@ -1118,19 +1084,6 @@
       },
       "dynamic": {},
       "id": "w01883"
-    },
-    "w07260": {
-      "kind": "PopupButton",
-      "rows": 1,
-      "cols": 4,
-      "static": {
-        "title": "Port Mapping Help",
-        "color": "#90CAF9",
-        "icon": "mdi-information",
-        "text": "- all radios (Lotek & CTT) must show up in the \"port mapping\" widget\n- all radios must have a distinct port number from 0 to 9\n- the detection log should show any test tags in the vicinity\n\n### Built-in port numbering\n\n- rPi 4B: port 1: lower outside, 2: upper outside, 3: lower next to ethernet; 4: above 3; plug hub into the latter\n- rPi 3B & 3B+: port 1: upper next to ethernet, 2: below 1, 3: upper outside, 4: lower outside; plug hub into the latter\n\n### Port Mapping info\n\nWhen a device is plugged into USB its port is represented by a path, such as 1.2.3.\nThe Sensorgnome must report tag/pulse detections to Motus using a \"port number\" in the range 0..9\n(0 really being 10) and the port numbers configured here must correspond to the port/antenna numbers in the \"receiver deployment\" on the Motus site.\n\nThe Sensorgnome image is pre-configured to support up to 4 radios plugged into the rPi ports, or 3 radios directly plugged in a 4 more on a 4-port hub, or 3 + 7 using a 7-port hub. The pre-configured port mapping makes assumptions that may not match the specific hub you may be using, for this reason you may want to alter the mapping.\n\nThe port mapping allows explicit port mappings to be enforced, such that ports on the rPi and\non a hub can be labeled 1..10 in a reasonable order.\nThe mapping simply assigns a port number to a path using a notation like\n`path -> port`, for example, `1.2.3 -> 3` to map path `1.2.3` to port `3`.\nTo alter the port mapping use the pencil edit button on the port mapping widget.\n\nOn a __rPi 4B__ the built-in USB ports have paths 1.1 through 1.4 (1.1 is on the bottom closest\nto the Ethernet, 1.4 is at the top outside corner). The default mapping assigns port 1 to path 1.3 (lower outside), port 2 to path 1.4 (top outside), port 3 to path 1.1, and port 4 to path 1.2 (top next to ethernet).\nThis may be a bit confusing, the reason is so a hub can be plugged into the top blue USB3 port.\nThis results in ports 4 through 10 being on the hub.\n\nOn a __rPi 3B__ the built-in USB ports have paths 1.2 through 1.5 (1.2 is on the top closest\nto the Ethernet, 1.5 is at the bottom outside corner). A 4-port hub plugged into the bottom outside\nport will result in paths 1.5.1 through 1.5.4.\n\nIn terms of ordering of mappings: the first line with a matching path wins!\n"
-      },
-      "dynamic": {},
-      "id": "w07260"
     },
     "w05346": {
       "kind": "PushButton",
@@ -1666,27 +1619,6 @@
       "id": "w07258",
       "output": null
     },
-    "w00699": {
-      "kind": "Panel",
-      "rows": 4,
-      "cols": 3,
-      "static": {
-        "title": "Lotek Settings",
-        "widgets": [
-          "w06035",
-          "w01745",
-          "w04712",
-          "w03109",
-          "w04504",
-          "w03243",
-          "w03402",
-          "w06470"
-        ],
-        "solid": false
-      },
-      "dynamic": {},
-      "id": "w00699"
-    },
     "w08642": {
       "kind": "PushButton",
       "rows": 1,
@@ -1923,23 +1855,6 @@
       },
       "id": "w02046",
       "output": "alter_bootCount"
-    },
-    "w01644": {
-      "kind": "PopupButton",
-      "rows": 1,
-      "cols": 2,
-      "static": {
-        "title": "errors",
-        "color": "#FFC107",
-        "text": "tada",
-        "popup_info": "null"
-      },
-      "dynamic": {
-        "color": "radio_state/color",
-        "enabled": "radio_state/enabled",
-        "text": "radio_state/text"
-      },
-      "id": "w01644"
     },
     "w06687": {
       "kind": "TimePlot",
@@ -3045,11 +2960,11 @@
     },
     "w00042": {
       "kind": "DynamicPanel",
-      "rows": 6,
+      "rows": 7,
       "cols": 3,
       "static": {
         "title": "Device Status",
-        "background_color": "rgba(0,0,0,0)"
+        "color": "transparent"
       },
       "dynamic": {
         "widgets": "device_panel_widgets"
@@ -3058,7 +2973,7 @@
     },
     "w04103": {
       "kind": "UsbPortMap",
-      "rows": 3,
+      "rows": 4,
       "cols": 3,
       "static": {
         "title": "UsbPortMap",
@@ -3095,6 +3010,19 @@
       },
       "id": "w09262",
       "output": null
+    },
+    "w01313": {
+      "kind": "TextView",
+      "rows": 2,
+      "cols": 3,
+      "static": {
+        "title": "Device config status"
+      },
+      "dynamic": {
+        "text": "devices_log"
+      },
+      "id": "w01313",
+      "output": null
     }
   },
   "grids": {
@@ -3127,12 +3055,10 @@
       "title": "",
       "widgets": [
         "w01814",
-        "w04943",
         "w00042",
-        "w06015",
-        "w02087",
-        "w00699",
-        "w04103"
+        "w04103",
+        "w04943",
+        "w01313"
       ],
       "id": "g03145",
       "max_cols": 6,
