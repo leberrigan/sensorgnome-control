@@ -3048,7 +3048,8 @@
       "rows": 6,
       "cols": 3,
       "static": {
-        "title": "Device Status"
+        "title": "Device Status",
+        "color": "transparent"
       },
       "dynamic": {
         "widgets": "device_panel_widgets"
@@ -3057,17 +3058,43 @@
     },
     "w04103": {
       "kind": "UsbPortMap",
-      "rows": 4,
-      "cols": 6,
+      "rows": 3,
+      "cols": 3,
       "static": {
-        "title": "UsbPortMap"
+        "title": "UsbPortMap",
+        "model_image": "/rpi3-usb-ports.png"
       },
       "dynamic": {
         "devices": "devices",
-        "portmap": "portmap_file",
-        "model_image": "portmap/refimage"
+        "portmap": "portmap_file"
       },
       "id": "w04103"
+    },
+    "w02216": {
+      "kind": "TextView",
+      "rows": 5,
+      "cols": 3,
+      "static": {
+        "title": "Detection log"
+      },
+      "dynamic": {
+        "text": "detection_log"
+      },
+      "id": "w02216",
+      "output": null
+    },
+    "w09262": {
+      "kind": "TextView",
+      "rows": 3,
+      "cols": 3,
+      "static": {
+        "title": "Live Tags and Pulses"
+      },
+      "dynamic": {
+        "text": "detection_log"
+      },
+      "id": "w09262",
+      "output": null
     }
   },
   "grids": {
@@ -3108,7 +3135,8 @@
         "w04103"
       ],
       "id": "g03145",
-      "max_cols": 6
+      "max_cols": 6,
+      "min_cols": 4
     },
     "g07380": {
       "kind": "StdGrid",
@@ -3140,6 +3168,7 @@
       "title": "",
       "widgets": [
         "w08212",
+        "w09262",
         "w09712",
         "w09240",
         "w07135",
@@ -3188,6 +3217,7 @@
       "t00001",
       "t01980",
       "t06560",
+      "t00791",
       "t06959",
       "t08355",
       "t10000",
@@ -3215,8 +3245,7 @@
       "title": "radios",
       "id": "t06560",
       "grids": [
-        "g03145",
-        "g08970"
+        "g03145"
       ]
     },
     "t06959": {
@@ -3249,6 +3278,14 @@
       "id": "t10000",
       "grids": [
         "g10000"
+      ]
+    },
+    "t00791": {
+      "icon": "mdi-pulse",
+      "title": "live data",
+      "id": "t00791",
+      "grids": [
+        "g08970"
       ]
     }
   },

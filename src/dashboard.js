@@ -250,7 +250,7 @@ class Dashboard {
 
         if (isSQM) {
             innerWidgets.push({ kind: "Stat", cols: 2, static: { value: "SENSOR", zoom: 0.7 } })
-            return { kind: "DynamicPanel", cols: 6, card: true, static: { widgets: innerWidgets } }
+            return { kind: "DynamicPanel", cols: 6, static: { card: true, widgets: innerWidgets } }
         }
 
         innerWidgets.push({
@@ -259,16 +259,11 @@ class Dashboard {
             dynamic: { value: `devices/${port}/state` },
         })
 
-        // Spacer at col 1 of row 2 — keeps the port number column visually left-anchored
-        if (isDigiBabel || showFreq || showGRH || showGain) {
-            innerWidgets.push({ kind: "Label", cols: 1, static: { label: "" } })
-        }
-
         if (isDigiBabel) {
-            // Row 2: spacer[1] payload[2] encoding[2]
+            // Row 2: payload[2] encoding[2]
             innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: false, enabled: false } })
             innerWidgets.push({ kind: "Stat",   cols: 2, static: { value: "CTT" } })
-            return { kind: "DynamicPanel", cols: 6, card: true, static: { widgets: innerWidgets } }
+            return { kind: "DynamicPanel", cols: 6, static: { card: true, widgets: innerWidgets } }
         }
 
         // Row 2: spacer[1] freq[1] GRH[2] gain[2]
@@ -317,7 +312,7 @@ class Dashboard {
             })
         }
 
-        return { kind: "DynamicPanel", cols: 6, card: true, static: { widgets: innerWidgets } }
+        return { kind: "DynamicPanel", cols: 6, static: { card: true, widgets: innerWidgets } }
     }
 
     // Rebuild and publish the per-device panel array; one DynamicPanel card per device
