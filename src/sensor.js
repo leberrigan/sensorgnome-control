@@ -52,13 +52,18 @@ getSensor = function(matron, dev, devPlan) {
 // factory method
 
     var rv;
-    
-    // console.log("Device plan: ", JSON.stringify(devPlan?.plan))
 
-    if (devPlan?.plan?.pulseFinder == "gnuradio" && Acquisition.gnuradio_enabled) {
+    // Per-device VAH/GRH override set by the FlexDash toggle (via dashboard.js handle_dev_grh).
+    // Takes precedence over the plan's pulseFinder field so the toggle works without editing
+    // acquisition.json.
+    const portOverride = Acquisition.devModeOverrides?.[dev.attr.port]
+    const planWantsGRH = devPlan?.plan?.pulseFinder === "gnuradio"
+    const useGRH = portOverride === 'GRH' || (portOverride !== 'VAH' && planWantsGRH)
+
+    if (useGRH && Acquisition.gnuradio_enabled) {
         rv = new GR_SDR.GR_SDR(matron, dev, devPlan);
-    } else if (devPlan?.plan?.pulseFinder == "gnuradio") {
-        // GnuRadio disabled: only USB audio devices have a working VAMP fallback
+    } else if (useGRH) {
+        // GnuRadio wanted but disabled: only USB audio devices have a working VAMP fallback
         if (dev.attr.type === "funcubePro" || dev.attr.type === "funcubeProPlus" || dev.attr.type === "usbAudio") {
             rv = new USBAudio.USBAudio(matron, dev, devPlan);
         } else {

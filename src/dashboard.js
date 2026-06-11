@@ -143,6 +143,9 @@ class Dashboard {
         this.df_tags = {tag1: "1.1", tag2: '78664c3304'}
         this.df_log = []
 
+        // device connection/mode/gain log
+        this.devices_log = []
+
         // time-series
         this.ts = {}
         this.tsRefreshInterval = null
@@ -196,6 +199,7 @@ class Dashboard {
         FlexDash.set('df_enable', 'OFF')
         FlexDash.set('df_tags', this.df_tags)
         FlexDash.set('df_log', "")
+        FlexDash.set('devices_log', "")
         FlexDash.set('rtl_sdr_gain', {})
         FlexDash.set('airspy_gain', {})
         FlexDash.set('lotek_show_pulses', "on")
@@ -270,7 +274,7 @@ class Dashboard {
         // Row 2: spacer[1] freq[1] GRH[2] gain[2]
         if (showFreq) {
             innerWidgets.push({
-                kind: "Label", cols: 1,
+                kind: "Label", cols: 2,
                 static: {},
                 dynamic: { label: `devices/${port}/frequency` },
             })
@@ -308,7 +312,7 @@ class Dashboard {
             innerWidgets.push({
                 kind: "DropdownSelect", cols: 2,
                 static: { choices, labels, value: defaultVal, color: "white" },
-                dynamic: { value: `devices/${port}/attn` },
+                dynamic: { value: `devices/${port}/attn`, enabled: `devices/${port}/gain_enabled` },
                 output: `dev_attn/${port}`,
             })
         }
@@ -338,16 +342,67 @@ class Dashboard {
 
     handle_dev_grh(port, value) {
         const grh = value === "GRH" || value === true || value === 'true' || value === 1
-        FlexDash.set(`devices/${port}/grh`, grh ? "GRH" : "VAH")
-        this.matron.emit('devGrhChg', { port, grh })
-        console.log(`Device port ${port}: GRH ${grh ? 'enabled' : 'disabled'}`)
+        const modeStr = grh ? "GRH" : "VAH"
+        FlexDash.set(`devices/${port}/grh`, modeStr)
+
+        // Update gain availability for this port
+        const typeLowG = (HubMan.devs[port]?.attr?.type || '').toLowerCase()
+        FlexDash.set(`devices/${port}/gain_enabled`, !(typeLowG === 'funcubepro' && grh))
+
+        this.devicesLogPush(`Port ${port}: switching to ${modeStr}...`)
+
+        // Store per-device override so sensor.js getSensor picks it up on re-init
+        if (!Acquisition.devModeOverrides) Acquisition.devModeOverrides = {}
+        Acquisition.devModeOverrides[port] = modeStr
+
+        const dev = HubMan.devs[port]
+        if (!dev) return
+
+        // Deep clone so the original reference is safe to delete from HubMan.devs
+        const devCopy = JSON.parse(JSON.stringify(dev))
+        devCopy.attr.radio = modeStr
+        devCopy.state = 'init'
+
+        this.matron.emit('devRemoved', devCopy)
+        delete HubMan.devs[port]
+
+        setTimeout(() => {
+            HubMan.devs[port] = devCopy
+            this.matron.emit('devAdded', devCopy)
+            this.devicesLogPush(`Port ${port}: ${modeStr} active`)
+        }, 500)
     }
 
     handle_dev_attn(port, value) {
         const v = String(value)
         FlexDash.set(`devices/${port}/attn`, v)
-        this.matron.emit('devAttnChg', { port, attn: v })
-        console.log(`Device port ${port}: gain/attn set to ${v}`)
+
+        const dev = HubMan.devs[port]
+        if (!dev) { console.log(`Device port ${port}: not found for gain change`); return }
+
+        const typeLow = (dev.attr?.type || '').toLowerCase()
+        const isAirSpyHF = typeLow === 'airspyhf'
+        const isAirSpy   = typeLow === 'airspy' || isAirSpyHF || typeLow.startsWith('airspy/')
+        const isRTL      = typeLow === 'rtlsdr' || typeLow.startsWith('rtlsdr/')
+        const isFunCube  = typeLow === 'funcubeproplus' || typeLow === 'funcubepro'
+        const isNanoBabel = typeLow === 'nanobabel'
+
+        let par
+        if (isAirSpy)              par = 'sensitivity_gain'
+        else if (isRTL || isNanoBabel) par = 'tuner_gain'
+        else if (isFunCube)        par = 'lna_gain'
+
+        if (!par) { console.log(`Device port ${port}: no gain param for type ${typeLow}`); return }
+
+        this.matron.emit('requestSetParam', { port, par, val: v })
+        this.devicesLogPush(`Port ${port}: ${par} → ${v}`)
+    }
+
+    devicesLogPush(msg) {
+        const ts = new Date().toISOString().replace(/.*T/, '').replace(/\..+/, '')
+        this.devices_log.push(`${ts} ${msg}`)
+        if (this.devices_log.length > 200) this.devices_log.splice(0, this.devices_log.length - 200)
+        FlexDash.set('devices_log', this.devices_log.join('\n'))
     }
 
     getUptime() {
@@ -465,7 +520,15 @@ class Dashboard {
             ['VAH', 'GRH'].includes(info.attr?.radio) && Acquisition.lotek_freq != null ? `${Acquisition.lotek_freq} MHz` : null
         )
         FlexDash.set(`devices/${port}/attn`, null)
-        FlexDash.set(`devices/${port}/color`, devPortColor(info.attr?.type, Acquisition.lotek_freq))
+        const radioFreq = ['VAH', 'GRH'].includes(info.attr?.radio) ? Acquisition.lotek_freq : null
+        FlexDash.set(`devices/${port}/color`, devPortColor(info.attr?.type, radioFreq))
+
+        // Gain available for all devices except funcubePro in GRH mode
+        const typeLowDA = (info.attr?.type || '').toLowerCase()
+        const isGRHMode = info.attr?.radio === 'GRH'
+        FlexDash.set(`devices/${port}/gain_enabled`, !(typeLowDA === 'funcubepro' && isGRHMode))
+
+        this.devicesLogPush(`Port ${port}: connected (${info.attr?.type || 'unknown'}, ${isGRHMode ? 'GRH' : 'VAH'})`)
         FlexDash.set(`radios`, this.updateNumRadios())
         this.tsAddDevice(info)
         this.handle_devState()
@@ -485,6 +548,7 @@ class Dashboard {
     }
     handle_devRemoved(info) {
         const port = info.attr.port
+        this.devicesLogPush(`Port ${port}: disconnected`)
         FlexDash.unset(`devices/${port}`)
         FlexDash.set(`radios`, this.updateNumRadios())
         this.tsRemoveDevice(info)
@@ -528,8 +592,7 @@ class Dashboard {
         const m = Machine.machineType.match(/Raspberry Pi (\d+)/)
         const gen = m?.[1]
         if (!['3', '4', '5'].includes(gen)) return null
-        const family = (gen === '3' || gen === '4') ? '34' : gen
-        return `/rpi${family}-usb-ports.png`
+        return `/rpi${gen}-usb-ports.png`
     }
     handle_dash_update_portmap(portmap) { HubMan.setPortmap(portmap) }
     handle_tagDBInfo(data) { FlexDash.set('tagdb', data) }
