@@ -3049,7 +3049,7 @@
       "cols": 3,
       "static": {
         "title": "Device Status",
-        "color": "transparent"
+        "background_color": "rgba(0,0,0,0)"
       },
       "dynamic": {
         "widgets": "device_panel_widgets"

@@ -236,7 +236,7 @@ class Dashboard {
         const isRTL       = typeLow === 'rtlsdr' || typeLow.startsWith('rtlsdr/')
         const isSQM       = typeLow.startsWith('sqm')
 
-        const showFreq  = isNanoBabel || isAirSpy || isFunCube || isRTL
+        const showFreq  = true; //isNanoBabel || isAirSpy || isFunCube || isRTL
         const showGRH   = isNanoBabel || isAirSpy || isFunCube || isRTL
         const grhFixed  = isAirSpy   // AirSpy/AirSpyHF GRH is always on; cannot switch to VAH
         const showGain  = isNanoBabel || isAirSpy || isFunCube || isRTL
@@ -341,15 +341,6 @@ class Dashboard {
 
         const typeLowG = (HubMan.devs[port]?.attr?.type || '').toLowerCase()
 
-        // NanoBabel is managed through the DigiBabel probe subsystem, not the standard
-        // sensor factory. Re-adding it as 'NanoBabel' type has no matching plan and the
-        // sensor always returns null, leaving the device stuck at init. Mode switching
-        // for NanoBabel requires a physical replug.
-        if (typeLowG === 'nanobabel') {
-            this.devicesLogPush(`Port ${port}: NanoBabel mode switching not supported (replug to change)`)
-            return
-        }
-
         FlexDash.set(`devices/${port}/grh`, modeStr)
         FlexDash.set(`devices/${port}/gain_enabled`, !(typeLowG === 'funcubepro' && grh))
 
@@ -366,6 +357,11 @@ class Dashboard {
         const devCopy = JSON.parse(JSON.stringify(dev))
         devCopy.attr.radio = modeStr
         devCopy.state = 'init'
+
+        // Mark this removal as intentional so handle_devRemoved doesn't clear the override.
+        // Any subsequent unexpected removal (VAH/GRH crash) will clear it, ending crash loops.
+        if (!this._intentionalRemove) this._intentionalRemove = new Set()
+        this._intentionalRemove.add(port)
 
         this.matron.emit('devRemoved', devCopy)
         delete HubMan.devs[port]
@@ -533,7 +529,30 @@ class Dashboard {
                 ? "434 MHz"
                 : null
         FlexDash.set(`devices/${port}/frequency`, devFreq)
-        FlexDash.set(`devices/${port}/attn`, null)
+        // Initialize attn from the plan's default so the gain dropdown shows a selection.
+        // Mirrors the defaultVal logic in buildDeviceWidgets; uses original-case type for
+        // case-sensitive plan regex matching (e.g. ".*funcubeProPlus").
+        {
+            const adType = info.attr?.type || ''
+            const adTypeLow = adType.toLowerCase()
+            const adIsAHF = adTypeLow === 'airspyhf'
+            const adIsAS  = adTypeLow === 'airspy' || adIsAHF || adTypeLow.startsWith('airspy/')
+            const adIsRTL = adTypeLow === 'rtlsdr' || adTypeLow.startsWith('rtlsdr/')
+            const adIsNB  = adTypeLow === 'nanobabel'
+            const adIsFC  = adTypeLow === 'funcubeproplus' || adTypeLow === 'funcubepro'
+            let initialAttn = null
+            if (adIsAHF) {
+                initialAttn = String(getAcqParam('airspyhf', 'sensitivity_gain') ?? 0)
+            } else if (adIsAS) {
+                initialAttn = String(getAcqParam('airspy', 'sensitivity_gain') ?? 12)
+            } else if (adIsRTL || adIsNB) {
+                const rawGain = getAcqParam(adIsNB ? 'rtlsdr' : adType, 'tuner_gain') ?? 29.7
+                initialAttn = String(Math.round(rawGain * 10))
+            } else if (adIsFC) {
+                initialAttn = "1"  // LNA on by default
+            }
+            FlexDash.set(`devices/${port}/attn`, initialAttn)
+        }
         FlexDash.set(`devices/${port}/color`, devPortColor(info.attr?.type, devFreq))
 
         // Gain available for all devices except funcubePro in GRH mode
@@ -562,6 +581,18 @@ class Dashboard {
     handle_devRemoved(info) {
         const port = info.attr.port
         this.devicesLogPush(`Port ${port}: disconnected`)
+
+        // If this removal is unexpected (not triggered by our toggle cycle), clear any
+        // mode override so the device restarts in its default pipeline mode. This breaks
+        // crash loops caused by plan-incompatible mode switches (e.g. funcubeProPlus VAH
+        // trying to load a gnuradio-only VAMP plugin).
+        if (this._intentionalRemove?.has(port)) {
+            this._intentionalRemove.delete(port)
+        } else if (Acquisition.devModeOverrides?.[port]) {
+            this.devicesLogPush(`Port ${port}: unexpected removal — clearing ${Acquisition.devModeOverrides[port]} override`)
+            delete Acquisition.devModeOverrides[port]
+        }
+
         FlexDash.unset(`devices/${port}`)
         FlexDash.set(`radios`, this.updateNumRadios())
         this.tsRemoveDevice(info)
