@@ -75,6 +75,26 @@ const isFromGRH = !grh && (dev.attr?.radio === 'GRH')
 const delay = isAudioDev ? 2000 : (isFromGRH ? 3000 : 500)
 ```
 
+### sensor.js close/startStop pulseFinder check — FIXED (session 5)
+Sensor.prototype.close and startStop used plan.pulseFinder === "gnuradio" to decide whether to
+send GRH or VAH commands. With new plans (no pulseFinder), GR_SDR instances would send VAH
+close/start-stop — leaving gr_rtlsdr.py/gr_funcubepp.py alive and holding the USB device.
+rtl_tcp then fails to open: "Failed to open rtlsdr device 1:15" → hw_reset loop.
+Fix: replaced plan.pulseFinder checks with `this/self instanceof GR_SDR.GR_SDR`
+(already used in sensor.js initDone). GR_SDR is always in GnuRadio mode regardless of plan.
+
+### VAH/GRH default modes fixed — session 5
+acquisition.json: rtlsdr and funcubeProPlus now use lotek-plugins.so (VAH default, no pulseFinder).
+airspy/airspyhf keep pulseFinder:"gnuradio" (GRH-only).
+Changes:
+- acquisition.json: added gnuradio:{samp_rate, gain, additional_args} sub-object to rtlsdr and
+  funcubeProPlus plans so GR_SDR has the params it needs when the user toggles to GRH.
+- gr-sdr.js extractPluginParams: reads from plan.gnuradio if present (VAH-default plans);
+  falls back to plugins[0].params for legacy GnuRadio-only plans.
+- dashboard.js handle_devAdded: initial grh FlexDash value now computed from plan.pulseFinder +
+  override (same logic as getSensor), not from attr.radio (hubman stamps 'GRH' regardless).
+- dashboard.js buildDeviceWidgets: removed NanoBabel from showGain (no gain control).
+
 ### VAH stale callback cascade — FIXED (session 5)
 Root cause: `childDied` did NOT clear `replyHandlerQueue` or `commandQueue`. On VAH restart,
 `cmdSockConnected` replayed stale commands to the fresh VAH. Stale `vahOpenReply` handlers fired
@@ -131,12 +151,46 @@ Fix: compute initialAttn from plan defaults using same logic as buildDeviceWidge
 - rtlsdr/nanobabel: Math.round((getAcqParam('rtlsdr','tuner_gain') ?? 29.7) * 10) as string
 - funcubepro/funcubeproplus: "1" (LNA on; plan stores lna_gain=20 dB, not the binary 0/1 UI value)
 
+## Follow-up fix (2026-06-12 session 6)
+
+### RTL-SDR fails to open at sg-control startup — FIXED
+Root cause: `reapOldGRHandSpawn` kills `grh` (the Python host wrapper) but its subprocesses
+(`gr_rtlsdr.py`, `gr_funcubepp.py`, etc.) become orphaned — SIGKILL on the parent does NOT kill
+children on Linux. The orphan keeps the USB device locked, so when the new sg-control's rtl_tcp
+tries to open it: "Failed to open rtlsdr device 1:15".
+
+Fix in grh.js `reapOldGRHandSpawn`: after `killall -KILL grh`, chain a second kill:
+```js
+ChildProcess.execFile("/usr/bin/pkill", ["-KILL", "-f", "/usr/bin/gr_"], null, this.this_doneReaping);
+```
+`pkill -KILL -f "/usr/bin/gr_"` kills any process whose cmdline contains "/usr/bin/gr_"
+(matches `python3 /usr/bin/gr_rtlsdr.py` etc.). pkill returns non-zero if no match, which is
+fine — `this_doneReaping` ignores the error and proceeds to `spawnChild()`.
+
+## Gain persistence (session 7 — 2026-06-12)
+
+### devParam changes now persist to acquisition.json — DONE
+When the user changes the gain dropdown in FlexDash, `handle_dev_attn` in dashboard.js now
+calls `Acquisition.updateDevParam(dev.attr.type, par, parseFloat(v))` after emitting
+`requestSetParam`.
+
+`updateDevParam` (added to config.js):
+- Finds the matching plan by `key.devType` regex
+- Updates `devParams[paramName].schedule.value = value` (number, not string)
+- For RTL-SDR plans with a `gnuradio` sub-object: also parses `gnuradio.gain` JSON and
+  updates the `rf` field, so the next GRH session starts with the same gain value
+- Calls `_saveToFile()` atomically (temp write → backup old → rename temp)
+
+`_saveToFile()` (added to config.js):
+- Extracted from the former inline block in `update()` so both `update()` and
+  `updateDevParam()` share the same write path
+
 ## Still pending / known bugs (from memory)
 All 8 bugs from gnuradio-integration.md are still unaddressed:
 1. gr_airspyhf.py set_freq args swapped
 2. grh.js grhStartStop — was `devLabel`, now fixed (used `port`)
 3. grh.js grhSubmit — bug: pushes `cmd` not `cmd[i]` — STILL present
-4. sensor.js close() — VAH close emitted for GRH devices (but gr-sdr.js overrides devRemoved now, so close() is reached via base Sensor.devRemoved which calls this.close() after hw_delete)
+4. sensor.js close() — VAH close emitted for GRH devices — FIXED (instanceof check)
 5. additional_args passing (str(list) corruption)
 6. gr_airspy.py no stdin reader
 7. checkRateTimer never set up — FIXED in grh.js (set in sockConnected)

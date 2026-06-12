@@ -151,6 +151,21 @@ RTLSDR.prototype.hw_init = function(callback) {
     this.spawnServer();   // launch the rtl_tcp process
 };
 
+RTLSDR.prototype.getDeviceSerial = function() {
+    // Prefer serial-number identification over bus:device path — the installed rtl_tcp
+    // binary may not support the "1:15" bus:device format but always supports serial matching.
+    const [bus, device] = (this.dev.attr.usbPath || "0:0")
+        .split(":").map(x => x.padStart(3, '0'));
+    try {
+        const out = ChildProcess.execSync(`udevadm info -q all -n /dev/bus/usb/${bus}/${device}`).toString();
+        const m = out.match(/ID_SERIAL_SHORT=([^\n]+)/);
+        if (m) return m[1].trim();
+    } catch (e) {
+        console.warn(`RTLSDR: udevadm failed for ${bus}:${device}:`, e.message);
+    }
+    return null;
+};
+
 RTLSDR.prototype.spawnServer = function() {
     if (this.quitting)
         return;
@@ -168,7 +183,8 @@ RTLSDR.prototype.spawnServer = function() {
     var usb_buffer_size = this.hw_rate * 2 * 0.100;
     usb_buffer_size = 512 * Math.ceil(usb_buffer_size / 512.0);
 
-    var args = ["-p", this.sockPath, "-d", this.dev.attr.usbPath, "-s", this.hw_rate, "-B", usb_buffer_size];
+    const deviceArg = this.getDeviceSerial() || '0';
+    var args = ["-p", this.sockPath, "-d", deviceArg, "-s", this.hw_rate, "-B", usb_buffer_size];
     console.log("RTLSDR spawning server: " + this.prog + " " + args.join(" "));
     var server = ChildProcess.spawn(this.prog, args, { 'shell': false });
     server.on("close", this.this_serverDied);

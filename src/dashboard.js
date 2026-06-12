@@ -239,7 +239,7 @@ class Dashboard {
         const showFreq  = true; //isNanoBabel || isAirSpy || isFunCube || isRTL
         const showGRH   = isNanoBabel || isAirSpy || isFunCube || isRTL
         const grhFixed  = isAirSpy   // AirSpy/AirSpyHF GRH is always on; cannot switch to VAH
-        const showGain  = isNanoBabel || isAirSpy || isFunCube || isRTL
+        const showGain  = isAirSpy || isFunCube || isRTL  // NanoBabel has no gain control
 
         // Row 1: port[1] port_path[1] type[2] status/sensor[2]
         const innerWidgets = [
@@ -295,7 +295,10 @@ class Dashboard {
         if (showGain) {
             let choices, labels, defaultVal
             if (isAirSpyHF) {
-                choices = ["0","6","12","18","24"]; labels = ["0 dB","6 dB","12 dB","18 dB","24 dB"]; defaultVal = "0"
+                // RF gain in dB: 0 = max sensitivity (no attenuation), -48 = max attenuation.
+                choices = ["0","-6","-12","-18","-24","-30","-36","-42","-48"]
+                labels  = ["0 dB","-6 dB","-12 dB","-18 dB","-24 dB","-30 dB","-36 dB","-42 dB","-48 dB"]
+                defaultVal = String(getAcqParam('airspyhf', 'sensitivity_gain') ?? 0)
             } else if (isAirSpy) {
                 choices = Array.from({length: 22}, (_, i) => String(i)); labels = choices
                 defaultVal = String(getAcqParam('airspy', 'sensitivity_gain') ?? 12)
@@ -420,6 +423,7 @@ class Dashboard {
         if (!par) { console.log(`Device port ${port}: no gain param for type ${typeLow}`); return }
 
         this.matron.emit('requestSetParam', { port, par, val: v })
+        Acquisition.updateDevParam(dev.attr.type, par, parseFloat(v))
         this.devicesLogPush(`Port ${port}: ${par} → ${v}`)
     }
 
@@ -540,7 +544,18 @@ class Dashboard {
         const port = info.attr.port
         FlexDash.set(`devices/${port}`, this.genDevInfo(info))
         FlexDash.set(`devices/${port}/state`, info.state || 'init')
-        FlexDash.set(`devices/${port}/grh`, info.attr?.radio === 'GRH' ? "GRH" : "VAH")
+        // Determine actual mode from plan.pulseFinder + per-port override, mirroring getSensor.
+        // Cannot rely on info.attr?.radio — hubman stamps rtlsdr/funcubeProPlus as 'GRH' from the
+        // filesystem regardless of whether the plan defaults to VAH.
+        {
+            const portOvr = Acquisition.devModeOverrides?.[port]
+            const devTypeFP = info.attr?.type || ''
+            const acqPlanFP = (Acquisition.plans || []).find(p => {
+                try { return new RegExp(p.key.devType).test(devTypeFP) } catch { return false }
+            })
+            const useGRH_FP = portOvr === 'GRH' || (portOvr !== 'VAH' && acqPlanFP?.pulseFinder === 'gnuradio')
+            FlexDash.set(`devices/${port}/grh`, useGRH_FP ? 'GRH' : 'VAH')
+        }
         const tDA = (info.attr?.type || '').toLowerCase()
         const devFreq = ['VAH', 'GRH'].includes(info.attr?.radio) && Acquisition.lotek_freq != null
             ? `${Acquisition.lotek_freq} MHz`
@@ -576,10 +591,15 @@ class Dashboard {
 
         // Gain available for all devices except funcubePro in GRH mode
         const typeLowDA = (info.attr?.type || '').toLowerCase()
-        const isGRHMode = info.attr?.radio === 'GRH'
-        FlexDash.set(`devices/${port}/gain_enabled`, !(typeLowDA === 'funcubepro' && isGRHMode))
-
-        this.devicesLogPush(`Port ${port}: connected (${info.attr?.type || 'unknown'}, ${isGRHMode ? 'GRH' : 'VAH'})`)
+        {
+            const portOvr2 = Acquisition.devModeOverrides?.[port]
+            const acqPlanGE = (Acquisition.plans || []).find(p => {
+                try { return new RegExp(p.key.devType).test(info.attr?.type || '') } catch { return false }
+            })
+            const isGRHMode = portOvr2 === 'GRH' || (portOvr2 !== 'VAH' && acqPlanGE?.pulseFinder === 'gnuradio')
+            FlexDash.set(`devices/${port}/gain_enabled`, !(typeLowDA === 'funcubepro' && isGRHMode))
+            this.devicesLogPush(`Port ${port}: connected (${info.attr?.type || 'unknown'}, ${isGRHMode ? 'GRH' : 'VAH'})`)
+        }
         FlexDash.set(`radios`, this.updateNumRadios())
         this.tsAddDevice(info)
         this.handle_devState()
@@ -1154,7 +1174,6 @@ class Dashboard {
         try {
             const f = info.split(',')
             if (f.length < 6) return
-            p6,1781273366.9631,0,127,85,42
             const mm = f[0].match(/^p(\d+)/)
             if (!mm) return
             const port = mm[1]

@@ -106,9 +106,13 @@ GRH.prototype.childDied = function(code, signal) {
 };
 
 GRH.prototype.reapOldGRHandSpawn = function() {
-    ChildProcess.execFile("/usr/bin/killall", ["-KILL", "grh"], null, this.this_doneReaping);
     if (this.checkRateTimer)
         clearInterval(this.checkRateTimer);
+    // Kill the host wrapper, then kill any orphaned flowgraph subprocesses (gr_rtlsdr.py,
+    // gr_funcubepp.py, etc.). killall -KILL grh orphans these; they keep USB devices locked.
+    ChildProcess.execFile("/usr/bin/killall", ["-KILL", "grh"], null, () => {
+        ChildProcess.execFile("/usr/bin/pkill", ["-KILL", "-f", "/usr/bin/gr_"], null, this.this_doneReaping);
+    });
 };
 
 GRH.prototype.doneReaping = function() {
