@@ -266,8 +266,6 @@ GRH.prototype.gotReply = function (data) {
             this.this_gotData( reply.data );
             continue;
         }
-        console.log("GnuRadio reply: ", reply);
-
         if (reply.async) {
             // if async field is present, this is not a reply to a command
             console.log("GnuRadio async: ", JSON.stringify(reply));
@@ -277,7 +275,8 @@ GRH.prototype.gotReply = function (data) {
             var handler = this.replyHandlerQueue.shift();
 
             if (!handler)
-                continue;
+                continue; // discard stale/unhandled replies (e.g. post-close subprocess noise)
+            console.log("GnuRadio reply: ", reply);
             if (handler.callback)
                 handler.callback(reply, handler.par);
         }

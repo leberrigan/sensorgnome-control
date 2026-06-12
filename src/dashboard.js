@@ -259,12 +259,6 @@ class Dashboard {
             dynamic: { value: `devices/${port}/state` },
         })
 
-        if (isDigiBabel) {
-            // Row 2: payload[2] encoding[2]
-            innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: false, enabled: false, show_value: true, off_value: "No payload", on_value: "Payload" } })
-            innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: false, enabled: false, show_value: true, off_value: "CTT encoding", on_value: "Lotek encoding" } })
-            return { kind: "DynamicPanel", cols: 6, static: { card: true, widgets: innerWidgets } }
-        }
 
         // Row 2: spacer[1] freq[1] GRH[2] gain[2]
         if (showFreq) {
@@ -273,6 +267,13 @@ class Dashboard {
                 static: {},
                 dynamic: { label: `devices/${port}/frequency` },
             })
+        }
+
+        if (isDigiBabel) {
+            // Row 2: payload[2] encoding[2]
+            innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: "No payload", enabled: false, show_value: true, off_value: "No payload", on_value: "Payload" } })
+            innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: "CTT encoding", enabled: false, show_value: true, off_value: "CTT encoding", on_value: "Lotek encoding" } })
+            return { kind: "DynamicPanel", cols: 6, static: { card: true, widgets: innerWidgets } }
         }
 
         if (showGRH) {
@@ -298,11 +299,12 @@ class Dashboard {
             } else if (isFunCube) {
                 choices = ["0","1"]; labels = ["LNA off","LNA on"]; defaultVal = "1"
             } else {
-                // RTL-SDR / NanoBabel: gain in tenths of dB (R820T/R820T2 steps)
-                choices = ["0","77","144","207","297","386","402","439","496"]
+                // RTL-SDR / NanoBabel: gain in dB. hw_setParam multiplies by 10 for rtl_tcp.
+                // rtlInfo also reports in dB (gotCmdReply divides rtl_tcp's 0.1 dB units by 10).
+                choices = ["0","7.7","14.4","20.7","29.7","38.6","40.2","43.9","49.6"]
                 labels  = ["0 dB","7.7 dB","14.4 dB","20.7 dB","29.7 dB","38.6 dB","40.2 dB","43.9 dB","49.6 dB"]
                 const rawGain = getAcqParam(isNanoBabel ? 'rtlsdr' : typeLow, 'tuner_gain') ?? 29.7
-                defaultVal = String(Math.round(rawGain * 10))
+                defaultVal = String(rawGain)
             }
             innerWidgets.push({
                 kind: "DropdownSelect", cols: 2,
@@ -340,6 +342,20 @@ class Dashboard {
         const modeStr = grh ? "GRH" : "VAH"
 
         const typeLowG = (HubMan.devs[port]?.attr?.type || '').toLowerCase()
+
+        // Block VAH switch when the plan has only GnuRadio plugins: VAH crashes trying to
+        // load a Python plugin via VAMP (exit code 11), triggering a re-enumeration loop.
+        if (!grh) {
+            const devType = HubMan.devs[port]?.attr?.type || ''
+            const acqPlan = (Acquisition.plans || []).find(p => {
+                try { return new RegExp(p.key.devType).test(devType) } catch { return false }
+            })
+            if (acqPlan?.plan?.pulseFinder === 'gnuradio') {
+                FlexDash.set(`devices/${port}/grh`, 'GRH')
+                this.devicesLogPush(`Port ${port}: VAH unavailable — plan has only GnuRadio plugins`)
+                return
+            }
+        }
 
         FlexDash.set(`devices/${port}/grh`, modeStr)
         FlexDash.set(`devices/${port}/gain_enabled`, !(typeLowG === 'funcubepro' && grh))
@@ -547,7 +563,7 @@ class Dashboard {
                 initialAttn = String(getAcqParam('airspy', 'sensitivity_gain') ?? 12)
             } else if (adIsRTL || adIsNB) {
                 const rawGain = getAcqParam(adIsNB ? 'rtlsdr' : adType, 'tuner_gain') ?? 29.7
-                initialAttn = String(Math.round(rawGain * 10))
+                initialAttn = String(rawGain)  // dB; hw_setParam multiplies ×10 for rtl_tcp
             } else if (adIsFC) {
                 initialAttn = "1"  // LNA on by default
             }

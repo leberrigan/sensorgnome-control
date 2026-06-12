@@ -63,7 +63,15 @@ Two root causes:
 
 ## Follow-up fixes (2026-06-11 session 3)
 
-### FunCube VAH crash loop (root cause identified)
+### FunCube VAH crash loop — RESOLVED (session 3+4)
+
+**Session 4 fix (final):** Added plan compatibility check at the TOP of handle_dev_grh.
+Before doing any devRemoved/devAdded cycle, look up Acquisition.plans for this devType.
+If `plan.pulseFinder === 'gnuradio'`, the plan has only GnuRadio plugins; VAH cannot load
+them. Revert the FlexDash toggle to 'GRH' and return immediately. No crash at all.
+The `_intentionalRemove` safety net stays in case other paths trigger unexpected removals.
+
+### FunCube VAH crash loop — intermediate analysis (session 3)
 With the 2000ms delay, VAH opens the ALSA device successfully (ALSA conflict resolved).
 But funcubeProPlus plan only has `detect_pulses.py:grPulseDetect` plugin (gnuradio-specific).
 VAH tries to load it as a VAMP plugin → "No library found" → exit code 11 → VAHdied →
