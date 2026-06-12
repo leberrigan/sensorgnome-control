@@ -1617,7 +1617,7 @@
     },
     "w08212": {
       "kind": "Panel",
-      "rows": 3,
+      "rows": 1,
       "cols": 3,
       "static": {
         "title": "",
@@ -1627,6 +1627,7 @@
           "w02885",
           "w06290",
           "w08177",
+          "w09840",
           "w05490",
           "w06493"
         ],
@@ -1638,7 +1639,7 @@
     "w06030": {
       "kind": "PushButton",
       "rows": 1,
-      "cols": 2,
+      "cols": 1,
       "static": {
         "title": "hour",
         "output_value": "hour"
@@ -1650,7 +1651,7 @@
     "w02885": {
       "kind": "PushButton",
       "rows": 1,
-      "cols": 2,
+      "cols": 1,
       "static": {
         "title": "day",
         "output_value": "day"
@@ -1662,7 +1663,7 @@
     "w06290": {
       "kind": "PushButton",
       "rows": 1,
-      "cols": 2,
+      "cols": 1,
       "static": {
         "title": "month",
         "output_value": "month"
@@ -1674,7 +1675,7 @@
     "w08177": {
       "kind": "PushButton",
       "rows": 1,
-      "cols": 2,
+      "cols": 1,
       "static": {
         "title": "year",
         "output_value": "year"
@@ -1686,7 +1687,7 @@
     "w06493": {
       "kind": "PopupButton",
       "rows": 1,
-      "cols": 6,
+      "cols": 3,
       "static": {
         "title": "Chart info",
         "icon": "mdi-information-outline",
@@ -1740,9 +1741,9 @@
     "w05490": {
       "kind": "Stat",
       "rows": 1,
-      "cols": 2,
+      "cols": 1,
       "static": {
-        "title": "interval per point",
+        "title": "",
         "color": ""
       },
       "dynamic": {
@@ -2942,7 +2943,7 @@
     },
     "w09262": {
       "kind": "TextView",
-      "rows": 3,
+      "rows": 5,
       "cols": 3,
       "static": {
         "title": "Live Tags and Pulses"
@@ -2955,7 +2956,7 @@
     },
     "w01313": {
       "kind": "TextView",
-      "rows": 2,
+      "rows": 3,
       "cols": 6,
       "static": {
         "title": "Device config status"
@@ -2997,7 +2998,7 @@
     },
     "w00042": {
       "kind": "DynamicPanel",
-      "rows": 7,
+      "rows": 8,
       "cols": 6,
       "static": {
         "title": "",
@@ -3026,14 +3027,15 @@
     },
     "w00202": {
       "kind": "Panel",
-      "rows": 9,
+      "rows": 11,
       "cols": 3,
       "static": {
         "title": "Devices",
         "widgets": [
           "w01814",
           "w00042",
-          "w01313"
+          "w01313",
+          "w04568"
         ]
       },
       "dynamic": {},
@@ -3052,6 +3054,28 @@
       },
       "dynamic": {},
       "id": "w01967"
+    },
+    "w09840": {
+      "kind": "Label",
+      "rows": 1,
+      "cols": 2,
+      "static": {
+        "title": "",
+        "label": "Interval length"
+      },
+      "dynamic": {},
+      "id": "w09840"
+    },
+    "w04568": {
+      "kind": "PopupButton",
+      "rows": 1,
+      "cols": 6,
+      "static": {
+        "title": "More info",
+        "text": "## Radio Device Controls\n\nEach connected radio receiver shows a card with the following controls.\n\n### Status indicator\nShows the current device state: **running** (green), **stopped**, or **error** (red). On first connect it shows **init** while the driver starts up.\n\n### Frequency\nThe centre frequency the receiver is tuned to, in MHz. This is set in `acquisition.json` and cannot be changed from the dashboard.\n\n### Mode toggle (GRH / VAH / NB)\n\nControls which software stack processes the radio signal.\n\n| Label | Meaning |\n|-------|---------|\n| **GRH** | GnuRadio Host — a Python/GnuRadio flow graph handles demodulation and pulse detection. Required for RTL-SDR and most devices by default. |\n| **VAH** | VAMP-ALSA Host — a C++ process loads VAMP signal-processing plugins. Used for FunCube Dongle Pro+ when GnuRadio is not needed. |\n| **NB** | NanoBabel — this device type uses Lotek's own protocol and does not run a local pulse decoder. The toggle is not applicable. |\n\nSwitching modes restarts the device. A brief gap in detection (2–3 seconds) is normal. Some device/plan combinations only support GRH; in that case the toggle snaps back automatically and a note appears in the Devices Log.\n\n### Gain\n\nSets the receiver's RF gain. The available options depend on hardware type.\n\n| Device | Choices | Notes |\n|--------|---------|-------|\n| RTL-SDR | 0 – 49.6 dB | Tuner gain; higher values amplify weak signals but increase noise floor. 29.7 dB is a common starting point. |\n| NanoBabel | 0 – 49.6 dB | Same RTL-SDR tuner; same scale. |\n| AirSpy | 0 – 21 (sensitivity index) | Sensitivity preset, not raw dB. Higher = more gain. |\n| AirSpyHF | 0 – 24 dB | Sensitivity gain in dB. |\n| FunCube Pro/Pro+ | LNA off / LNA on | Binary: whether the low-noise amplifier is active. The gain control is disabled when the device is in GRH mode (GnuRadio controls the LNA directly at startup). |\n\nChanges take effect immediately without restarting the device.\n\n### Devices Log\n\nA scrolling timestamped event log showing mode switches, gain changes, connect/disconnect events, and any errors for all devices in this session. Useful for confirming that a toggle or gain change was accepted by the hardware.\n"
+      },
+      "dynamic": {},
+      "id": "w04568"
     }
   },
   "grids": {
@@ -3110,12 +3134,12 @@
       "widgets": [
         "w08212",
         "w09262",
+        "w07258",
         "w09712",
         "w09240",
         "w07135",
         "w06687",
-        "w06943",
-        "w07258"
+        "w06943"
       ],
       "id": "g08970",
       "max_cols": 6

@@ -277,7 +277,10 @@ class Dashboard {
         }
 
         if (showGRH) {
-            if (grhFixed) {
+            if (isNanoBabel) {
+                // NanoBabel has no VAMP pulse-detect plan and no GRH support; show fixed "NB" label
+                innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: "NB", enabled: false, show_value: true, on_value: "NB", off_value: "NB" } })
+            } else if (grhFixed) {
                 innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: "GRH", enabled: false, show_value: true, on_value: "GRH", off_value: "VAH" } })
             } else {
                 innerWidgets.push({
@@ -350,7 +353,7 @@ class Dashboard {
             const acqPlan = (Acquisition.plans || []).find(p => {
                 try { return new RegExp(p.key.devType).test(devType) } catch { return false }
             })
-            if (acqPlan?.plan?.pulseFinder === 'gnuradio') {
+            if (acqPlan?.pulseFinder === 'gnuradio') {
                 FlexDash.set(`devices/${port}/grh`, 'GRH')
                 this.devicesLogPush(`Port ${port}: VAH unavailable — plan has only GnuRadio plugins`)
                 return
@@ -382,11 +385,11 @@ class Dashboard {
         this.matron.emit('devRemoved', devCopy)
         delete HubMan.devs[port]
 
-        // Audio devices (funcubePro/funcubeProPlus) share their ALSA handle between the
-        // GRH subprocess and VAH. Give GRH's subprocess extra time to die and release the
-        // ALSA device before VAH tries to open it.
-        const isAudioDev = typeLowG === 'funcubepro' || typeLowG === 'funcubeproplus'
-        const delay = isAudioDev ? 2000 : 500
+        // Audio devices share their ALSA handle; RTL-SDR/USB devices also need time for
+        // the GnuRadio subprocess to release the USB device before rtl_tcp can open it.
+        const isAudioDev  = typeLowG === 'funcubepro' || typeLowG === 'funcubeproplus'
+        const isFromGRH   = !grh && (dev.attr?.radio === 'GRH')
+        const delay = isAudioDev ? 2000 : (isFromGRH ? 3000 : 500)
 
         setTimeout(() => {
             HubMan.devs[port] = devCopy
@@ -1147,9 +1150,11 @@ class Dashboard {
     // process a pulse from a lotek radio
     tsGotPulse(info) {
         // p6,1681004979.0929,3.785,-29.66,-54.81,25.6
+        // port, ts, dfreq, sig, noise, snr
         try {
             const f = info.split(',')
             if (f.length < 6) return
+            p6,1781273366.9631,0,127,85,42
             const mm = f[0].match(/^p(\d+)/)
             if (!mm) return
             const port = mm[1]

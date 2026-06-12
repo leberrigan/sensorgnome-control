@@ -78,6 +78,11 @@ VAH.prototype.childDied = function(code, signal) {
         this.dataSock.destroy();
         this.dataSock = null;
     }
+    // Discard stale reply handlers and queued commands. They belong to sensors that are about
+    // to receive devRemoved and be torn down. If we replay them to the new VAH instance they
+    // corrupt the reply queue for the freshly created sensors.
+    this.replyHandlerQueue = [];
+    this.commandQueue = [];
     if (! this.quitting)
         setTimeout(this.this_spawnChild, 5000);
     if (this.connectCmdTimeout) {
@@ -197,7 +202,7 @@ VAH.prototype.vahSubmit = function (cmd, callback, callbackPars) {
     } else {
         // console.log("VAH about to queue: " + cmd + "\n");
         for (var i in cmd)
-            this.commandQueue.push(cmd + '\n');
+            this.commandQueue.push(cmd[i] + '\n');
     }
 };
 

@@ -61,6 +61,39 @@ Two root causes:
    devRemoved, guard both vahOpenReply and grOpenReply retry with `!self.cancelled`,
    guard `Sensor.prototype.init` entry with `if (this.cancelled) return`.
 
+## Follow-up fixes (2026-06-12 session 5)
+
+### RTL-SDR GRH→VAH switch reverted to GRH — FIXED
+RTL-SDR plans default to gnuradio (pulseFinder='gnuradio'), so switching to VAH passes the plan
+compatibility check (plan CAN use VAH via the rtlsdr VAMP plugins). But the 500ms delay was too short:
+GnuRadio's subprocess (gr_rtlsdr.py) hadn't released the USB device before rtl_tcp tried to open it.
+rtl_tcp exited code 3 → RTLSDR.hw_reset emitted a devRemoved NOT in _intentionalRemove → cleared
+devModeOverrides → next devAdded fell back to GRH.
+Fix: detect if current radio mode is GRH and !grh (switching away from GRH), use 3000ms delay instead of 500ms.
+```js
+const isFromGRH = !grh && (dev.attr?.radio === 'GRH')
+const delay = isAudioDev ? 2000 : (isFromGRH ? 3000 : 500)
+```
+
+### VAH stale callback cascade — FIXED (session 5)
+Root cause: `childDied` did NOT clear `replyHandlerQueue` or `commandQueue`. On VAH restart,
+`cmdSockConnected` replayed stale commands to the fresh VAH. Stale `vahOpenReply` handlers fired
+(no cancelled guard), pushed more stale `vahAttachReply` onto the queue, consuming the new sensor's
+reply slot → "VAH asking to receive p12" / "HUH?" cascade.
+
+Fixes:
+1. vah.js `childDied`: clear `replyHandlerQueue = []` and `commandQueue = []` on crash
+2. sensor.js `vahOpenReply`: add `if (self.cancelled) return` before `self.isOpen = true`
+3. vah.js `vahSubmit` commandQueue path: `cmd + '\n'` → `cmd[i] + '\n'` (pre-existing bug)
+
+### NanoBabel toggle — disabled, shows "NB"
+NanoBabel has no VAMP pulse-detect plan and no standalone GRH support.
+Toggle widget now shows static "NB" in both on/off states, disabled (non-clickable).
+Previously showed interactive GRH/VAH toggle which would crash if clicked.
+
+### FlexDash popup help text
+Written markdown description of all device controls (mode toggle, gain, status, log).
+
 ## Follow-up fixes (2026-06-11 session 3)
 
 ### FunCube VAH crash loop — RESOLVED (session 3+4)

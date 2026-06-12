@@ -165,6 +165,7 @@ Sensor.prototype.initDone = function() {
 };
 
 Sensor.prototype.vahOpenReply = function (reply, self) {
+    if (self.cancelled) return;
     if (reply.error) {
         console.log(`sensor VAH open reply port ${self.dev.attr?.port} got ${JSON.stringify(reply)}\n`);
         // schedule a retry on this device (every 10 seconds up to 10 times)
@@ -246,6 +247,7 @@ Sensor.prototype.getPluginLabel = function(letter) {
 
 Sensor.prototype.vahAttachReply = function (reply, pars) {
     var self = pars.self, pno=pars.i, plugin = self.plan.plugins[pno];
+    if (self.cancelled) return;
     if (reply.error) {
         console.log(`Cannot attach plugin ${plugin.library}:${plugin.name}:${plugin.outputID} to ${JSON.stringify(self.dev)}: ${reply.error}`)
         self.matron.emit("devState", self.dev.attr.port, "error", reply.error);
