@@ -1122,7 +1122,7 @@ class Dashboard {
             this.ts[port] = {
                 tags: new TimeSeries(ts_dir, "ctt-tags-"+dev.attr.port),
             }
-        } else if (dev.attr.type == "funcubeProPlus" || dev.attr.type == "funcubePro" || dev.attr.type == "rtlsdr" || dev.attr.type == "airspy" || dev.attr.type == "NanoBabel") {
+        } else if (dev.attr.type == "funcubeProPlus" || dev.attr.type == "funcubePro" || dev.attr.type == "rtlsdr" || dev.attr.type == "airspy" || dev.attr.type == "airspyhf" || dev.attr.type == "NanoBabel") {
             // Lotek devices produce tag detections, pulses and noise figures
             this.ts[port] = {
                 tags: new TimeSeries(ts_dir, "lotek-tags-"+dev.attr.port),
@@ -1148,7 +1148,7 @@ class Dashboard {
         try {
             const f = tag.split(',')
             if (f.length < 2) return
-            const mm = f[0].match(/^([A-Z])(\d+)/)
+            const mm = f[0].match(/^([A-z])(\d+)/)
             if (!mm) return
             const port = mm[2]
             const time = Math.round(parseFloat(f[1])*1000)
