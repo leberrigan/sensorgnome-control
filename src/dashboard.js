@@ -149,6 +149,9 @@ class Dashboard {
         // time-series
         this.ts = {}
         this.tsRefreshInterval = null
+        this.uniqueTagBuckets = {} // port -> [{bucket, tags: Set}, ...one per range]
+        this.tagBuffer = []        // [{time, port, tagId}] rolling window for tally
+        this.portMeta = {}         // port -> {portPath} for tally column labels
         Fs.mkdirSync(ts_dir, {recursive: true})
         this.handle_dash_detection_range(TimeSeries.ranges[0])
         setInterval(() => this.tsSave(), 60000)
@@ -710,8 +713,8 @@ class Dashboard {
         this.matron.emit("gnuradioEnabled", enabled)
         HubMan.resetDevices()
     }
-    handle_dash_burstfinder_method(v) { 
-        if (['burstfinder','pulsefilter'].includes(v)) this.updateBFConfig("method", v)
+    handle_dash_burstfinder_method(v) {
+        if (v === 'burstfinder') this.updateBFConfig("method", v)
     }
     handle_dash_burstfinder_filter_file(v) { this.updateBFConfig("filter_file", v=="on") }
     handle_dash_burstfinder_filter_ui(v) { this.updateBFConfig("filter_ui", v=="on") }
@@ -1121,6 +1124,7 @@ class Dashboard {
             // CTT devices only produce tag detections
             this.ts[port] = {
                 tags: new TimeSeries(ts_dir, "ctt-tags-"+dev.attr.port),
+                unique_tags: new TimeSeries(ts_dir, "ctt-unique_tags-"+dev.attr.port),
             }
         } else if (dev.attr.type == "funcubeProPlus" || dev.attr.type == "funcubePro" || dev.attr.type == "rtlsdr" || dev.attr.type == "airspy" || dev.attr.type == "airspyhf" || dev.attr.type == "NanoBabel") {
             // Lotek devices produce tag detections, pulses and noise figures
@@ -1130,8 +1134,10 @@ class Dashboard {
                 noise: new TimeSeries(ts_dir, "lotek-noise-"+dev.attr.port),
                 snr: new TimeSeries(ts_dir, "lotek-snr-"+dev.attr.port),
                 rate: new TimeSeries(ts_dir, "lotek-rate-"+dev.attr.port),
+                unique_tags: new TimeSeries(ts_dir, "lotek-unique_tags-"+dev.attr.port),
             }
         }
+        this.portMeta[port] = { type: dev.attr.type || '' }
         console.log("tsAddDevice", dev.attr.port, port)
     }
 
@@ -1152,7 +1158,23 @@ class Dashboard {
             if (!mm) return
             const port = mm[2]
             const time = Math.round(parseFloat(f[1])*1000)
+            const tagId = f[2] || ''
             if (this.ts[port]?.tags) this.ts[port].tags.add(time, 1)
+            // track unique tag IDs per port per time-series interval for the unique_tags plot
+            if (this.ts[port]?.unique_tags && tagId) {
+                if (!this.uniqueTagBuckets[port]) this.uniqueTagBuckets[port] = []
+                const rangeValues = TimeSeries.ranges.map((_, i) => {
+                    const bucket = Math.floor(time / TimeSeries.intervals[i])
+                    if (!this.uniqueTagBuckets[port][i] || this.uniqueTagBuckets[port][i].bucket !== bucket) {
+                        this.uniqueTagBuckets[port][i] = { bucket, tags: new Set() }
+                    }
+                    this.uniqueTagBuckets[port][i].tags.add(tagId)
+                    return this.uniqueTagBuckets[port][i].tags.size
+                })
+                this.ts[port].unique_tags.max_ranges(time, rangeValues)
+            }
+            // buffer raw detections for the tally table
+            if (tagId) this.tagBuffer.push({time, port, tagId})
             // we already record noise and snr for the pulses, so don't do it again
             // if (this.ts[port]?.noise && f.length >= 8) {
             //     const noise = parseFloat(f[7])
@@ -1226,7 +1248,7 @@ class Dashboard {
         const [times, values] = tsSet[0].get(range, now)
         //console.log("Got:", values)
         const interval = TimeSeries.intervals[this.ts_ix]
-        const fct = ['noise','snr','rate'].includes(series)
+        const fct = ['noise','snr','rate','unique_tags'].includes(series)
             ? v => v
             : v => v == null ? null : v * 3600*1000 / interval
         const data = times.map((t, i) => [Math.floor(t/1000), fct(values[i])])
@@ -1275,11 +1297,18 @@ class Dashboard {
                     ts[series].append(now, fill, undefined)
                 }
             }
+            // trim tag buffer to max range window
+            const maxAge = TimeSeries.limits[TimeSeries.limits.length-1] * TimeSeries.intervals[TimeSeries.intervals.length-1]
+            const cutoff = Date.now() - maxAge
+            const trimIdx = this.tagBuffer.findIndex(e => e.time >= cutoff)
+            if (trimIdx > 0) this.tagBuffer.splice(0, trimIdx)
+
             // display
             for (const what of ['lotek-tags', 'lotek-pulses', 'lotek-noise', 'lotek-snr',
-                    'lotek-rate', 'ctt-tags']) {
+                    'lotek-rate', 'ctt-tags', 'lotek-unique_tags', 'ctt-unique_tags']) {
                 this.tsShow(what)
             }
+            this.tsTallyShow()
         } catch (e) {
             console.warn("tsRefresh", e)
         }
@@ -1322,8 +1351,46 @@ class Dashboard {
         }
     }
 
+    // compute tag-detection tally for the current range and push to FlexDash
+    tsTallyShow() {
+        try {
+            const ix = this.ts_ix
+            const window = TimeSeries.limits[ix] * TimeSeries.intervals[ix]
+            const cutoff = Date.now() - window
+
+            const typeCode = {
+                'funcubeProPlus': 'FCD', 'funcubePro': 'FCD',
+                'rtlsdr': 'RTL', 'airspy': 'ASM', 'airspyhf': 'AHF',
+                'CTT/CornellRcvr': 'CTT', 'DigiBabel': 'DB', 'NanoBabel': 'NB',
+            }
+            const ports = Object.keys(this.ts).sort((a, b) => parseInt(a) - parseInt(b))
+            const columns = ['Tag ID', ...ports.map(port => {
+                const type = this.portMeta[port]?.type || ''
+                // match on prefix in case type was later refined (e.g. "rtlsdr/R820T2")
+                const code = typeCode[type] || Object.entries(typeCode).find(([k]) => type.startsWith(k))?.[1] || ''
+                return code ? `p${port} (${code})` : `p${port}`
+            })]
+
+            const entries = this.tagBuffer.filter(e => e.time >= cutoff)
+            const tallyMap = {}
+            for (const {port, tagId} of entries) {
+                if (!tallyMap[tagId]) tallyMap[tagId] = {}
+                tallyMap[tagId][port] = (tallyMap[tagId][port] || 0) + 1
+            }
+
+            const data = Object.entries(tallyMap)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([tagId, portCounts]) => [tagId, ...ports.map(p => portCounts[p] || 0)])
+
+            FlexDash.set('detections/tally/data', data)
+            FlexDash.set('detections/tally/columns', columns)
+        } catch(e) {
+            console.warn("tsTallyShow", e)
+        }
+    }
+
     // ===== Deployment configuration
-    
+
     setDeployment() {
         // let data = Object.fromEntries(
         //     Object.entries(Deployment.data).map(e => 
@@ -1452,8 +1519,7 @@ class Dashboard {
     }
 
     handle_gotTag(tag) {
-        if (!tag.match(/^[A-Za-z]?[0-9]/)) return
-        if (!tag.match(/^[A-Za-z]/)) tag = "L" + tag // "Lotek" prefix, ugh
+        if (!tag.match(/^[A-Za-z][0-9]/)) return
         if (tag.startsWith("T")) this.detections.ctt[this.detections.ctt.length-1]++
         FlexDash.set('detections_5min', this.detections)
         this.detectionLogPush(this.fmtTagDetection(tag))
@@ -1476,7 +1542,8 @@ class Dashboard {
         // info: [ s0.port, s0.ts/1000, this.tagid, ...intv, ...tags[this.tagid] ]
         const bf = Acquisition.burstfinder
         if (burst.src == 'BF' && bf.method != 'burstfinder' && !bf.both_ui) return
-        if (burst.src == 'PF' && bf.method != 'pulsefilter' && !bf.both_ui) return
+
+        this.tsGotTag(`L${burst.info[0]},${burst.info[1]},${burst.info[2]}`)
 
         const ts = (new Date(burst.info[1]*1000)).toISOString().replace(/.*T/, '').replace(/\..*/, '')
         const meanFreq = parseFloat(burst.meanFreq).toFixed(3)

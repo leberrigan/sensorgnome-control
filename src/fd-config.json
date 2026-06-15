@@ -3076,6 +3076,52 @@
       },
       "dynamic": {},
       "id": "w04568"
+    },
+    "w04594": {
+      "kind": "TimePlot",
+      "rows": 3,
+      "cols": 3,
+      "static": {
+        "title": "Unique Lotek Tags",
+        "axes": [
+          "left"
+        ]
+      },
+      "dynamic": {
+        "data": "detections/lotek-unique_tags/data",
+        "span_gaps": "detections/lotek-unique_tags/labels",
+        "labels": "detections/lotek-unique_tags/labels"
+      },
+      "id": "w04594"
+    },
+    "w04309": {
+      "kind": "TimePlot",
+      "rows": 3,
+      "cols": 3,
+      "static": {
+        "title": "Unique CTT Tags"
+      },
+      "dynamic": {
+        "span_gaps": "detections/ctt-unique_tags/labels",
+        "labels": "detections/ctt-unique_tags/labels",
+        "data": "detections/ctt-unique_tags/data"
+      },
+      "id": "w04309"
+    },
+    "w02709": {
+      "kind": "SimpleTable",
+      "rows": 4,
+      "cols": 3,
+      "static": {
+        "title": "Unique Tags"
+      },
+      "dynamic": {
+        "columns": "",
+        "labels": "detections/tally/columns",
+        "data": "detections/tally/data"
+      },
+      "id": "w02709",
+      "output": null
     }
   },
   "grids": {
@@ -3139,7 +3185,10 @@
         "w09240",
         "w07135",
         "w06687",
-        "w06943"
+        "w06943",
+        "w04594",
+        "w04309",
+        "w02709"
       ],
       "id": "g08970",
       "max_cols": 6

@@ -87,18 +87,6 @@ Enpi          = new (require('./enpi.js').Enpi)(TheMatron, ENPI)
 
 //WavMaker      = require('./wavmaker.js');
 
-TagFinder     = null
-function makeTagFinder() {
-    TagFinder = new (require('./tagfinder.js').TagFinder)(
-        TheMatron, "/usr/bin/find_tags_unifile", [ TAGDBFILE, CONFDIR+"/SG_tag_database.csv"],
-        Acquisition.module_options.find_tags.params
-    )
-}
-makeTagFinder()
-TheMatron.on('lotekFreqChg', () => {
-    console.log("Restarting tagFinder"); TagFinder.quit(); makeTagFinder(); TagFinder.start() })
-
-PulseFilter   = new (require('./pulsefilter.js').PulseFilter) (TheMatron, BURSTFINDER+"/bursts", rndx)
 BurstFinder   = new (require('./burstfinder.js').BurstFinder) (TheMatron, BURSTFINDER)
 
 // Start the data file saving/writing/etc...
@@ -148,9 +136,6 @@ TheMatron.on("bfOut", (d) => {
     const bf = Acquisition.burstfinder
     if (d.src == 'BF' && bf.method == 'burstfinder') {
         AllOut.write(d.text + '\n'); /*console.log("BF: " + d.text)*/
-    } else if (d.src == 'PF' && bf.method == 'pulsefilter' && bf.filter_file) {
-        // this putputs (filtered) pulses: don't do that if raw pulses are also output (would dup)
-        AllOut.write(d.text + '\n'); /*console.log("PF: " + d.text)*/
     }
 })
 // Propagate vah setting commands into data file
@@ -182,10 +167,7 @@ HubMan.start()
 FlexDash.start()
 Dashboard.start()
 
-// Start the tagFinder
-PulseFilter.start()
 BurstFinder.start()
-TagFinder.start()
 
 MotusUp.start()
 WifiMan.start()
