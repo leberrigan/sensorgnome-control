@@ -1547,9 +1547,10 @@ class Dashboard {
 
         const ts = (new Date(burst.info[1]*1000)).toISOString().replace(/.*T/, '').replace(/\..*/, '')
         const meanFreq = parseFloat(burst.meanFreq).toFixed(3)
+        const sdFreq = parseFloat(burst.sdFreq).toFixed(3)
         const minSnr = parseFloat(burst.minSnr).toFixed(1)
         this.detectionLogPush(
-            `BUR B${burst.info[0]} ${ts}: #${burst.info[2]} ${meanFreq}kHz snr:${minSnr}dB src=${burst.src}`
+            `BUR B${burst.info[0]} ${ts}: #${burst.info[2]} ${meanFreq}kHz±${sdFreq} snr:${minSnr}dB src=${burst.src}`
         )
     }
 
