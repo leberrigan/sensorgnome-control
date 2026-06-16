@@ -81,9 +81,6 @@ getSensor = function(matron, dev, devPlan) {
             case "rtlsdr":
                 rv = new RTLSDR.RTLSDR(matron, dev, devPlan);
                 break;
-            case "airspy":
-                rv = new AIRSPY.AIRSPY(matron, dev, devPlan);
-                break;
             default:
                 rv = null;
         }

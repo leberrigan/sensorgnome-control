@@ -75,7 +75,6 @@ Schedule      = require('./schedule.js');
 Sensor        = require('./sensor.js');
 USBAudio      = require("./usbaudio.js");
 RTLSDR        = require("./rtlsdr.js");
-AIRSPY        = require("./airspy.js");
 GR_SDR        = require("./gr-sdr.js");
 CornellTagXCVR= require("./cornelltagxcvr.js");
 DigiBabel     = require("./digibabel.js")
