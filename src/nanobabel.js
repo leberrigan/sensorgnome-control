@@ -39,12 +39,14 @@
 //
 //   Output records (written to AllOut / emitted as events):
 //
-//   Pulse:  emitted as vahData, format matches pulsefilter.js parsePulse:
-//     p<port>,<ts>,0,<maxADC>,<avgADC>,<maxADC-avgADC>
-//   fields: port, ts, freq=0 (n/a), sig=maxADC, noise=avgADC, snr=maxADC-avgADC
+//   Pulse:  emitted as vahData, consumed by burstfinder:
+//     p<port>,<ts>,<freq>,<sig>,<noise>,<snr>
+//   fields: port, ts, freq=0 (n/a), sig/noise/snr in dB (ADC counts converted via
+//   adcToDb) so they match the Lotek receivers' scale and burstfinder can group
+//   the pulses into a burst.
 //
 //   Burst:  written to AllOut directly + emitted as gotTag for the detection log:
-//     n<port>,<ts>,<tagID>,<widthMs>,<maxADC>,<avgADC>
+//     n<port>,<ts>,<tagID>,<widthMs>,<sig_dB>,<noise_dB>
 //   where <tagID> is the 16-bit tag ID as a decimal integer, 'n' prefix = NanoBabel.
 
 const {SerialPort} = require('serialport')
@@ -63,6 +65,14 @@ const CLOCK_FREQ  = 131072  // Hz
 // Mode commands — checksum = sum of all preceding bytes mod 256
 const CMD_COMBINED = Buffer.from([0x25, 0x44, 0x00, 0x01, 0x03, 0x6D])
 const CMD_IDLE     = Buffer.from([0x25, 0x44, 0x00, 0x01, 0x00, 0x6A])
+
+// Convert a NanoBabel ADC count (0-255) to a dB-style amplitude figure
+// (20*log10 = power dB), matching the sig/noise scale used by the VAH/GRH
+// receivers and expected by burstfinder. Without this, raw ADC counts swing far
+// more across a burst's pulses than dB, overshooting burstfinder's 20 dB
+// within-burst spread limit (MAX_SIG_DIFF) so valid Lotek bursts get rejected.
+// Guards against log10(0).
+const adcToDb = (adc) => 20 * Math.log10(Math.max(adc, 1))
 
 class NanoBabel {
   constructor(matron, dev, options) {
@@ -242,11 +252,13 @@ class NanoBabel {
     const avgADC = packet[12]
     const maxADC = packet[14]
     const ts     = this.wallTs(packet).toFixed(4)
-    const snr    = maxADC - avgADC
+    // sig/noise/snr in dB (see adcToDb) so burstfinder can group these into a burst.
+    const sig    = adcToDb(maxADC)
+    const noise  = adcToDb(avgADC)
+    const snr    = sig - noise
 
-    // Format matches pulsefilter.js parsePulse: p<port>,<ts>,<freq>,<sig>,<noise>,<snr>
-    // freq=0 (NanoBabel has no frequency), sig=maxADC, noise=avgADC, snr=maxADC-avgADC
-    const record = `p${port},${ts},0,${maxADC},${avgADC},${snr}`
+    // p<port>,<ts>,<freq>,<sig>,<noise>,<snr>; freq=0 (NanoBabel reports no offset).
+    const record = `p${port},${ts},0,${sig.toFixed(2)},${noise.toFixed(2)},${snr.toFixed(2)}`
     this.matron.emit("vahData", record)
     console.log(`NanoBabel pulse: ${record}`)
   }
@@ -260,8 +272,11 @@ class NanoBabel {
     const maxADC   = packet[16]
     const ts       = this.wallTs(packet).toFixed(4)
     const widthMs  = (width / CLOCK_FREQ * 1000).toFixed(4)
+    // sig/noise in dB (see adcToDb) to match the Lotek receivers' scale.
+    const sig      = adcToDb(maxADC).toFixed(2)
+    const noise    = adcToDb(avgADC).toFixed(2)
 
-    const record = `n${port},${ts},${tagIdRaw},${widthMs},${maxADC},${avgADC}`
+    const record = `n${port},${ts},${tagIdRaw},${widthMs},${sig},${noise}`
 
     if (typeof AllOut !== 'undefined') AllOut.write(record + '\n')
     this.matron.emit("gotTag", record)

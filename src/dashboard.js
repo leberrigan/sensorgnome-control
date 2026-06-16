@@ -1523,7 +1523,7 @@ class Dashboard {
         if (tag.startsWith("T")) this.detections.ctt[this.detections.ctt.length-1]++
         FlexDash.set('detections_5min', this.detections)
         this.detectionLogPush(this.fmtTagDetection(tag))
-        this.tsGotTag(tag.trim())
+        if (!tag.startsWith("n")) this.tsGotTag(tag.trim())
         // direction finding
         if (this.df_enable && this.df_tags) {
             let tt = tag.trim().split(",")
@@ -1561,7 +1561,7 @@ class Dashboard {
             if (!Acquisition.burstfinder.filter_ui) {
                 // convert to something more readable
                 const ll = line.trim().split(',')
-                const port =parseInt(ll[0][1])
+                const port = parseInt(ll[0].slice(1))   // "p12" -> 12, "p2" -> 2
                 const last_ts = this.pulse_ts[port] || 0
                 const this_ts = parseFloat(ll[1])*1000
                 const delta_ms = this_ts - last_ts < 120_000 ? "Δ"+(this_ts-last_ts).toFixed(1)+"ms" : ""
