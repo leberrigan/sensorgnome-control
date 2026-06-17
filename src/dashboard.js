@@ -83,6 +83,7 @@ class Dashboard {
             // normal events funneled through matron (i.e. from app)
             'gotGPSFix', 'chrony', 'gotTag', 'setParam', 'setParamError', 'devAdded', 'devRemoved',
             'df', 'sdcardUse', 'vahData', 'grhData', 'netDefaultRoute', 'netInet', 'netMotus', 'netWifiState',
+            'sysmonitorData',
             'netHotspotState', 'netWifiConfig', 'portmapFile', 'tagDBInfo', 'motusRecv',
             'motusUploadResult', 'netDefaultGw', 'netDNS', 'lotekFreq', 'netCellState', 'netCellReason', "netScanStatus",
             'netCellInfo', 'netCellConfig', 'cttRadioVersion', 'digibabelRadioVersion', 'nanobabelIdentified', 'vahRate', 'vahFrames', 'devState',
@@ -153,6 +154,12 @@ class Dashboard {
         this.tagBuffer = []        // [{time, port, tagId}] rolling window for tally
         this.portMeta = {}         // port -> {portPath} for tally column labels
         Fs.mkdirSync(ts_dir, {recursive: true})
+        this.ts_sysmon = {
+            cpu:  new TimeSeries(ts_dir, 'sysmon-cpu'),
+            temp: new TimeSeries(ts_dir, 'sysmon-temp'),
+            mem:  new TimeSeries(ts_dir, 'sysmon-mem'),
+            disk: new TimeSeries(ts_dir, 'sysmon-disk'),
+        }
         this.handle_dash_detection_range(TimeSeries.ranges[0])
         setInterval(() => this.tsSave(), 60000)
 
@@ -540,7 +547,33 @@ class Dashboard {
     handle_gotGPSFix(fix) { FlexDash.set('gps', fix) } // {lat, lon, alt, time, state, ...}
     handle_chrony(info) { FlexDash.set('chrony', info) } // {rms_error, time_source}
     handle_df(info) { FlexDash.set('df', info) } // {source, fstype, size, used, use%, target}
-    handle_sdcardUse(pct) { FlexDash.set('sdcard_use', pct) }
+    handle_sdcardUse(pct) {
+        FlexDash.set('sdcard_use', pct)
+        FlexDash.set('system/disk', pct)
+        this.ts_sysmon.disk.avg(Date.now(), pct)
+        this.sysmonShow()
+    }
+    handle_sysmonitorData({ cpu, temp, memUsedPct, memAvailMB }) {
+        const now = Date.now()
+        if (cpu != null)        { this.ts_sysmon.cpu.avg(now, cpu);   FlexDash.set('system/cpu', cpu) }
+        if (temp != null)       { this.ts_sysmon.temp.avg(now, temp); FlexDash.set('system/temp', temp) }
+        if (memUsedPct != null) { this.ts_sysmon.mem.avg(now, memUsedPct); FlexDash.set('system/mem_pct', memUsedPct) }
+        if (memAvailMB != null) FlexDash.set('system/mem_avail_mb', memAvailMB)
+        this.sysmonShow()
+    }
+    sysmonShow() {
+        const now = Date.now()
+        const range = TimeSeries.ranges[this.ts_ix]
+        const keys = Object.keys(this.ts_sysmon)
+        const labels = ['cpu %', 'temp °C', 'mem %', 'disk %']
+        const [times, first] = this.ts_sysmon[keys[0]].get(range, now)
+        const data = times.map((t, i) => [Math.floor(t / 1000), first[i]])
+        for (let k = 1; k < keys.length; k++) {
+            const [, values] = this.ts_sysmon[keys[k]].get(range, now)
+            for (let j = 0; j < data.length; j++) data[j].push(values[j])
+        }
+        FlexDash.set('system/graphs', { data, labels, title: `system (${range})` })
+    }
     handle_setParam(info) { } // FlexDash.set('param', info) } // {param, value, error}
     handle_setParamError(info) { } // FlexDash.set('param', info) } // {param, error}
     handle_devAdded(info) {
@@ -1309,6 +1342,7 @@ class Dashboard {
                 this.tsShow(what)
             }
             this.tsTallyShow()
+            this.sysmonShow()
         } catch (e) {
             console.warn("tsRefresh", e)
         }
@@ -1322,6 +1356,9 @@ class Dashboard {
                 for (const series in ts) {
                     ts[series].save() // only does something if it's dirty
                 }
+            }
+            for (const key in this.ts_sysmon) {
+                this.ts_sysmon[key].save()
             }
         } catch (e) {
             console.warn("tsRefresh", e)

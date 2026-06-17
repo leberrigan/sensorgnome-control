@@ -100,6 +100,7 @@ AllOut        = new SafeStream(TheMatron, "all", ".txt", 1000000, 3600, "parse")
 LifetagOut    = new SafeStream(TheMatron, "ctt", ".txt", 1000000, 3600, "parse")
 
 Upgrader      = new Machine.Upgrader()
+SysMonitor    = new (require('./sysmonitor.js'))(TheMatron)
 
 //Uploader = new (require('./uploader.js').Uploader) (TheMatron);
 //Relay = new (require('./relay.js').Relay) (TheMatron, 59000);
@@ -171,6 +172,7 @@ FlexDash.start()
 Dashboard.start()
 
 BurstFinder.start()
+SysMonitor.start()
 
 MotusUp.start()
 WifiMan.start()

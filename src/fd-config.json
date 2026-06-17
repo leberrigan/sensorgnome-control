@@ -3122,6 +3122,49 @@
       },
       "id": "w02709",
       "output": null
+    },
+    "w02554": {
+      "kind": "Panel",
+      "rows": 4,
+      "cols": 3,
+      "static": {
+        "title": "System",
+        "widgets": [
+          "w02553"
+        ]
+      },
+      "dynamic": {},
+      "id": "w02554"
+    },
+    "w02553": {
+      "kind": "TimePlot",
+      "rows": 3,
+      "cols": 6,
+      "static": {
+        "title": "",
+        "left_max": 100,
+        "left_min": 0,
+        "left_unit": "%",
+        "left_isoprefix": true,
+        "left_decimals": 0,
+        "axes": [
+          "left",
+          "right",
+          "left",
+          "left"
+        ],
+        "right_max": 100,
+        "right_min": 0,
+        "right_unit": "°C",
+        "right_isoprefix": true,
+        "right_decimals": 0
+      },
+      "dynamic": {
+        "data": "system/graphs/data",
+        "labels": "system/graphs/labels",
+        "span_gaps": "system/graphs/labels"
+      },
+      "id": "w02553"
     }
   },
   "grids": {
