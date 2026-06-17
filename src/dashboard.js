@@ -225,7 +225,7 @@ class Dashboard {
         setTimeout(() => this.updateNetUsage(), 10*1000)
         setInterval(() => this.updateNetUsage(), 300*1000)
 
-        FlexDash.set('device_panel_widgets', [])
+        this.rebuildDevicePanelWidgets()
     }
 
     // Build the widget config array for a single device port used by DynamicPanel.
@@ -1607,6 +1607,19 @@ class Dashboard {
                 )
             }
             this.tsGotPulse(line.trim())
+        } else if (line.startsWith("F")) {
+            // broadband-interference flood interval: F<port>,<start_ts>,<end_ts>,<n_dropped>
+            const ff = line.trim().split(',')
+            const port = parseInt(ff[0].slice(1))
+            const start_ts = parseFloat(ff[1]) * 1000
+            const end_ts   = parseFloat(ff[2]) * 1000
+            const dropped  = parseInt(ff[3]) || 0
+            const fmt = t => (new Date(t)).toISOString().replace(/.*T/, '').replace(/\..*/, '')
+            const dur = ((end_ts - start_ts) / 1000).toFixed(1)
+            this.detectionLogPush(
+                `FLOOD F${port} ${fmt(start_ts)}-${fmt(end_ts)}: ` +
+                `broadband interference, ${dur}s, ${dropped} pulses dropped`
+            )
         }
         FlexDash.set('detections_5min', this.detections)
     }
