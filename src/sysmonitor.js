@@ -1,6 +1,5 @@
-// sysmonitor.js - CPU usage, CPU temperature, and memory monitoring
-// Polls /proc/stat, /sys/class/thermal, /proc/meminfo every 30s and emits 'sysmonitorData'.
-// Disk usage is handled by machine.js (emits 'sdcardUse' every 10 min).
+// sysmonitor.js - CPU usage, CPU temperature, memory, and disk monitoring
+// Polls /proc/stat, /sys/class/thermal, /proc/meminfo, and statfsSync every 30s.
 const Fs = require('fs')
 
 class SysMonitor {
@@ -19,7 +18,8 @@ class SysMonitor {
             const cpu = this._cpuUsage()
             const temp = this._cpuTemp()
             const mem = this._memUsage()
-            this.matron.emit('sysmonitorData', { cpu, temp, ...mem })
+            const diskPct = this._diskUsage()
+            this.matron.emit('sysmonitorData', { cpu, temp, ...mem, diskPct })
         } catch (err) {
             console.warn('SysMonitor:', err.message)
         }
@@ -59,6 +59,19 @@ class SysMonitor {
             memUsedPct: Math.round((1 - avail / total) * 1000) / 10,
             memAvailMB: Math.round(avail / 1024),
         }
+    }
+
+    _diskUsage() {
+        if (typeof Fs.statfsSync !== 'function') return null
+        // Try /data first (wildlife data partition), fall back to root
+        for (const target of ['/data', '/']) {
+            try {
+                const s = Fs.statfsSync(target)
+                if (s.blocks === 0) continue
+                return Math.round((1 - s.bfree / s.blocks) * 1000) / 10
+            } catch {}
+        }
+        return null
     }
 }
 

@@ -3165,6 +3165,50 @@
         "span_gaps": "system/graphs/labels"
       },
       "id": "w02553"
+    },
+    "w03519": {
+      "kind": "Panel",
+      "rows": 4,
+      "cols": 3,
+      "static": {
+        "title": "System monitor",
+        "widgets": [
+          "w07770"
+        ]
+      },
+      "dynamic": {},
+      "id": "w03519"
+    },
+    "w07770": {
+      "kind": "TimePlot",
+      "rows": 1,
+      "cols": 6,
+      "static": {
+        "title": "",
+        "axes": [
+          "left",
+          "right",
+          "left",
+          "left"
+        ],
+        "left_isoprefix": true,
+        "left_decimals": 0,
+        "left_unit": "%",
+        "right_unit": "°C",
+        "right_log": false,
+        "right_decimals": 0,
+        "right_isoprefix": true,
+        "left_min": 0,
+        "left_max": 100,
+        "right_min": 0,
+        "right_max": 100
+      },
+      "dynamic": {
+        "data": "system/graphs/data",
+        "labels": "system/graphs/labels",
+        "span_gaps": "system/graphs/labels"
+      },
+      "id": "w07770"
     }
   },
   "grids": {
@@ -3174,7 +3218,8 @@
       "widgets": [
         "w06965",
         "w06221",
-        "w03697"
+        "w03697",
+        "w03519"
       ],
       "min_cols": 3,
       "max_cols": 6

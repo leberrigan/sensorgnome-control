@@ -547,18 +547,14 @@ class Dashboard {
     handle_gotGPSFix(fix) { FlexDash.set('gps', fix) } // {lat, lon, alt, time, state, ...}
     handle_chrony(info) { FlexDash.set('chrony', info) } // {rms_error, time_source}
     handle_df(info) { FlexDash.set('df', info) } // {source, fstype, size, used, use%, target}
-    handle_sdcardUse(pct) {
-        FlexDash.set('sdcard_use', pct)
-        FlexDash.set('system/disk', pct)
-        this.ts_sysmon.disk.avg(Date.now(), pct)
-        this.sysmonShow()
-    }
-    handle_sysmonitorData({ cpu, temp, memUsedPct, memAvailMB }) {
+    handle_sdcardUse(pct) { FlexDash.set('sdcard_use', pct) }
+    handle_sysmonitorData({ cpu, temp, memUsedPct, memAvailMB, diskPct }) {
         const now = Date.now()
-        if (cpu != null)        { this.ts_sysmon.cpu.avg(now, cpu);   FlexDash.set('system/cpu', cpu) }
-        if (temp != null)       { this.ts_sysmon.temp.avg(now, temp); FlexDash.set('system/temp', temp) }
+        if (cpu     != null) { this.ts_sysmon.cpu.avg(now, cpu);      FlexDash.set('system/cpu', cpu) }
+        if (temp    != null) { this.ts_sysmon.temp.avg(now, temp);    FlexDash.set('system/temp', temp) }
         if (memUsedPct != null) { this.ts_sysmon.mem.avg(now, memUsedPct); FlexDash.set('system/mem_pct', memUsedPct) }
         if (memAvailMB != null) FlexDash.set('system/mem_avail_mb', memAvailMB)
+        if (diskPct != null) { this.ts_sysmon.disk.avg(now, diskPct); FlexDash.set('system/disk', diskPct) }
         this.sysmonShow()
     }
     sysmonShow() {
