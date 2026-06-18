@@ -142,9 +142,11 @@ TheMatron.on("bfOut", (d) => {
 TheMatron.on("setParam", (s) => {
     AllOut.write(["S", s.time, s.port, s.par, s.val, s.errCode, s.err].join(',') + "\n")
 })
-// Record dongle type as an S line when a device is added
+// Record dongle type and radio path as S lines when a device is added
 TheMatron.on("devAdded", (dev) => {
-    AllOut.write(["S", Date.now()/1000, dev.attr.port, "device_type", dev.attr.type, 0, ""].join(',') + "\n")
+    const t = Date.now()/1000
+    AllOut.write(["S", t, dev.attr.port, "device_type", dev.attr.type, 0, ""].join(',') + "\n")
+    AllOut.write(["S", t, dev.attr.port, "radio", dev.attr.radio, 0, ""].join(',') + "\n")
 })
 // Propagate time to all data files
 TheMatron.on("gpsSetClock", (prec, elapsed) => {
