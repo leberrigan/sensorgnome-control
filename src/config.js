@@ -34,6 +34,14 @@ class Acquisition {
 
             // log some info
             for (let j in d) this[j] = d[j]
+            // Restore per-port overrides from port-specific plan entries so that
+            // GRH/VAH choices made in previous sessions survive restarts.
+            this.devModeOverrides = {}
+            for (const p of (this.plans || [])) {
+                if (/^\d+$/.test(p.key.port)) {
+                    this.devModeOverrides[p.key.port] = p.pulseFinder === 'gnuradio' ? 'GRH' : 'VAH'
+                }
+            }
             console.log(`lotek freq: ${this.lotek_freq}`)
             console.log(`enableAGC: ${this.agc}`)
             if (this.lotek_freq) this.fix_freq(this.lotek_freq)
@@ -45,22 +53,69 @@ class Acquisition {
         }
     }    
     
-    // lookup returns the first plan matching the given device type and port
+    // lookup returns the LAST plan matching the given device type and port.
+    // Last-match means port-specific entries appended at the end of plans override wildcards.
     lookup(port, devType) {
-        const plans = this.plans
-        for (let i in plans) {
-            console.log("Checking plan", i, plans[i].key.port, plans[i].key.devType)
-            if (port.match(new RegExp(plans[i].key.port)) &&
-                devType.match(new RegExp(plans[i].key.devType)))
-            {
-                // kludge: if no USB hub, set port label to 'p0' meaning 'plugged directly into beaglebone'
-                return {
-                    devLabel: `p${port}`,
-                    plan: plans[i],
+        let result = null
+        for (const p of this.plans) {
+            try {
+                if (String(port).match(new RegExp(p.key.port)) &&
+                    String(devType).match(new RegExp(p.key.devType)))
+                {
+                    result = { devLabel: `p${port}`, plan: p }
                 }
+            } catch { /* ignore malformed regex */ }
+        }
+        return result
+    }
+
+    // Create or update a port-specific plan entry for the given port and devType.
+    // changes: { pulseFinder: 'gnuradio'|null, devParams: { paramName: value, ... } }
+    // null pulseFinder deletes the field (reverts to VAH on base-GRH plans).
+    setPortPlan(port, devType, changes) {
+        const portStr = String(port)
+        let plan = this.plans.find(p =>
+            p.key.port === portStr &&
+            (() => { try { return String(devType).match(new RegExp(p.key.devType)) } catch { return false } })()
+        )
+        if (!plan) {
+            // Clone the last-matching base plan and pin it to this port
+            const base = this.lookup(portStr, devType)?.plan
+            if (!base) return
+            plan = JSON.parse(JSON.stringify(base))
+            plan.key = { port: portStr, devType: base.key.devType }
+            this.plans.push(plan)
+        }
+        if ('pulseFinder' in changes) {
+            if (changes.pulseFinder === null) delete plan.pulseFinder
+            else plan.pulseFinder = changes.pulseFinder
+        }
+        if (changes.devParams) {
+            for (const [name, value] of Object.entries(changes.devParams)) {
+                const dp = (plan.devParams || []).find(p => p.name === name)
+                if (dp) dp.schedule.value = value
             }
         }
-        return null
+        this._saveToFile()
+    }
+
+    // Remove port-specific plan entries for the given port (all devTypes).
+    // Returns true if anything was removed.
+    resetPortPlan(port) {
+        const portStr = String(port)
+        const before = this.plans.length
+        this.plans = this.plans.filter(p => p.key.port !== portStr)
+        if (this.plans.length !== before) { this._saveToFile(); return true }
+        return false
+    }
+
+    // Remove all port-specific entries (those whose key.port is a bare port number).
+    // Returns true if anything was removed.
+    resetAllPortPlans() {
+        const before = this.plans.length
+        this.plans = this.plans.filter(p => !/^\d+$/.test(p.key.port))
+        if (this.plans.length !== before) { this._saveToFile(); return true }
+        return false
     }
 
     // update the radio frequencies to a given lotek freq
