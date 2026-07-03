@@ -866,7 +866,7 @@ class Dashboard {
     handle_dash_scan_carriers_enable(enabled) { FlexDash.set('scan_carriers/enable',enabled) }
     handle_dash_cellular_priority(prio) {
         CellMan.setCellPriority(prio)
-        setTimeout(()=>FlexDash.set('cellular/priority', CellMan.getCellPriority()), 5000)
+        setTimeout(()=>CellMan.getCellPriority().then(prio => FlexDash.set('cellular/priority', prio)), 5000)
     }
     handle_dash_cell_debug() {
         CellMan.getCellDebug().then(dbg => FlexDash.set('cellular/debug', dbg))
@@ -2020,7 +2020,7 @@ class Dashboard {
             }
         })
 
-        FlexDash.set('cellular/priority', CellMan.getCellPriority())
+        CellMan.getCellPriority().then(prio => FlexDash.set('cellular/priority', prio))
     }
 
     // ===== Return monitoring data in json format
