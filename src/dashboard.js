@@ -239,7 +239,9 @@ class Dashboard {
 
     // Build the widget config array for a single device port used by DynamicPanel.
     // Row 1 (cols 1+1+2+2=6): port | port_path | type | status
-    // Row 2 (cols vary):       freq[2] | GRH[2] | attn[2]  (radio types only)
+    // Row 2 (cols vary):       freq[2] | Config button[4]  (radio types only)
+    // The Config button pops up the GRH/attn/payload-encoding toggles and dropdowns that
+    // used to sit directly in row 2 (see configWidgets below).
     // Widget layout is device-type-specific; cols values map to the 6-column internal grid.
     buildDeviceWidgets(port) {
         const dev = HubMan.devs[port]
@@ -286,7 +288,7 @@ class Dashboard {
         })
 
 
-        // Row 2: spacer[1] freq[1] GRH[2] gain[2]
+        // Row 2: spacer[1] freq[1] config button[4]
         if (showFreq) {
             innerWidgets.push({
                 kind: "Label", cols: 2,
@@ -295,21 +297,23 @@ class Dashboard {
             })
         }
 
+        // Config controls (toggles/dropdowns) are collected here and shown in a "Config"
+        // pop-up button rather than laid out directly in the device panel.
+        const configWidgets = []
+
         if (isDigiBabel) {
-            // Row 2: payload[2] encoding[2]
-            innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: "No payload", enabled: false, show_value: true, off_value: "No payload", on_value: "Payload" } })
-            innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: "CTT encoding", enabled: false, show_value: true, off_value: "CTT encoding", on_value: "Lotek encoding" } })
-            return { kind: "DynamicPanel", cols: 6, static: { card: true, widgets: innerWidgets } }
+            configWidgets.push({ kind: "Toggle", cols: 2, static: { value: "No payload", enabled: false, show_value: true, off_value: "No payload", on_value: "Payload" } })
+            configWidgets.push({ kind: "Toggle", cols: 2, static: { value: "CTT encoding", enabled: false, show_value: true, off_value: "CTT encoding", on_value: "Lotek encoding" } })
         }
 
         if (showGRH) {
             if (isNanoBabel) {
                 // NanoBabel has no VAMP pulse-detect plan and no GRH support; show fixed "NB" label
-                innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: "NB", enabled: false, show_value: true, on_value: "NB", off_value: "NB" } })
+                configWidgets.push({ kind: "Toggle", cols: 2, static: { value: "NB", enabled: false, show_value: true, on_value: "NB", off_value: "NB" } })
             } else if (grhFixed) {
-                innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: "GRH", enabled: false, show_value: true, on_value: "GRH", off_value: "VAH" } })
+                configWidgets.push({ kind: "Toggle", cols: 2, static: { value: "GRH", enabled: false, show_value: true, on_value: "GRH", off_value: "VAH" } })
             } else {
-                innerWidgets.push({
+                configWidgets.push({
                     kind: "Toggle", cols: 2,
                     static: { show_value: true, on_value: "GRH", off_value: "VAH" },
                     dynamic: { value: `devices/${port}/grh` },
@@ -338,11 +342,18 @@ class Dashboard {
                 const rawGain = getAcqParam(isNanoBabel ? 'rtlsdr' : typeLow, 'tuner_gain', port) ?? 29.7
                 defaultVal = String(rawGain)
             }
-            innerWidgets.push({
+            configWidgets.push({
                 kind: "DropdownSelect", cols: 2,
                 static: { choices, labels, value: defaultVal, color: "white" },
                 dynamic: { value: `devices/${port}/attn`, enabled: `devices/${port}/gain_enabled` },
                 output: `dev_attn/${port}`,
+            })
+        }
+
+        if (configWidgets.length) {
+            innerWidgets.push({
+                kind: "PopupButton", cols: 4,
+                static: { title: "Config", icon: "cog", color: "grey-darken-1", widgets: configWidgets },
             })
         }
 
