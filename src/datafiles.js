@@ -33,6 +33,13 @@
 
 const SAVE_DLY = 900 // milliseconds to delay save in case some more stuff shows up
 
+// max number of lines combined into one file when repacking (see DataFiles.repack()). Chosen as
+// a middle ground: hourly files typically carry a few hundred to a couple thousand lines, so this
+// still merges many days worth of files together, while capping the size of any single merged
+// file so it stays cheap to parse/retry server-side even for a receiver with heavy tag traffic
+// (where 100k lines can be reached in well under a day).
+const MAX_REPACK_LINES = 100_000
+
 const Fs = require("fs")
 const FSP = require("fs/promises")
 const Zlib = require("zlib")
@@ -61,9 +68,7 @@ async function* findFiles(dir) {
 }
 
 // regexp to match changeMe-7F5ERPI46977-1-2021-12-11T14-46-38.8260Z-all.txt.gz
-// the boot count (3rd dash-separated field) is captured so files from different boots don't get
-// packed together into the same upload archive, see DataFiles.uploadList()
-var datafileRE = /^(.*)\/([^-]*-[^-]*-([0-9]+)-([-0-9]+)(T[-0-9.]+)[P-Z]-([a-z]+).txt(.gz)?)$/ // phew!
+var datafileRE = /^(.*)\/([^-]*-[^-]*-[0-9]+-([-0-9]+)(T[-0-9.]+)[P-Z]-([a-z]+).txt(.gz)?)$/ // phew!
 
 class FileInfo {
     constructor(path) {
@@ -340,6 +345,132 @@ class DataFiles {
         this.matron.emit("data_file_summary", this.summary)
     }
 
+    // group key used by repack(): files are only ever combined with others of the same
+    // type (all/ctt) and bootCount, so a merged file never mixes Lotek/CTT data or spans a reboot
+    repackGroupKey(f) { return `${f.type}|${f.bootCount}` }
+
+    // read a data file, transparently decompressing if it's gzipped
+    async readMaybeGz(path) {
+        const raw = await FSP.readFile(path)
+        return path.endsWith('.gz') ? Zlib.gunzipSync(raw) : raw
+    }
+
+    // count text lines in a buffer (counts a final line even without a trailing newline)
+    countLines(data) {
+        if (data.length === 0) return 0
+        let n = 0
+        for (let i = 0; i < data.length; i++) if (data[i] === 10) n++
+        if (data[data.length - 1] !== 10) n++
+        return n
+    }
+
+    // Repack a maximal contiguous run of same-group files (already in chronological order) into
+    // as few merged files as possible, capping each merged file at MAX_REPACK_LINES lines. A
+    // source file's lines are never split across two merged outputs, so a chunk can end up
+    // somewhat over the cap if a single source file is already large.
+    async mergeRun(run) {
+        let chunk = [] // [{ f, data }] accumulated for the current output file
+        let lineCount = 0
+        const flush = async () => {
+            if (chunk.length > 1) await this.writeMergedFile(chunk)
+            chunk = []
+            lineCount = 0
+        }
+        for (const f of run) {
+            let data = await this.readMaybeGz(f.dir + '/' + f.name)
+            // guard against a missing trailing newline joining two files' lines together
+            if (data.length && data[data.length - 1] !== 10) data = Buffer.concat([data, Buffer.from('\n')])
+            chunk.push({ f, data })
+            lineCount += this.countLines(data)
+            if (lineCount >= MAX_REPACK_LINES) await flush()
+        }
+        await flush()
+    }
+
+    // merge the files in chunk (in order) into a single gzip-compressed file, named after the
+    // first (earliest) source file -- since that's the name a downstream consumer would expect
+    // for the start of this time range. Writes to a temp file first so a crash mid-merge can't
+    // leave a truncated file in place of the originals.
+    async writeMergedFile(chunk) {
+        const first = chunk[0].f
+        const outName = first.name.endsWith('.gz') ? first.name : first.name + '.gz'
+        const outPath = first.dir + '/' + outName
+        const tmpPath = outPath + '~'
+        const gzip = Zlib.createGzip()
+        const outStream = Fs.createWriteStream(tmpPath)
+        const done = new Promise((resolve, reject) => {
+            outStream.on('finish', resolve)
+            outStream.on('error', reject)
+            gzip.on('error', reject)
+        })
+        gzip.pipe(outStream)
+        for (const { data } of chunk) gzip.write(data)
+        gzip.end()
+        await done
+
+        const finalSize = (await FSP.stat(tmpPath)).size
+        for (const { f } of chunk) {
+            const path = f.dir + '/' + f.name
+            if (path !== outPath) {
+                try { await FSP.unlink(path) } catch (e) { console.log(`Repack: failed to remove ${path}: ${e}`) }
+            }
+        }
+        await FSP.rename(tmpPath, outPath)
+
+        const removed = chunk.map(c => c.f)
+        for (const f of removed) this.delStats(f)
+        this.files = this.files.filter(f => !removed.includes(f))
+        const merged = {
+            dir: first.dir, date: first.date, start: first.start, name: outName,
+            type: first.type, bootCount: first.bootCount, size: finalSize,
+            uploaded: null, downloaded: null,
+        }
+        this.files.push(merged)
+        this.addStats(merged, false)
+        console.log(`Repack: merged ${chunk.length} files into ${outName} (${finalSize} bytes)`)
+    }
+
+    // Combine files of the same type+bootCount into fewer, larger files so there's less to parse
+    // through server-side after an archive is downloaded/uploaded and unpacked. Only files that
+    // are neither uploaded nor downloaded are touched -- this keeps the operation safe to run
+    // repeatedly and never disturbs the record of what's already been sent/fetched (in
+    // particular, downloadList('last') keeps returning exactly what was last downloaded). Within
+    // that candidate set, only *contiguous* runs (per the full on-disk chronological order for
+    // that type+bootCount) are merged: a non-candidate file (already uploaded/downloaded) breaks
+    // the run, since files on either side of it must not be combined across that gap.
+    async repack() {
+        const byGroup = new Map()
+        for (const f of this.files) {
+            const k = this.repackGroupKey(f)
+            if (!byGroup.has(k)) byGroup.set(k, [])
+            byGroup.get(k).push(f)
+        }
+        for (const group of byGroup.values()) {
+            group.sort((a, b) => a.start - b.start)
+            let run = []
+            for (const f of group) {
+                if (!f.downloaded && !f.uploaded) {
+                    run.push(f)
+                } else {
+                    if (run.length > 1) await this.mergeRun(run)
+                    run = []
+                }
+            }
+            if (run.length > 1) await this.mergeRun(run)
+        }
+        this.pubStats()
+        this.saveSoon()
+    }
+
+    // repack files before a manual download so the archive contains fewer, larger text files.
+    // `what` (new/all/last) is accepted for symmetry with downloadList() but doesn't change what
+    // gets repacked: repack() already restricts itself to not-yet-uploaded/downloaded files,
+    // which is exactly the set that "new"/"all" downloads care about, and there's nothing to
+    // repack for "last" (those files were necessarily already downloaded before this could run).
+    async repackForDownload(what) {
+        await this.repack()
+    }
+
     downloadList(what) {
         switch(what) {
             case "new":
@@ -403,4 +534,4 @@ class DataFiles {
 
 }
 
-module.exports = { DataFiles, FileInfo }
+module.exports = { DataFiles, FileInfo, MAX_REPACK_LINES }

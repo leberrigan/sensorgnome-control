@@ -1795,8 +1795,16 @@ class Dashboard {
 
     // Handle GET request to download data files
     // See https://stackoverflow.com/a/61313182/3807231
-    data_download(req, resp) {
+    async data_download(req, resp) {
         console.log("data_download:", req.params.what)
+        // combine same-boot text files into fewer, larger ones before building the archive list,
+        // so there's less to parse through once it's downloaded and unpacked. Express 4 doesn't
+        // catch async route handler rejections, so guard this explicitly.
+        try {
+            await DataFiles.repackForDownload(req.params.what)
+        } catch (e) {
+            console.log(`data_download: repack failed: ${e}`)
+        }
         let files = DataFiles.downloadList(req.params.what)
         if (!files) {
             resp.writeHead(200, {'Content-Type': 'text/plain'})

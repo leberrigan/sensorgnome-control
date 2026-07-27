@@ -1,6 +1,13 @@
-const { DataFiles, FileInfo } = require('datafiles.js')
+const { DataFiles, FileInfo, MAX_REPACK_LINES } = require('datafiles.js')
 var fs = require("fs")
+var os = require("os")
+var zlib = require("zlib")
 OpenFiles = [] // normally provided by datafiles...
+
+function readMaybeGz(path) {
+    let data = fs.readFileSync(path)
+    return path.endsWith('.gz') ? zlib.gunzipSync(data) : data
+}
 
 describe('FileInfo', () => {
   
@@ -268,6 +275,109 @@ describe('DataFiles', () => {
             expect(df.saveSoon.mock.calls.length).toBe(1)
         })
 
+    })
+
+    describe('repack', () => {
+        const tmpdir = os.tmpdir().replace(/\\/g, '/') + '/sg_repack_test'
+        const tmpjson = tmpdir + '.json'
+
+        beforeEach(() => {
+            fs.mkdirSync(tmpdir, { recursive: true })
+            for (const f of fs.readdirSync("../test_assets/2021-12-16")) {
+                fs.copyFileSync(`../test_assets/2021-12-16/${f}`, `${tmpdir}/${f}`)
+            }
+            df.saveSoon = jest.fn(() => {})
+        })
+
+        afterEach(() => {
+            fs.rmSync(tmpdir, { recursive: true, force: true })
+            try { fs.unlinkSync(tmpjson) } catch(e) {}
+        })
+
+        test('merges a contiguous run into one file per type, named after the earliest', async () => {
+            const files = fs.readdirSync("../test_assets/2021-12-16").sort()
+            const allFiles = files.filter(f => f.includes('-all.'))
+            const cttFiles = files.filter(f => f.includes('-ctt.'))
+
+            await df.updateTree(tmpdir)
+            expect(df.files).toHaveLength(20)
+
+            await df.repack()
+
+            expect(df.files).toHaveLength(2)
+            const mergedAll = df.files.find(f => f.type === 'all')
+            const mergedCtt = df.files.find(f => f.type === 'ctt')
+            expect(mergedAll.name).toBe(allFiles[0])
+            expect(mergedCtt.name).toBe(cttFiles[0])
+            expect(mergedAll.uploaded).toBeNull()
+            expect(mergedAll.downloaded).toBeNull()
+
+            // only the two merged files remain on disk, originals are gone
+            expect(fs.readdirSync(tmpdir).sort()).toEqual([mergedAll.name, mergedCtt.name].sort())
+
+            // merged content matches concatenation of the originals (read from the untouched source dir)
+            const expectedAll = Buffer.concat(allFiles.map(f => {
+                let d = readMaybeGz(`../test_assets/2021-12-16/${f}`)
+                if (d.length && d[d.length-1] !== 10) d = Buffer.concat([d, Buffer.from('\n')])
+                return d
+            }))
+            expect(readMaybeGz(`${tmpdir}/${mergedAll.name}`).equals(expectedAll)).toBe(true)
+        })
+
+        test('does not merge across a file that is already downloaded', async () => {
+            await df.updateTree(tmpdir)
+            const allRecords = df.files.filter(f => f.type === 'all').sort((a,b) => a.start-b.start)
+            // mark one file in the middle as already downloaded: it must stay untouched, and the
+            // run must split into a before-run and an after-run instead of merging across it
+            const marked = allRecords[5]
+            marked.downloaded = Math.trunc(Date.now()/1000)
+
+            await df.repack()
+
+            const remainingAll = df.files.filter(f => f.type === 'all')
+            expect(remainingAll).toHaveLength(3) // before-run, the untouched marked file, after-run
+            const untouched = remainingAll.find(f => f.name === marked.name)
+            expect(untouched).toBeDefined()
+            expect(untouched.downloaded).toBe(marked.downloaded)
+            expect(fs.existsSync(`${tmpdir}/${marked.name}`)).toBe(true)
+        })
+
+        test('never splits a single source file across two merged outputs', async () => {
+            // synthetic same-group files with controlled line counts, named after the real
+            // pattern so parseFilename() accepts them
+            const mkName = (hh) =>
+                `changeMe-7F5ERPI46977-3-2021-12-16T${hh}-00-00.0000Z-all.txt`
+            const mkLines = (n) => Array.from({length: n}, (_, i) => `p3,${i}`).join('\n') + '\n'
+
+            // clear out the copied fixtures, this test only wants its own synthetic files
+            fs.rmSync(tmpdir, { recursive: true, force: true })
+            fs.mkdirSync(tmpdir, { recursive: true })
+
+            const sizes = [Math.floor(MAX_REPACK_LINES*0.6), Math.floor(MAX_REPACK_LINES*0.6), 5000]
+            const names = ['10', '11', '12'].map((hh, i) => {
+                const name = mkName(hh)
+                fs.writeFileSync(`${tmpdir}/${name}`, mkLines(sizes[i]))
+                return name
+            })
+
+            await df.updateTree(tmpdir)
+            expect(df.files).toHaveLength(3)
+
+            await df.repack()
+
+            // file 1+2 cross the cap together and get merged; file 3 alone stays untouched
+            expect(df.files).toHaveLength(2)
+            const merged = df.files.find(f => f.name === names[0] + '.gz')
+            expect(merged).toBeDefined()
+            const untouched = df.files.find(f => f.name === names[2])
+            expect(untouched).toBeDefined()
+            expect(fs.existsSync(`${tmpdir}/${names[2]}`)).toBe(true)
+
+            const expected = Buffer.concat([
+                Buffer.from(mkLines(sizes[0])), Buffer.from(mkLines(sizes[1]))
+            ])
+            expect(readMaybeGz(`${tmpdir}/${merged.name}`).equals(expected)).toBe(true)
+        })
     })
 
     it('starts alright', async () => {
