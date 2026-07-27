@@ -107,12 +107,13 @@ SysMonitor    = new (require('./sysmonitor.js'))(TheMatron)
 
 var clockNotSet = true;
 
-// Propagate GPS fix info into data files
+// Propagate GPS fix info into data files. Gated on an actual PPM/FSK dongle being attached
+// so a GPS fix alone (no radios plugged in) doesn't create empty all.txt/ctt.txt files.
 TheMatron.on("gotGPSFix", function(fix) {
     if (!fix.state?.includes('fix') || !fix.time) return
     let line = "G," + fix.time + "," + fix.lat + "," + fix.lon + "," + fix.alt + "\n"
-    AllOut.write(line)
-    LifetagOut.write(line)
+    if (HubMan.hasPPM()) AllOut.write(line)
+    if (HubMan.hasFSK()) LifetagOut.write(line)
     // ugly hack to set date from gps if gps has fix but system clock not set
     if (clockNotSet && (new Date()).getFullYear() < 2013) {
         console.log("Trying to set time to " + fix.time + "\n")
@@ -142,17 +143,19 @@ TheMatron.on("bfOut", (d) => {
 TheMatron.on("setParam", (s) => {
     AllOut.write(["S", s.time, s.port, s.par, s.val, s.errCode, s.err].join(',') + "\n")
 })
-// Record dongle type and radio path as S lines when a device is added
+// Record dongle type and radio path as S lines when a device is added. Only logged to
+// AllOut (the PPM/Lotek data file) while a PPM dongle is actually attached.
 TheMatron.on("devAdded", (dev) => {
+    if (!HubMan.hasPPM()) return
     const t = Date.now()/1000
     AllOut.write(["S", t, dev.attr.port, "device_type", dev.attr.type, 0, ""].join(',') + "\n")
     AllOut.write(["S", t, dev.attr.port, "radio", dev.attr.radio, 0, ""].join(',') + "\n")
 })
-// Propagate time to all data files
+// Propagate time to all data files, gated on an actual PPM/FSK dongle being attached
 TheMatron.on("gpsSetClock", (prec, elapsed) => {
     const line = ["C", Date.now() / 1000, prec, elapsed].join(',') + "\n"
-    AllOut.write(line)
-    LifetagOut.write(line)
+    if (HubMan.hasPPM()) AllOut.write(line)
+    if (HubMan.hasFSK()) LifetagOut.write(line)
 })
 
 // Start output feed

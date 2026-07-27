@@ -61,7 +61,9 @@ async function* findFiles(dir) {
 }
 
 // regexp to match changeMe-7F5ERPI46977-1-2021-12-11T14-46-38.8260Z-all.txt.gz
-var datafileRE = /^(.*)\/([^-]*-[^-]*-[0-9]+-([-0-9]+)(T[-0-9.]+)[P-Z]-([a-z]+).txt(.gz)?)$/ // phew!
+// the boot count (3rd dash-separated field) is captured so files from different boots don't get
+// packed together into the same upload archive, see DataFiles.uploadList()
+var datafileRE = /^(.*)\/([^-]*-[^-]*-([0-9]+)-([-0-9]+)(T[-0-9.]+)[P-Z]-([a-z]+).txt(.gz)?)$/ // phew!
 
 class FileInfo {
     constructor(path) {
@@ -86,10 +88,11 @@ class FileInfo {
         if (!mm) return null
         const data = {
             dir: mm[1],
-            date: mm[3].replace(/-/g, ""),
-            start: Math.trunc( (new Date(mm[3] + mm[4].replace(/-/g, ":") + "Z")).getTime()/1000 ),
+            date: mm[4].replace(/-/g, ""),
+            start: Math.trunc( (new Date(mm[4] + mm[5].replace(/-/g, ":") + "Z")).getTime()/1000 ),
             name: mm[2],
-            type: mm[5],
+            type: mm[6],
+            bootCount: mm[3],
         }
         if (!data.date || !data.start) console.log("OOPS:", data)
         return data
@@ -190,6 +193,14 @@ class DataFiles {
         for (const f of this.files) f.found = false
         for await (const { path, stat } of findFiles(dir)) {
             if (OpenFiles.includes(path)) continue // don't add files that are open (in SafeStream)
+            if (stat.size === 0) {
+                // stray empty file (e.g. left over from a crash, or a gzip that failed when the
+                // SD card was full) -- nothing to upload/download, so reclaim the space instead of
+                // tracking it forever
+                console.log(`Datafile ${path} is empty, removing`)
+                try { await FSP.unlink(path) } catch (e) { console.log(`Failed to remove empty file ${path}: ${e}`) }
+                continue
+            }
             let file_info
             try {
                 file_info = new FileInfo(path)
@@ -345,19 +356,22 @@ class DataFiles {
 
     // uploadList returns a set of files that are candidates for uploading
     // It returns an array of files, each one being [fname, size, file_start_timestamp]
-    // It first groups files by date, then picks a date at random, and then returns all the files
-    // for that date.
+    // It first groups files by date+bootCount, then picks a group at random, and then returns
+    // all the files in that group.
     // This is done for a couple of reasons, but may not be 'optimal': the random selection
     // avoids always retrying the same upload that may cause some fatal failure, the grouping by
     // date allows the archive SHA1 deduplication to do something if the data_files database
-    // is lost
+    // is lost. Grouping by bootCount too keeps files from different boots (e.g. a reboot mid-day)
+    // out of the same archive. Empty files carry no data and are excluded.
     uploadList() {
-        const uploadable = this.files.filter(f => !f.uploaded)
-        const dates = uploadable.map(f => f.date).filter((v, i, a) => a.indexOf(v) === i)
-        if (dates.length == 0) return []
-        const date = dates[Math.floor(Math.random() * dates.length)]
-        const files = uploadable.filter(f => f.date == date).map(f => [f.dir + '/' + f.name, f.size, f.start])
-        console.log(`UploadList: ${files.length} files for ${date}`)
+        const uploadable = this.files.filter(f => !f.uploaded && f.size > 0)
+        const groupOf = f => `${f.date}|${f.bootCount}`
+        const groups = uploadable.map(groupOf).filter((v, i, a) => a.indexOf(v) === i)
+        if (groups.length == 0) return []
+        const group = groups[Math.floor(Math.random() * groups.length)]
+        const files = uploadable.filter(f => groupOf(f) == group).map(f => [f.dir + '/' + f.name, f.size, f.start])
+        const [date, bootCount] = group.split('|')
+        console.log(`UploadList: ${files.length} files for ${date} boot ${bootCount}`)
         return {date, files}
     }
     
