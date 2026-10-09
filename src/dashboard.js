@@ -178,9 +178,112 @@ class Dashboard {
 
         setTimeout(() => this.updateNetUsage(), 10*1000)
         setInterval(() => this.updateNetUsage(), 300*1000)
-        
+
+        FlexDash.set('device_panel_widgets', [])
     }
-    
+
+    // Build the widget config array for a single device port used by DynamicPanel.
+    // Row 1 (cols 1+1+2+2=6): port | port_path | type | status
+    // Row 2 (cols vary):       freq[2] | GRH[2] | attn[2]  (radio types only)
+    // Widget layout is device-type-specific; cols values map to the 6-column internal grid.
+    buildDeviceWidgets(port) {
+        const dev = HubMan.devs[port]
+        if (!dev) return []
+        const typeLow = (dev.attr?.type || '').toLowerCase()
+
+        const isCTT       = typeLow === 'ctt/cornellrcvr' || typeLow.startsWith('cttv')
+        const isDigiBabel = typeLow.startsWith('digibabel')
+        const isNanoBabel = typeLow === 'nanobabel'
+        const isAirSpy    = typeLow === 'airspy' || typeLow === 'airspyhf' || typeLow.startsWith('airspy/')
+        const isFunCube   = typeLow === 'funcubeproplus' || typeLow === 'funcubepro'
+        const isRTL       = typeLow === 'rtlsdr' || typeLow.startsWith('rtlsdr/')
+        const isSQM       = typeLow.startsWith('sqm')
+
+        const showFreq  = isAirSpy || isFunCube || isRTL
+        const showGRH   = isNanoBabel || isAirSpy || isFunCube || isRTL
+        const grhFixed  = isAirSpy   // AirSpy/AirSpyHF GRH is always on; cannot switch to VAH
+
+        // Row 1: port[1] port_path[1] type[2] status/sensor[2]
+        const innerWidgets = [
+            { kind: "Label", title: "port", cols: 1, static: { label: `${port}`, size: "200%", weight: "700", justify: "left" } },
+            { kind: "Label", title: "path", cols: 1, static: { justify: "left" }, dynamic: { label: `devices/${port}/port_path` } },
+            { kind: "Label", title: "type", cols: 2, static: { justify: "left" }, dynamic: { label: `devices/${port}/type` } },
+        ]
+
+        if (isSQM) {
+            innerWidgets.push({ kind: "Stat", title: "", cols: 2, static: { value: "SENSOR" } })
+            return { kind: "DynamicPanel", cols: 6, card: true, static: { widgets: innerWidgets } }
+        }
+
+        innerWidgets.push({
+            kind: "Stat",
+            title: "",
+            cols: 2,
+            static: { zoom: 0.7, high_regexp: "running", high_color: "green-darken-3", low_regexp: "(stopped|error)", low_color: "red-darken-3" },
+            dynamic: { value: `devices/${port}/state` },
+        })
+
+        if (isDigiBabel) {
+            // Row 2: payload[2] encoding[2]
+            innerWidgets.push({ kind: "Toggle", title: "payload",  cols: 2, static: { value: false, enabled: false } })
+            innerWidgets.push({ kind: "Stat",   title: "encoding", cols: 2, static: { value: "CTT" } })
+            return { kind: "DynamicPanel", cols: 6, card: true, static: { widgets: innerWidgets } }
+        }
+
+        // Row 2 for Lotek/NanoBabel radios: freq[2] GRH[2] attn[2]
+        if (showFreq) {
+            innerWidgets.push({
+                kind: "TextField",
+                title: "freq",
+                cols: 2,
+                dynamic: { text: `devices/${port}/frequency` }
+            })
+        }
+
+        if (showGRH) {
+            if (grhFixed) {
+                innerWidgets.push({ kind: "Toggle", title: "GRH", cols: 2, static: { value: true, enabled: false } })
+            } else {
+                innerWidgets.push({
+                    kind: "Toggle",
+                    title: "GRH",
+                    cols: 2,
+                    dynamic: { value: `devices/${port}/grh` },
+                    output: `dev_grh/${port}`,
+                })
+            }
+        }
+
+        return { kind: "DynamicPanel", cols: 6, card: true, static: { widgets: innerWidgets } }
+    }
+
+    // Rebuild and publish the per-device panel array; one DynamicPanel card per device
+    rebuildDevicePanelWidgets() {
+        const widgets = []
+        for (const port of Object.keys(HubMan.devs).sort((a, b) => parseInt(a) - parseInt(b))) {
+            widgets.push(this.buildDeviceWidgets(port))
+        }
+        FlexDash.set('device_panel_widgets', widgets)
+    }
+
+    handle_dev_freq(port, freq) {
+        const f = parseFloat(freq)
+        if (isNaN(f) || f < 100 || f > 1000) {
+            console.log(`Device port ${port}: invalid frequency value ${freq}`)
+            return
+        }
+        FlexDash.set(`devices/${port}/frequency`, `${f} MHz`)
+        this.matron.emit('devFreqChg', { port, freq: f })
+        console.log(`Device port ${port}: frequency set to ${f} MHz`)
+    }
+
+    handle_dev_grh(port, value) {
+        const grh = value === true || value === 'true' || value === 1
+        FlexDash.set(`devices/${port}/grh`, grh)
+        this.matron.emit('devGrhChg', { port, grh })
+        console.log(`Device port ${port}: GRH ${grh ? 'enabled' : 'disabled'}`)
+    }
+
     getUptime() {
         let uptime = parseInt(Fs.readFileSync("/proc/uptime").toString(), 10)
         if (!(uptime > 0)) uptime = 0
@@ -228,8 +331,8 @@ class Dashboard {
     // update the number of radios connected on devAdded/Removed
     updateNumRadios() {
         return {
-            ctt: Object.values(HubMan.devs).filter(d => d.attr?.radio.startsWith("CTT") || d.attr?.radio == "DigiBabel").length,
-            vah: Object.values(HubMan.devs).filter(d => ["VAH", "GRH"].includes( d.attr?.radio) ).length,
+            fsk: Object.values(HubMan.devs).filter(d => d.attr?.radio.startsWith("CTT") || d.attr?.radio == "DigiBabel" || d.attr?.radio == "NanoBabel").length,
+            ppm: Object.values(HubMan.devs).filter(d => ["VAH", "GRH"].includes( d.attr?.radio) ).length,
         //    grh: Object.values(HubMan.devs).filter(d => d.attr?.radio == "GRH").length,
             sensors: Object.values(HubMan.devs).filter(d => d.attr?.radio == "none").length,
             all: Object.values(HubMan.devs).filter(d => d.attr?.radio && d.attr?.radio != "none" ).length,
@@ -274,6 +377,10 @@ class Dashboard {
             const title = cnt>0 ? `${cnt} errors` : '--'
             //console.log("Radio state:", JSON.stringify({ color, enabled: cnt>0, title, text }))
             FlexDash.set('radio_state', { color, enabled: cnt>0, errors: cnt, title, text }) // title doesn't work :-(
+            // update per-device state display
+            for (const [port, dev] of Object.entries(HubMan.devs)) {
+                if (dev.state !== undefined) FlexDash.set(`devices/${port}/state`, dev.state)
+            }
         }, 10)
     }
     
@@ -284,23 +391,59 @@ class Dashboard {
     handle_setParam(info) { } // FlexDash.set('param', info) } // {param, value, error}
     handle_setParamError(info) { } // FlexDash.set('param', info) } // {param, error}
     handle_devAdded(info) {
-        FlexDash.set(`devices/${info.attr.port}`, this.genDevInfo(info))
+        const port = info.attr.port
+        FlexDash.set(`devices/${port}`, this.genDevInfo(info))
+        FlexDash.set(`devices/${port}/state`, info.state || 'init')
+        FlexDash.set(`devices/${port}/grh`, info.attr?.radio === 'GRH')
+        FlexDash.set(`devices/${port}/frequency`,
+            ['VAH', 'GRH'].includes(info.attr?.radio) && Acquisition.lotek_freq != null ? `${Acquisition.lotek_freq} MHz` : null
+        )
         FlexDash.set(`radios`, this.updateNumRadios())
         this.tsAddDevice(info)
         this.handle_devState()
+        if (!this._devHandlers) this._devHandlers = {}
+        if (!this._devHandlers[port]) {
+            const h = {
+                freq: (v) => this.handle_dev_freq(port, v),
+                grh:  (v) => this.handle_dev_grh(port, v),
+            }
+            this._devHandlers[port] = h
+            this.matron.on(`dash_dev_freq/${port}`, h.freq)
+            this.matron.on(`dash_dev_grh/${port}`, h.grh)
+        }
+        this.rebuildDevicePanelWidgets()
     }
-    handle_devRemoved(info){
-        FlexDash.unset(`devices/${info.attr.port}`)
+    handle_devRemoved(info) {
+        const port = info.attr.port
+        FlexDash.unset(`devices/${port}`)
         FlexDash.set(`radios`, this.updateNumRadios())
         this.tsRemoveDevice(info)
         this.handle_devState()
+        if (this._devHandlers?.[port]) {
+            this.matron.off(`dash_dev_freq/${port}`, this._devHandlers[port].freq)
+            this.matron.off(`dash_dev_grh/${port}`, this._devHandlers[port].grh)
+            delete this._devHandlers[port]
+        }
+        this.rebuildDevicePanelWidgets()
     }
     handle_digibabelRadioVersion(info) {
         const v = info.version.replace(/\..*/, '')
         FlexDash.set(`devices/${info.port}/type`, 'DigiBabel.v' + v)
     }
     handle_nanobabelIdentified(info) {
-        FlexDash.set(`devices/${info.port}/type`, 'NanoBabel')
+        const port = info.port
+        FlexDash.set(`devices/${port}/type`, 'NanoBabel')
+        // attr.radio is now "NanoBabel" — refresh the radio counter
+        FlexDash.set(`radios`, this.updateNumRadios())
+        // devAdded ran tsAddDevice before the probe completed, so it created a CTT-style
+        // time series (because attr.radio was still "DigiBabel"). Recreate it correctly.
+        const dev = HubMan.devs[port]
+        if (dev) {
+            this.tsRemoveDevice(dev)
+            this.tsAddDevice(dev)
+        }
+        // NanoBabel starts life typed as DigiBabel; reclassification changes the widget layout
+        this.rebuildDevicePanelWidgets()
     }
     handle_cttRadioVersion(info) {
         const v = info.version.replace(/\..*/, '')
@@ -316,7 +459,12 @@ class Dashboard {
     handle_dash_update_portmap(portmap) { HubMan.setPortmap(portmap) }
     handle_tagDBInfo(data) { FlexDash.set('tagdb', data) }
     handle_motusUploadResult(data) { FlexDash.set('motus_upload', data) }
-    handle_lotekFreq(f) { FlexDash.set('lotek_freq', f) }
+    handle_lotekFreq(f) {
+        FlexDash.set('lotek_freq', f)
+        for (const [port, dev] of Object.entries(HubMan.devs)) {
+            if (['VAH', 'GRH'].includes(dev.attr?.radio)) FlexDash.set(`devices/${port}/frequency`, `${f} MHz`)
+        }
+    }
     handle_dash_show_pulses(v) {
         FlexDash.set('lotek_show_pulses', v=="on" ? "on" : "off")
         this.show_pulses = v == "on"
@@ -732,6 +880,7 @@ class Dashboard {
         switch (dev.attr.radio) {
         case "CTT/Cornell": prefix = "ctt"; break
         case "DigiBabel": prefix = "ctt"; break
+        case "NanoBabel": prefix = "lotek"; break
         case "VAH": prefix = "lotek"; break
         case "GNU": prefix = "lotek"; break
         default: return null
@@ -747,7 +896,7 @@ class Dashboard {
             this.ts[port] = {
                 tags: new TimeSeries(ts_dir, "ctt-tags-"+dev.attr.port),
             }
-        } else if (dev.attr.type == "funcubeProPlus" || dev.attr.type == "funcubePro" || dev.attr.type == "rtlsdr" || dev.attr.type == "airspy") {
+        } else if (dev.attr.type == "funcubeProPlus" || dev.attr.type == "funcubePro" || dev.attr.type == "rtlsdr" || dev.attr.type == "airspy" || dev.attr.type == "NanoBabel") {
             // Lotek devices produce tag detections, pulses and noise figures
             this.ts[port] = {
                 tags: new TimeSeries(ts_dir, "lotek-tags-"+dev.attr.port),
@@ -1067,7 +1216,7 @@ class Dashboard {
             const ts = (new Date(parseFloat(ll[1])*1000)).toISOString().replace(/.*T/, '').replace(/\..+/, '')
             const snr = (parseFloat(ll[5]) - parseFloat(ll[7])).toFixed(1)
             return `TAG ${ll[0]} ${ts}: ${ll[2]} ${ll[3]}kHz snr:${snr}dB (${ll[5]}/${ll[7]}dB)`
-        } else if (line[0] == 'T') {
+        } else if (line[0] == 'T' || line[0] == 'n') {
             // CTT tag:
             return `TAG ${line}`
         } else {

@@ -1,7 +1,6 @@
-// burstfinder: manage a burstfinder.py child process, sending it vahData messages, then
+// burstfinder: manage a burstfinder child process, sending it vahData messages, then
 //  emitting bfOut and gotBurst messages.
 
-const fs = require('fs')
 const Stream = require('stream');
 
 class BurstFinder {
@@ -15,9 +14,8 @@ class BurstFinder {
         matron.on("vahData", x => this.gotInput(x))
         matron.on("grhData", x => this.gotInput(x))
 
-        this.CMD_PATH = "/usr/bin/python3"
-        this.BY = "/run/bursts.yaml"
-        this.CMD_ARGS = [ this.prog + "/burstfinder.py", "--codes", this.BY, "-b" ] // stdin->stdout is default
+        this.CMD_PATH = this.prog + "/burstfinder"
+        this.CMD_ARGS = [ "-b" ] // stdin->stdout is default; -b enables burst output; codes bundled in executable
         this.CMD_ENV = { PYTHONUNBUFFERED: 1 } // ensure stdout is unbuffered
     }
 
@@ -25,13 +23,8 @@ class BurstFinder {
         if (this.quitting) return
         if (this.child) return
     
-        // launch the burst finder python process
+        // launch the burst finder executable process
         console.log("Starting", this.CMD_PATH, this.CMD_ARGS.join(' '))
-        const bb = Object.entries(PulseFilter.bursts).map(([k,v]) => {
-            return `${k}: [${v.map(v=>v/10.0).join(',')}]\n`
-        }).join('')
-        fs.writeFileSync(this.BY, bb)
-        let byExists = true
         this.child = ChildProcess.spawn(this.CMD_PATH, this.CMD_ARGS, {env:this.CMD_ENV})
             .on("exit", ()=>this.childDied())
             .on("error", ()=>this.childDied())
@@ -64,7 +57,6 @@ class BurstFinder {
         this.child.stdout.on("error", x => {})
         
         this.child.stderr.on("data", x => {
-            if (byExists) { fs.unlink(this.BY, ()=>{}); byExists = false; }
             for (let line of x.toString().split('\n')) {
                 if (line.trim()) console.log("Burstfinder.py:", line)
             }
@@ -83,7 +75,6 @@ class BurstFinder {
 
     childDied(code, signal) {
         this.child = null
-        fs.unlink(this.BY, ()=>{})
         if (!this.quitting) {
             setTimeout(() => this.start(), 5000)
             console.log("burstfinder.py died, restarting in 5 secs")
