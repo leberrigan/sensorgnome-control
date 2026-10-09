@@ -3213,7 +3213,7 @@
     "w00993": {
       "kind": "Panel",
       "rows": 5,
-      "cols": 6,
+      "cols": 3,
       "static": {
         "title": "Power",
         "widgets": [
