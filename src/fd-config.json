@@ -2686,12 +2686,12 @@
       "rows": 1,
       "cols": 2,
       "static": {
-        "title": "Local Wi-Fi IP",
+        "title": "Local Network IP",
         "zoom": 0.7,
         "color": ""
       },
       "dynamic": {
-        "value": "net_wifi_ip"
+        "value": "net_ip"
       },
       "id": "w09651"
     },
@@ -3209,6 +3209,89 @@
         "span_gaps": "system/graphs/labels"
       },
       "id": "w07770"
+    },
+    "w00993": {
+      "kind": "Panel",
+      "rows": 5,
+      "cols": 6,
+      "static": {
+        "title": "Power",
+        "widgets": [
+          "w00990",
+          "w00991",
+          "w00992"
+        ],
+        "solid": false
+      },
+      "dynamic": {},
+      "id": "w00993"
+    },
+    "w00990": {
+      "kind": "Stat",
+      "rows": 1,
+      "cols": 3,
+      "static": {
+        "title": "Power",
+        "value": "OK",
+        "color": "#4CAF50",
+        "low_regexp": "OK",
+        "low_color": "#4CAF50",
+        "high_regexp": "Undervoltage",
+        "high_color": "#F44336",
+        "popup_info": "Raspberry Pi undervoltage status (vcgencmd get_throttled)."
+      },
+      "dynamic": {
+        "value": "power/status/value",
+        "popup_info": "power/status/info"
+      },
+      "id": "w00990"
+    },
+    "w00991": {
+      "kind": "Stat",
+      "rows": 1,
+      "cols": 3,
+      "static": {
+        "title": "Cellular",
+        "value": "OK",
+        "color": "#FF9800",
+        "low_regexp": "OK",
+        "low_color": "#4CAF50",
+        "high_regexp": "disabled",
+        "high_color": "#F44336",
+        "popup_info": "Automatic mitigation: disables cellular if undervoltage is correlated with it being connected."
+      },
+      "dynamic": {
+        "value": "power/mitigation/value",
+        "popup_info": "power/mitigation/info"
+      },
+      "id": "w00991"
+    },
+    "w00992": {
+      "kind": "TimePlot",
+      "rows": 3,
+      "cols": 6,
+      "static": {
+        "title": "",
+        "axes": [
+          "left",
+          "right"
+        ],
+        "left_isoprefix": true,
+        "left_decimals": 0,
+        "left_unit": "count",
+        "left_min": 0,
+        "right_unit": "%",
+        "right_min": 0,
+        "right_max": 100,
+        "right_decimals": 0,
+        "right_isoprefix": true
+      },
+      "dynamic": {
+        "data": "power/graphs/data",
+        "labels": "power/graphs/labels",
+        "span_gaps": "power/graphs/labels"
+      },
+      "id": "w00992"
     }
   },
   "grids": {
@@ -3219,7 +3302,8 @@
         "w06965",
         "w06221",
         "w03697",
-        "w03519"
+        "w03519",
+        "w00993"
       ],
       "min_cols": 3,
       "max_cols": 6

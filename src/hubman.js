@@ -64,6 +64,19 @@ class HubMan {
     // return a list of attached devices
     getDevs() { return this.devs }
 
+    // true if at least one PPM (Lotek VHF, via VAH or GRH) radio is currently attached;
+    // mirrors dashboard.js:updateNumRadios()'s "ppm" classification
+    hasPPM() {
+        return Object.values(this.devs).some(d => ["VAH", "GRH"].includes(d.attr?.radio))
+    }
+
+    // true if at least one FSK (UHF: CTT/DigiBabel/NanoBabel) radio is currently attached;
+    // mirrors dashboard.js:updateNumRadios()'s "fsk" classification
+    hasFSK() {
+        return Object.values(this.devs).some(d =>
+            d.attr?.radio?.startsWith("CTT") || d.attr?.radio == "DigiBabel" || d.attr?.radio == "NanoBabel")
+    }
+
     // return the attributes of a device by parsing the filename (splitting on . and then =)
     attrOf(filename) {
         let parts = filename.split('.')

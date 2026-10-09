@@ -35,10 +35,14 @@ class SafeStream {
         this.chunkbytes = chunkbytes
         this.lastData = null
         this.parse = parse
-        this.setupStreams()
+        this.sout = null
+        this.bytesWritten = 0
+        this.chunkTimer = null
+        // Note: the file is NOT opened here. It's opened lazily on the first write() so that
+        // e.g. a PPM data file isn't created when no PPM dongle is attached to produce data for it.
         matron.on("gpsSetClock", () => this.gpsSetClock())
     }
-    
+
     setupStreams () {
         let path = DataSaver.getRelPath(this.source)
         this.tscode = Chrony.timeStampCode() // time-stamp precision used by DataSaver (yuck)
@@ -48,20 +52,16 @@ class SafeStream {
         this.bytesWritten = 0
         this.info = this.parse && new FileInfo(this.sout.path)
         if (this.chunkTimer) clearTimeout(this.chunkTimer)
-        this.chunkTimer = setTimeout(() => {
-            this.end()
-            this.setupStreams()  
-        }, this.chunksecs * 1000)
+        // only fires while this.sout is open, so end() always has a real file to rotate
+        this.chunkTimer = setTimeout(() => this.end(), this.chunksecs * 1000)
     }
 
     write (data) {
+        if (!this.sout) this.setupStreams() // lazily open on first data since the last rotation
         this.lastData = data
         this.sout.stream.write(data)
         this.bytesWritten += data.length
-        if (this.bytesWritten >= this.chunkbytes) {
-            this.end()
-            this.setupStreams()
-        }
+        if (this.bytesWritten >= this.chunkbytes) this.end()
     }
 
     // by the time gzip gets called the SafeStream object may well already be re-initialized
@@ -92,9 +92,13 @@ class SafeStream {
         })
     }
 
+    // closes the current file, if one is open, and leaves it that way: the next write() will
+    // lazily open a fresh one. Not opening a new file here (unlike the old version) is what
+    // stops an idle stream (e.g. no PPM/FSK dongle attached) from producing an endless trickle
+    // of empty files every chunksecs.
     end () {
-        if (this.chunkTimer) clearTimeout(this.chunkTimer)
-        if (this.sout.stream) {
+        if (this.chunkTimer) { clearTimeout(this.chunkTimer); this.chunkTimer = null }
+        if (this.sout && this.sout.stream) {
             // set-up on-close listener that gzips the file, this ensures that the underlying
             // file descriptor is actually closed by the time gzip runs
             const path = this.sout.path // capture before it gets overwritten
@@ -110,15 +114,14 @@ class SafeStream {
             })
             // now end the stream
             this.sout.stream.end()
-            this.sout.stream = null
         }
+        this.sout = null
     }
 
     streamError (e) {
         console.log("SafeStream: stream error: " + e)
         this.end()
-        this.setupStreams()
-        // retry writing last data this may lead to some
+        // retry writing last data (write() re-opens lazily); may lead to some
         // of lastData being written to two different files
         if (this.lastData)
             this.write(this.lastData)
@@ -128,11 +131,11 @@ class SafeStream {
     // if it switches to/from "P", which is "unsynchronized", this because the date with 'P' may be
     // bogus and may have to be manually corrected later
     gpsSetClock (d) {
+        if (!this.sout) return // nothing open yet; the eventual first write() will pick up the current tscode
         let tscode = Chrony.timeStampCode()
         if ((tscode == "P") != (this.tscode == "P")) {
             console.log(`SafeStream: tscode changed from ${this.tscode} to ${tscode}`)
             this.end()
-            this.setupStreams()
         }
     }
 }

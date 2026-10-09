@@ -222,7 +222,10 @@ class MotusUploader {
         this.uploadSoon()
         this.matron.on("datafile", () => this.uploadSoon())
         this.matron.on('dash_upload', () => this.uploadSoon())
-        this.matron.on('motus', status => { if (status == "OK") this.uploadSoon(true) })
+        // wifiman.js emits "netMotus" (not "motus") when connectivity to motus.org changes;
+        // trigger an upload attempt right away when it comes back, instead of waiting for the
+        // next datafile rotation to pick up any backlog of unsent files
+        this.matron.on('netMotus', status => { if (status == "OK") this.uploadSoon(true) })
         this.matron.on('dash_motus_creds', (data) => this.motusCreds(data).then(()=>{}))
     }
 
@@ -388,26 +391,32 @@ class MotusUploader {
     }
 
     // return a readable stream that contains the archive
-    startArchiveStream(files) {
-        // new version where Lotek files are filtered to remove pulses not used by bursts
+    // Lotek "-all.txt"/"-all.txt.gz" files are filtered to remove raw pulses not used by bursts.
+    // If a dongle was attached but burstfinder found no bursts (and no S/G/C metadata lines
+    // happened either) that filtering can leave nothing at all, in which case the file is skipped
+    // instead of adding a pointless empty entry to the archive.
+    async startArchiveStream(files) {
         let archive = AR('zip', { zlib: { level: 7 } }) // we're putting uncompressed data in
         for (const [f, sz, d] of files) {
-            if (!fs.existsSync(f)) console.log(`OOPS: file ${f} missing`)
+            if (!fs.existsSync(f)) { console.log(`OOPS: file ${f} missing`); continue }
             const p = f.split('/')
             const name = (p.length > 2 ? p.slice(p.length-2) : p).join('/')
             // the following special treatment of Lotek files should really be driven by some flag
-            if (name.endsWith("-all.txt")) {
+            if (name.endsWith("-all.txt") || name.endsWith("-all.txt.gz")) {
+                const isGz = name.endsWith(".gz")
                 const freader = fs.createReadStream(f)
                 const filter = new FilterPulses()
-                const filtered = stream.compose(freader, filter)
-                archive.append(filtered, { name: name, date: new Date(d*1000) })
-                filtered.on('error', e => archive.emit('error', e))
-            } else if (name.endsWith("-all.txt.gz")) {
-                const freader = fs.createReadStream(f)
-                const filter = new FilterPulses()
-                const filtered = stream.compose(freader, createGunzip(), filter)
-                archive.append(filtered, { name: name, date: new Date(d*1000) })
-                filtered.on('error', e => archive.emit('error', e))
+                const filtered = isGz ? stream.compose(freader, createGunzip(), filter)
+                                       : stream.compose(freader, filter)
+                let buf
+                try {
+                    buf = await stream2buffer(filtered)
+                } catch (e) {
+                    archive.emit('error', e)
+                    continue
+                }
+                if (buf.toString().trim() === "") continue // nothing but pulses, not worth uploading
+                archive.append(buf, { name: name, date: new Date(d*1000) })
             } else {
                 // add file as-is, e.g. CTT tag file
                 archive.file(f, { name: name, date: new Date(d*1000) })
@@ -426,11 +435,11 @@ class MotusUploader {
         // archive.finalize()
         // return archive
     }
-    
+
     // produce an archive from the files and compute its SHA1, return archive and sha1
     async archive_sha1(files) {
         // start archive streaming
-        const arstream = this.startArchiveStream(files)
+        const arstream = await this.startArchiveStream(files)
         let error = null
         arstream.on('error', (msg) => { if (!error) error = new Error(msg) })
         // load into buffer and get sha1
@@ -445,7 +454,7 @@ class MotusUploader {
     // dump the archive to a file (mostly for troubleshooting/testing purposes)
     async dump_archive(files, dest) {
         // start archive streaming
-        const archive = this.startArchiveStream(files)
+        const archive = await this.startArchiveStream(files)
         let error = null
         archive.on('error', (msg) => { if (!error) error = new Error(msg) })
         // pipe into write stream

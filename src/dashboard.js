@@ -90,7 +90,7 @@ class Dashboard {
             // normal events funneled through matron (i.e. from app)
             'gotGPSFix', 'chrony', 'gotTag', 'setParam', 'setParamError', 'devAdded', 'devRemoved',
             'df', 'sdcardUse', 'vahData', 'grhData', 'netDefaultRoute', 'netInet', 'netMotus', 'netWifiState',
-            'sysmonitorData',
+            'sysmonitorData', 'powerStatus', 'powerGraphs', 'powerMitigation',
             'netHotspotState', 'netWifiConfig', 'portmapFile', 'tagDBInfo', 'motusRecv',
             'motusUploadResult', 'netDefaultGw', 'netDNS', 'lotekFreq', 'netCellState', 'netCellReason', "netScanStatus",
             'netCellInfo', 'netCellConfig', 'cttRadioVersion', 'digibabelRadioVersion', 'nanobabelIdentified', 'vahRate', 'vahFrames', 'devState',
@@ -644,6 +644,16 @@ class Dashboard {
         }
         FlexDash.set('system/graphs', { data, labels, title: `system (${range})` })
     }
+    handle_powerStatus({ underNow, sinceBoot }) {
+        FlexDash.set('power/status', {
+            value: underNow ? 'Undervoltage' : 'OK',
+            info: sinceBoot ? 'Undervoltage has occurred since boot' : '',
+        })
+    }
+    handle_powerGraphs(g) { FlexDash.set('power/graphs', g) }
+    handle_powerMitigation(m) {
+        FlexDash.set('power/mitigation', { value: m.title, info: m.text })
+    }
     handle_setParam(info) { } // FlexDash.set('param', info) } // {param, value, error}
     handle_setParamError(info) { } // FlexDash.set('param', info) } // {param, error}
     handle_devAdded(info) {
@@ -913,7 +923,7 @@ class Dashboard {
         FlexDash.set('net_wifi_signal/color',   signalColor(s?.dbm, -90, -30))
         FlexDash.set('net_wifi_signal/quality', signalQuality(s?.dbm, -75, -55))
     }
-    handle_netWifiIP(ip) { FlexDash.set('net_wifi_ip', ip || '—') }
+    handle_netWifiIP(ip) { FlexDash.set('net_ip', ip || '—') }
     handle_netWifiNetworks(rows) {
         rows = rows || []
         this.wifi_networks_rows = rows
@@ -1448,6 +1458,7 @@ class Dashboard {
             FlexDash.set("detections/interval", intv)
 
             this.ts_ix = ix
+            PowerMon.setRange(range)
             this.tsRefresh()
 
             if (this.tsRefreshInterval) clearInterval(this.tsRefreshInterval)
@@ -1795,8 +1806,16 @@ class Dashboard {
 
     // Handle GET request to download data files
     // See https://stackoverflow.com/a/61313182/3807231
-    data_download(req, resp) {
+    async data_download(req, resp) {
         console.log("data_download:", req.params.what)
+        // combine same-boot text files into fewer, larger ones before building the archive list,
+        // so there's less to parse through once it's downloaded and unpacked. Express 4 doesn't
+        // catch async route handler rejections, so guard this explicitly.
+        try {
+            await DataFiles.repackForDownload(req.params.what)
+        } catch (e) {
+            console.log(`data_download: repack failed: ${e}`)
+        }
         let files = DataFiles.downloadList(req.params.what)
         if (!files) {
             resp.writeHead(200, {'Content-Type': 'text/plain'})
