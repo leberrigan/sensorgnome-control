@@ -59,10 +59,17 @@ function devPortColor(type, freq) {
 }
 
 // Read a named devParam's configured value from the matching acquisition plan.
-function getAcqParam(devType, paramName) {
-    const plan = (Acquisition.plans || []).find(p => {
-        try { return new RegExp(p.key.devType).test(devType) } catch { return false }
-    })
+// Accepts an optional port for port-specific lookup (last-match semantics).
+function getAcqParam(devType, paramName, port) {
+    const plan = port != null
+        ? Acquisition.lookup(String(port), devType)?.plan
+        : (() => {
+            let last = null
+            for (const p of (Acquisition.plans || [])) {
+                try { if (new RegExp(p.key.devType).test(devType)) last = p } catch {}
+            }
+            return last
+        })()
     if (!plan) return null
     const param = (plan.devParams || []).find(p => p.name === paramName)
     return param?.schedule?.value ?? null
@@ -83,6 +90,7 @@ class Dashboard {
             // normal events funneled through matron (i.e. from app)
             'gotGPSFix', 'chrony', 'gotTag', 'setParam', 'setParamError', 'devAdded', 'devRemoved',
             'df', 'sdcardUse', 'vahData', 'grhData', 'netDefaultRoute', 'netInet', 'netMotus', 'netWifiState',
+            'sysmonitorData',
             'netHotspotState', 'netWifiConfig', 'portmapFile', 'tagDBInfo', 'motusRecv',
             'motusUploadResult', 'netDefaultGw', 'netDNS', 'lotekFreq', 'netCellState', 'netCellReason', "netScanStatus",
             'netCellInfo', 'netCellConfig', 'cttRadioVersion', 'digibabelRadioVersion', 'nanobabelIdentified', 'vahRate', 'vahFrames', 'devState',
@@ -130,6 +138,8 @@ class Dashboard {
         // keep track of data file summary stats
         matron.on("data_file_summary", (stats) => FlexDash.set('data_file_summary', stats))
         matron.on("detection_stats", (hourly, daily) => this.updateDetectionStats(hourly, daily))
+        // Global device reset — triggered by a FlexDash button with output "config_reset"
+        matron.on("dash_config_reset", () => this.handle_config_reset())
 
         // 5 minutes of detections in 10 second bins for sparklines
         this.detections = {
@@ -153,6 +163,12 @@ class Dashboard {
         this.tagBuffer = []        // [{time, port, tagId}] rolling window for tally
         this.portMeta = {}         // port -> {portPath} for tally column labels
         Fs.mkdirSync(ts_dir, {recursive: true})
+        this.ts_sysmon = {
+            cpu:  new TimeSeries(ts_dir, 'sysmon-cpu'),
+            temp: new TimeSeries(ts_dir, 'sysmon-temp'),
+            mem:  new TimeSeries(ts_dir, 'sysmon-mem'),
+            disk: new TimeSeries(ts_dir, 'sysmon-disk'),
+        }
         this.handle_dash_detection_range(TimeSeries.ranges[0])
         setInterval(() => this.tsSave(), 60000)
 
@@ -218,12 +234,14 @@ class Dashboard {
         setTimeout(() => this.updateNetUsage(), 10*1000)
         setInterval(() => this.updateNetUsage(), 300*1000)
 
-        FlexDash.set('device_panel_widgets', [])
+        this.rebuildDevicePanelWidgets()
     }
 
     // Build the widget config array for a single device port used by DynamicPanel.
     // Row 1 (cols 1+1+2+2=6): port | port_path | type | status
-    // Row 2 (cols vary):       freq[2] | GRH[2] | attn[2]  (radio types only)
+    // Row 2 (cols vary):       freq[2] | Config button[4]  (radio types only)
+    // The Config button pops up the GRH/attn/payload-encoding toggles and dropdowns that
+    // used to sit directly in row 2 (see configWidgets below).
     // Widget layout is device-type-specific; cols values map to the 6-column internal grid.
     buildDeviceWidgets(port) {
         const dev = HubMan.devs[port]
@@ -244,11 +262,18 @@ class Dashboard {
         const grhFixed  = isAirSpy   // AirSpy/AirSpyHF GRH is always on; cannot switch to VAH
         const showGain  = isAirSpy || isFunCube || isRTL  // NanoBabel has no gain control
 
+        const resetBtn = {
+            kind: "PushButton", float_position: "top-right",
+            static: { icon: "mdi-restore", color: "grey-darken-1", variant: "plain", title: "", output_value: port },
+            output: `device_reset/${port}`,
+        }
+
         // Row 1: port[1] port_path[1] type[2] status/sensor[2]
         const innerWidgets = [
             { kind: "Label", cols: 1, static: { label: `${port}`, size: "200%", weight: "700", justify: "left" }, dynamic: { color: `devices/${port}/color` } },
             { kind: "Label", cols: 1, static: { justify: "left" }, dynamic: { label: `devices/${port}/port_path` } },
             { kind: "Label", cols: 2, static: { justify: "left" }, dynamic: { label: `devices/${port}/type` } },
+            resetBtn,
         ]
 
         if (isSQM) {
@@ -263,7 +288,7 @@ class Dashboard {
         })
 
 
-        // Row 2: spacer[1] freq[1] GRH[2] gain[2]
+        // Row 2: spacer[1] freq[1] config button[4]
         if (showFreq) {
             innerWidgets.push({
                 kind: "Label", cols: 2,
@@ -272,21 +297,23 @@ class Dashboard {
             })
         }
 
+        // Config controls (toggles/dropdowns) are collected here and shown in a "Config"
+        // pop-up button rather than laid out directly in the device panel.
+        const configWidgets = []
+
         if (isDigiBabel) {
-            // Row 2: payload[2] encoding[2]
-            innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: "No payload", enabled: false, show_value: true, off_value: "No payload", on_value: "Payload" } })
-            innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: "CTT encoding", enabled: false, show_value: true, off_value: "CTT encoding", on_value: "Lotek encoding" } })
-            return { kind: "DynamicPanel", cols: 6, static: { card: true, widgets: innerWidgets } }
+            configWidgets.push({ kind: "Toggle", cols: 2, static: { value: "No payload", enabled: false, show_value: true, off_value: "No payload", on_value: "Payload" } })
+            configWidgets.push({ kind: "Toggle", cols: 2, static: { value: "CTT encoding", enabled: false, show_value: true, off_value: "CTT encoding", on_value: "Lotek encoding" } })
         }
 
         if (showGRH) {
             if (isNanoBabel) {
                 // NanoBabel has no VAMP pulse-detect plan and no GRH support; show fixed "NB" label
-                innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: "NB", enabled: false, show_value: true, on_value: "NB", off_value: "NB" } })
+                configWidgets.push({ kind: "Toggle", cols: 2, static: { value: "NB", enabled: false, show_value: true, on_value: "NB", off_value: "NB" } })
             } else if (grhFixed) {
-                innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: "GRH", enabled: false, show_value: true, on_value: "GRH", off_value: "VAH" } })
+                configWidgets.push({ kind: "Toggle", cols: 2, static: { value: "GRH", enabled: false, show_value: true, on_value: "GRH", off_value: "VAH" } })
             } else {
-                innerWidgets.push({
+                configWidgets.push({
                     kind: "Toggle", cols: 2,
                     static: { show_value: true, on_value: "GRH", off_value: "VAH" },
                     dynamic: { value: `devices/${port}/grh` },
@@ -301,10 +328,10 @@ class Dashboard {
                 // RF gain in dB: 0 = max sensitivity (no attenuation), -48 = max attenuation.
                 choices = ["0","-6","-12","-18","-24","-30","-36","-42","-48"]
                 labels  = ["0 dB","-6 dB","-12 dB","-18 dB","-24 dB","-30 dB","-36 dB","-42 dB","-48 dB"]
-                defaultVal = String(getAcqParam('airspyhf', 'sensitivity_gain') ?? 0)
+                defaultVal = String(getAcqParam('airspyhf', 'sensitivity_gain', port) ?? 0)
             } else if (isAirSpy) {
                 choices = Array.from({length: 22}, (_, i) => String(i)); labels = choices
-                defaultVal = String(getAcqParam('airspy', 'sensitivity_gain') ?? 12)
+                defaultVal = String(getAcqParam('airspy', 'sensitivity_gain', port) ?? 12)
             } else if (isFunCube) {
                 choices = ["0","1"]; labels = ["LNA off","LNA on"]; defaultVal = "1"
             } else {
@@ -312,14 +339,21 @@ class Dashboard {
                 // rtlInfo also reports in dB (gotCmdReply divides rtl_tcp's 0.1 dB units by 10).
                 choices = ["0","7.7","14.4","20.7","29.7","38.6","40.2","43.9","49.6"]
                 labels  = ["0 dB","7.7 dB","14.4 dB","20.7 dB","29.7 dB","38.6 dB","40.2 dB","43.9 dB","49.6 dB"]
-                const rawGain = getAcqParam(isNanoBabel ? 'rtlsdr' : typeLow, 'tuner_gain') ?? 29.7
+                const rawGain = getAcqParam(isNanoBabel ? 'rtlsdr' : typeLow, 'tuner_gain', port) ?? 29.7
                 defaultVal = String(rawGain)
             }
-            innerWidgets.push({
+            configWidgets.push({
                 kind: "DropdownSelect", cols: 2,
                 static: { choices, labels, value: defaultVal, color: "white" },
                 dynamic: { value: `devices/${port}/attn`, enabled: `devices/${port}/gain_enabled` },
                 output: `dev_attn/${port}`,
+            })
+        }
+
+        if (configWidgets.length) {
+            innerWidgets.push({
+                kind: "PopupButton", cols: 4,
+                static: { title: "Config", icon: "cog", color: "grey-darken-1", widgets: configWidgets },
             })
         }
 
@@ -356,9 +390,7 @@ class Dashboard {
         // load a Python plugin via VAMP (exit code 11), triggering a re-enumeration loop.
         if (!grh) {
             const devType = HubMan.devs[port]?.attr?.type || ''
-            const acqPlan = (Acquisition.plans || []).find(p => {
-                try { return new RegExp(p.key.devType).test(devType) } catch { return false }
-            })
+            const acqPlan = Acquisition.lookup(port, devType)?.plan
             if (acqPlan?.pulseFinder === 'gnuradio') {
                 FlexDash.set(`devices/${port}/grh`, 'GRH')
                 this.devicesLogPush(`Port ${port}: VAH unavailable — plan has only GnuRadio plugins`)
@@ -371,9 +403,12 @@ class Dashboard {
 
         this.devicesLogPush(`Port ${port}: switching to ${modeStr}...`)
 
-        // Store per-device override so sensor.js getSensor picks it up on re-init
+        // Store per-device override so sensor.js getSensor picks it up on re-init,
+        // and persist to acquisition.json so it survives restarts.
         if (!Acquisition.devModeOverrides) Acquisition.devModeOverrides = {}
         Acquisition.devModeOverrides[port] = modeStr
+        const devTypeG = HubMan.devs[port]?.attr?.type || ''
+        if (devTypeG) Acquisition.setPortPlan(port, devTypeG, { pulseFinder: grh ? 'gnuradio' : null })
 
         const dev = HubMan.devs[port]
         if (!dev) return
@@ -427,7 +462,53 @@ class Dashboard {
 
         this.matron.emit('requestSetParam', { port, par, val: v })
         Acquisition.updateDevParam(dev.attr.type, par, parseFloat(v))
+        Acquisition.setPortPlan(port, dev.attr.type, { devParams: { [par]: parseFloat(v) } })
         this.devicesLogPush(`Port ${port}: ${par} → ${v}`)
+    }
+
+    // Reset one device: delete its port-specific acquisition plan, clear in-memory override,
+    // and re-initialize the device so the base wildcard plan takes effect immediately.
+    handle_device_reset(port) {
+        const dev = HubMan.devs[port]
+        if (!dev) return
+        Acquisition.resetPortPlan(port)
+        if (Acquisition.devModeOverrides) delete Acquisition.devModeOverrides[port]
+        this.devicesLogPush(`Port ${port}: reset to default acquisition settings`)
+
+        const devCopy = JSON.parse(JSON.stringify(dev))
+        devCopy.state = 'init'
+        if (!this._intentionalRemove) this._intentionalRemove = new Set()
+        this._intentionalRemove.add(port)
+        this.matron.emit('devRemoved', devCopy)
+        delete HubMan.devs[port]
+        setTimeout(() => {
+            HubMan.devs[port] = devCopy
+            this.matron.emit('devAdded', devCopy)
+        }, 500)
+    }
+
+    // Reset all devices: delete all port-specific acquisition plans, clear all overrides,
+    // and re-initialize every connected device. Triggered via FlexDash output 'config_reset'.
+    handle_config_reset() {
+        Acquisition.resetAllPortPlans()
+        if (Acquisition.devModeOverrides) Acquisition.devModeOverrides = {}
+        this.devicesLogPush('All devices: reset to default acquisition settings')
+
+        const devCopies = Object.entries(HubMan.devs).map(([p, dev]) => {
+            const copy = JSON.parse(JSON.stringify(dev))
+            copy.state = 'init'
+            if (!this._intentionalRemove) this._intentionalRemove = new Set()
+            this._intentionalRemove.add(p)
+            this.matron.emit('devRemoved', copy)
+            delete HubMan.devs[p]
+            return [p, copy]
+        })
+        setTimeout(() => {
+            for (const [p, copy] of devCopies) {
+                HubMan.devs[p] = copy
+                this.matron.emit('devAdded', copy)
+            }
+        }, 1000)
     }
 
     devicesLogPush(msg) {
@@ -541,6 +622,28 @@ class Dashboard {
     handle_chrony(info) { FlexDash.set('chrony', info) } // {rms_error, time_source}
     handle_df(info) { FlexDash.set('df', info) } // {source, fstype, size, used, use%, target}
     handle_sdcardUse(pct) { FlexDash.set('sdcard_use', pct) }
+    handle_sysmonitorData({ cpu, temp, memUsedPct, memAvailMB, diskPct }) {
+        const now = Date.now()
+        if (cpu     != null) { this.ts_sysmon.cpu.avg(now, cpu);      FlexDash.set('system/cpu', cpu) }
+        if (temp    != null) { this.ts_sysmon.temp.avg(now, temp);    FlexDash.set('system/temp', temp) }
+        if (memUsedPct != null) { this.ts_sysmon.mem.avg(now, memUsedPct); FlexDash.set('system/mem_pct', memUsedPct) }
+        if (memAvailMB != null) FlexDash.set('system/mem_avail_mb', memAvailMB)
+        if (diskPct != null) { this.ts_sysmon.disk.avg(now, diskPct); FlexDash.set('system/disk', diskPct) }
+        this.sysmonShow()
+    }
+    sysmonShow() {
+        const now = Date.now()
+        const range = TimeSeries.ranges[this.ts_ix]
+        const keys = Object.keys(this.ts_sysmon)
+        const labels = ['cpu %', 'temp °C', 'mem %', 'disk %']
+        const [times, first] = this.ts_sysmon[keys[0]].get(range, now)
+        const data = times.map((t, i) => [Math.floor(t / 1000), first[i]])
+        for (let k = 1; k < keys.length; k++) {
+            const [, values] = this.ts_sysmon[keys[k]].get(range, now)
+            for (let j = 0; j < data.length; j++) data[j].push(values[j])
+        }
+        FlexDash.set('system/graphs', { data, labels, title: `system (${range})` })
+    }
     handle_setParam(info) { } // FlexDash.set('param', info) } // {param, value, error}
     handle_setParamError(info) { } // FlexDash.set('param', info) } // {param, error}
     handle_devAdded(info) {
@@ -553,9 +656,7 @@ class Dashboard {
         {
             const portOvr = Acquisition.devModeOverrides?.[port]
             const devTypeFP = info.attr?.type || ''
-            const acqPlanFP = (Acquisition.plans || []).find(p => {
-                try { return new RegExp(p.key.devType).test(devTypeFP) } catch { return false }
-            })
+            const acqPlanFP = Acquisition.lookup(port, devTypeFP)?.plan
             const useGRH_FP = portOvr === 'GRH' || (portOvr !== 'VAH' && acqPlanFP?.pulseFinder === 'gnuradio')
             FlexDash.set(`devices/${port}/grh`, useGRH_FP ? 'GRH' : 'VAH')
         }
@@ -579,11 +680,11 @@ class Dashboard {
             const adIsFC  = adTypeLow === 'funcubeproplus' || adTypeLow === 'funcubepro'
             let initialAttn = null
             if (adIsAHF) {
-                initialAttn = String(getAcqParam('airspyhf', 'sensitivity_gain') ?? 0)
+                initialAttn = String(getAcqParam('airspyhf', 'sensitivity_gain', port) ?? 0)
             } else if (adIsAS) {
-                initialAttn = String(getAcqParam('airspy', 'sensitivity_gain') ?? 12)
+                initialAttn = String(getAcqParam('airspy', 'sensitivity_gain', port) ?? 12)
             } else if (adIsRTL || adIsNB) {
-                const rawGain = getAcqParam(adIsNB ? 'rtlsdr' : adType, 'tuner_gain') ?? 29.7
+                const rawGain = getAcqParam(adIsNB ? 'rtlsdr' : adType, 'tuner_gain', port) ?? 29.7
                 initialAttn = String(rawGain)  // dB; hw_setParam multiplies ×10 for rtl_tcp
             } else if (adIsFC) {
                 initialAttn = "1"  // LNA on by default
@@ -596,9 +697,7 @@ class Dashboard {
         const typeLowDA = (info.attr?.type || '').toLowerCase()
         {
             const portOvr2 = Acquisition.devModeOverrides?.[port]
-            const acqPlanGE = (Acquisition.plans || []).find(p => {
-                try { return new RegExp(p.key.devType).test(info.attr?.type || '') } catch { return false }
-            })
+            const acqPlanGE = Acquisition.lookup(port, info.attr?.type || '')?.plan
             const isGRHMode = portOvr2 === 'GRH' || (portOvr2 !== 'VAH' && acqPlanGE?.pulseFinder === 'gnuradio')
             FlexDash.set(`devices/${port}/gain_enabled`, !(typeLowDA === 'funcubepro' && isGRHMode))
             this.devicesLogPush(`Port ${port}: connected (${info.attr?.type || 'unknown'}, ${isGRHMode ? 'GRH' : 'VAH'})`)
@@ -609,14 +708,16 @@ class Dashboard {
         if (!this._devHandlers) this._devHandlers = {}
         if (!this._devHandlers[port]) {
             const h = {
-                freq: (v) => this.handle_dev_freq(port, v),
-                grh:  (v) => this.handle_dev_grh(port, v),
-                attn: (v) => this.handle_dev_attn(port, v),
+                freq:  (v) => this.handle_dev_freq(port, v),
+                grh:   (v) => this.handle_dev_grh(port, v),
+                attn:  (v) => this.handle_dev_attn(port, v),
+                reset: ()  => this.handle_device_reset(port),
             }
             this._devHandlers[port] = h
             this.matron.on(`dash_dev_freq/${port}`, h.freq)
             this.matron.on(`dash_dev_grh/${port}`, h.grh)
             this.matron.on(`dash_dev_attn/${port}`, h.attn)
+            this.matron.on(`dash_device_reset/${port}`, h.reset)
         }
         this.rebuildDevicePanelWidgets()
     }
@@ -643,6 +744,7 @@ class Dashboard {
             this.matron.off(`dash_dev_freq/${port}`, this._devHandlers[port].freq)
             this.matron.off(`dash_dev_grh/${port}`, this._devHandlers[port].grh)
             this.matron.off(`dash_dev_attn/${port}`, this._devHandlers[port].attn)
+            this.matron.off(`dash_device_reset/${port}`, this._devHandlers[port].reset)
             delete this._devHandlers[port]
         }
         this.rebuildDevicePanelWidgets()
@@ -775,7 +877,7 @@ class Dashboard {
     handle_dash_scan_carriers_enable(enabled) { FlexDash.set('scan_carriers/enable',enabled) }
     handle_dash_cellular_priority(prio) {
         CellMan.setCellPriority(prio)
-        setTimeout(()=>FlexDash.set('cellular/priority', CellMan.getCellPriority()), 5000)
+        setTimeout(()=>CellMan.getCellPriority().then(prio => FlexDash.set('cellular/priority', prio)), 5000)
     }
     handle_dash_cell_debug() {
         CellMan.getCellDebug().then(dbg => FlexDash.set('cellular/debug', dbg))
@@ -1309,6 +1411,7 @@ class Dashboard {
                 this.tsShow(what)
             }
             this.tsTallyShow()
+            this.sysmonShow()
         } catch (e) {
             console.warn("tsRefresh", e)
         }
@@ -1322,6 +1425,9 @@ class Dashboard {
                 for (const series in ts) {
                     ts[series].save() // only does something if it's dirty
                 }
+            }
+            for (const key in this.ts_sysmon) {
+                this.ts_sysmon[key].save()
             }
         } catch (e) {
             console.warn("tsRefresh", e)
@@ -1574,6 +1680,19 @@ class Dashboard {
                 )
             }
             this.tsGotPulse(line.trim())
+        } else if (line.startsWith("F")) {
+            // broadband-interference flood interval: F<port>,<start_ts>,<end_ts>,<n_dropped>
+            const ff = line.trim().split(',')
+            const port = parseInt(ff[0].slice(1))
+            const start_ts = parseFloat(ff[1]) * 1000
+            const end_ts   = parseFloat(ff[2]) * 1000
+            const dropped  = parseInt(ff[3]) || 0
+            const fmt = t => (new Date(t)).toISOString().replace(/.*T/, '').replace(/\..*/, '')
+            const dur = ((end_ts - start_ts) / 1000).toFixed(1)
+            this.detectionLogPush(
+                `FLOOD F${port} ${fmt(start_ts)}-${fmt(end_ts)}: ` +
+                `broadband interference, ${dur}s, ${dropped} pulses dropped`
+            )
         }
         FlexDash.set('detections_5min', this.detections)
     }
@@ -1912,7 +2031,7 @@ class Dashboard {
             }
         })
 
-        FlexDash.set('cellular/priority', CellMan.getCellPriority())
+        CellMan.getCellPriority().then(prio => FlexDash.set('cellular/priority', prio))
     }
 
     // ===== Return monitoring data in json format

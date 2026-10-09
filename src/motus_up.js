@@ -276,7 +276,7 @@ class MotusUploader {
             console.log("Motus upload: no files to upload")
             return false
         }
-        if (!WifiMan.motus_status == "OK") {
+        if (WifiMan.motus_status != "OK") {
             console.log("Motus upload: not connected to motus.org")
             throw new Error("not connected to motus.org")
         }
@@ -579,9 +579,9 @@ class MotusUploader {
         if (data.user && data.password) {
             FlexDash.set('motus_login', {status: "checking...", info:null})
             try {
-                const ss = await motusLogin(data.user.trim(), data.password.trim())
-                this.session = ss.cookie
-                this.state.session_token = ss.session_token
+                const [cookie, session_token] = await motusLogin(data.user.trim(), data.password.trim())
+                this.session = cookie
+                this.state.session_token = session_token
                 this.writeState()
                 FlexDash.set('motus_login', {status: "ok", info: null})
             } catch (e) {

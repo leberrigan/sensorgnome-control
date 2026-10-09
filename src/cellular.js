@@ -190,15 +190,17 @@ class CellMan {
       .catch(err => console.log(`enableCellular(${enable}):`, err.message))
   }
 
-  getCellPriority() {
+  async getCellPriority() {
     let metric = undefined
-    ChildProcess.execFile("/usr/bin/ip", ["route"], (code, stdout, stderr) => {
-      console.log(`ip route code=${code} stderr=${stderr}`)
+    try {
+      const stdout = await this.execFile("/usr/bin/ip", ["route"])
       for (const line of stdout.split('\n')) {
         const mm = line.match(/^default .*dev (wwan[0-9]|usb[0-9]).* metric ([0-9]*)/)
         if (mm && mm[2]) { metric = parseInt(mm[2]); break }
       }
-    })
+    } catch (e) {
+      console.log("Error running ip route: " + e.message)
+    }
     if (!metric) {
       try {
         let text = Fs.readFileSync("/etc/dhcpcd.conf").toString()
@@ -213,7 +215,7 @@ class CellMan {
 
   setCellPriority(priority) {
     if (!["low","high"].includes(priority)) return
-    if (priority == this.config.priority) return // no change
+    if (priority == this.config.data.priority) return // no change
     this.config.update({priority})
     const metric = priority == "high" ? 500 : 10000
     ChildProcess.execFile("/usr/bin/sed",
@@ -306,7 +308,7 @@ class CellMan {
           if (info["bearer conn"] != "yes" && info["bearer error"])
             this.matron.emit("netCellReason", info["bearer error"])
           info.APN = bearer?.properties?.["apn"]
-          if (reason = "" && info.APN == "") {
+          if (reason == "" && info.APN == "") {
             reason = "APN not set"
             this.matron.emit("netCellReason", reason)
           }
@@ -333,7 +335,7 @@ class CellMan {
             }
           }
         } else if (data.modem?.["3gpp"]?.["scan-networks"]) {
-			    info = listCarriers(data, info);
+			    info = this.listCarriers(data, info);
           if (reason == "") {
             reason = "Searching for carrier"
             this.matron.emit("netCellReason", reason)
@@ -451,15 +453,20 @@ class CellMan {
 
   listCarriers( data, info ) {
 
-    const nets = data.modem?.["3gpp"]?.["scan-networks"]
+    const nets = data.modem?.["3gpp"]?.["scan-networks"] || []
     //console.log("nets:", nets)
     info["scan"] = nets.length + " networks"
     let carriers = [];
     for (let i = 0; i < nets.length && i < 10; i++) {
-      const code = nets[i].match(/operator-code: *([^,]*)/)?.[1]
-      const op = nets[i].match(/operator-name: *([^,]*)/)?.[1]
-      const tech = nets[i].match(/access-technologies: *([^,]*)/)?.[1]
-      const avail = nets[i].match(/availability: *([^,]*)/)?.[1]
+      const entry = nets[i]
+      // mmcli text output is "operator-code: 302610, operator-name: Bell, ...",
+      // mmcli -J output is an object with those fields
+      const isStr = typeof entry == "string"
+      const code = isStr ? entry.match(/operator-code: *([^,]*)/)?.[1] : entry?.["operator-code"]
+      const op = isStr ? entry.match(/operator-name: *([^,]*)/)?.[1] : entry?.["operator-name"]
+      let tech = isStr ? entry.match(/access-technologies: *([^,]*)/)?.[1] : entry?.["access-technologies"]
+      if (Array.isArray(tech)) tech = tech.join(" ")
+      const avail = isStr ? entry.match(/availability: *([^,]*)/)?.[1] : entry?.["availability"]
       if (op) {
         info[op] = tech + ", " + avail
         carriers.push([

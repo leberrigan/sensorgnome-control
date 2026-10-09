@@ -73,12 +73,17 @@ class GPS {
     }
 
     conError(e) {
+        // the socket may emit both "error" and "end", only handle the first
         console.log("GPSD connect error", e?.message)
-        this.gpsdCon.destroy()
-        this.gpsdCon = null
-        this.matron.emit("gotGPSFix", { state: "no-dev"})
-        this.conTimeOut = setTimeout(this.this_connect, this.retryTime)
-        this.retryTime = Math.min(600000, this.retryTime * 2)
+        if (this.gpsdCon) {
+            this.gpsdCon.destroy()
+            this.gpsdCon = null
+            this.matron.emit("gotGPSFix", { state: "no-dev"})
+        }
+        if (!this.conTimeOut) {
+            this.conTimeOut = setTimeout(this.this_connect, this.retryTime)
+            this.retryTime = Math.min(600000, this.retryTime * 2)
+        }
     }
 
     getFix() {
