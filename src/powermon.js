@@ -75,6 +75,7 @@ class PowerMon {
     this.config = new PowerConfig(CONFIG_PATH)
     this.underNow = false
     this.sinceBoot = false
+    this.hasModem = null
     this.range = TimeSeries.ranges[0]
     this.pollTimer = null
     this.evalTimer = null
@@ -145,6 +146,12 @@ class PowerMon {
     this.ts.duty.avg(now, v)
     if (cellOn) this.ts.dutyCellOn.avg(now, v)
     else this.ts.dutyCellOff.avg(now, v)
+
+    const hasModem = typeof CellMan != 'undefined' && CellMan && CellMan.cell_state !== 'no-modem'
+    if (hasModem !== this.hasModem) {
+      this.hasModem = hasModem
+      this._emitMitigation()
+    }
 
     this._emitStatus()
     this.buildGraphs(this.range)
@@ -275,7 +282,11 @@ class PowerMon {
   _emitMitigation() {
     const s = this.mitState
     let color = 'green', title = 'OK', text = ''
-    if (s.disabled && !s.trial) {
+    if (typeof CellMan == 'undefined' || !CellMan || CellMan.cell_state === 'no-modem') {
+      color = 'grey'
+      title = 'Not installed'
+      text = 'No cellular modem detected.'
+    } else if (s.disabled && !s.trial) {
       color = 'red'
       title = 'Cellular auto-disabled (undervoltage)'
       text = `Undervoltage ${s.evidence?.onPct?.toFixed(2)}% of time while cell connected vs `

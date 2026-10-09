@@ -3253,7 +3253,7 @@
       "static": {
         "title": "Cellular",
         "value": "OK",
-        "color": "#FF9800",
+        "color": "#9E9E9E",
         "low_regexp": "OK",
         "low_color": "#4CAF50",
         "high_regexp": "disabled",
