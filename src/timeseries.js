@@ -138,6 +138,17 @@ class TimeSeries {
     this.dirty = true
   }
 
+  // set the per-range maximum; values is an array with one entry per range index
+  // used to record a count (e.g. unique tag IDs) without rate extrapolation
+  max_ranges(at, values) {
+    this.append(at, 0, (r, i) => {
+      if (values[i] == null) return
+      const curr = this.data[r][TimeSeries.limits[i]-1]
+      this.data[r][TimeSeries.limits[i]-1] = curr === null ? values[i] : Math.max(curr, values[i])
+    })
+    this.dirty = true
+  }
+
   // return the time series for a specific range in the form of [[time], [value]]
   // returns a time series such that the last point covers `at`
   get(range, at=Date.now()) {
