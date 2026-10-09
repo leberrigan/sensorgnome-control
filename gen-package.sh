@@ -8,7 +8,7 @@ mkdir $DESTDIR
 
 # install FlexDash from fork's S3 build (CI uploads flexdash-{version}.tgz on every push)
 mkdir -p src/public/flexdash
-curl -L https://flexdash-982081078525-us-east-1-an.s3.us-east-1.amazonaws.com/flexdash-0.4.90.tgz | \
+curl -L https://flexdash-982081078525-us-east-1-an.s3.us-east-1.amazonaws.com/flexdash-0.4.91.tgz | \
     tar xzf - -C src/public/flexdash
 
 # Inject hashed bundle filenames into flexdash.html using the Vite manifest
