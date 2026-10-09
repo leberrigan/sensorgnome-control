@@ -24,6 +24,7 @@ Sensor = function(matron, dev, devPlan) {
 
     this.isOpen = false;
     this.numOpenRetries = 0;
+    this.cancelled = false; // set true by devRemoved to abort any pending init retries
     this.on = false; // is the device supposed to be on right now?
     this.lastParSetting = null;
     this.rawFiling = false;  // are we supposed to be recording raw files?
@@ -52,13 +53,18 @@ getSensor = function(matron, dev, devPlan) {
 // factory method
 
     var rv;
-    
-    // console.log("Device plan: ", JSON.stringify(devPlan?.plan))
 
-    if (devPlan?.plan?.pulseFinder == "gnuradio" && Acquisition.gnuradio_enabled) {
+    // Per-device VAH/GRH override set by the FlexDash toggle (via dashboard.js handle_dev_grh).
+    // Takes precedence over the plan's pulseFinder field so the toggle works without editing
+    // acquisition.json.
+    const portOverride = Acquisition.devModeOverrides?.[dev.attr.port]
+    const planWantsGRH = devPlan?.plan?.pulseFinder === "gnuradio"
+    const useGRH = portOverride === 'GRH' || (portOverride !== 'VAH' && planWantsGRH)
+
+    if (useGRH && Acquisition.gnuradio_enabled) {
         rv = new GR_SDR.GR_SDR(matron, dev, devPlan);
-    } else if (devPlan?.plan?.pulseFinder == "gnuradio") {
-        // GnuRadio disabled: only USB audio devices have a working VAMP fallback
+    } else if (useGRH) {
+        // GnuRadio wanted but disabled: only USB audio devices have a working VAMP fallback
         if (dev.attr.type === "funcubePro" || dev.attr.type === "funcubeProPlus" || dev.attr.type === "usbAudio") {
             rv = new USBAudio.USBAudio(matron, dev, devPlan);
         } else {
@@ -92,6 +98,7 @@ getSensor = function(matron, dev, devPlan) {
 Sensor.prototype.devRemoved = function(dev) {
     if (dev && dev.path != this.dev.path)
         return;
+    this.cancelled = true; // stop any pending init/retry timeouts for this sensor
 //    this.startStop("off", null, this);
     this.matron.removeListener("devRemoved", this.this_devRemoved);
     this.matron.removeListener("devStalled", this.this_devStalled);
@@ -134,7 +141,7 @@ Sensor.prototype.devStalled = function(vahDevLabel, message) {
 // };
 
 Sensor.prototype.init = function() {
-// DEBUG: console.log("Sensor.prototype.init\n")
+    if (this.cancelled) return;
     // open (without starting) the device
     if (this.hw_init) {
         this.hw_init(this.this_initDone);
@@ -163,7 +170,7 @@ Sensor.prototype.vahOpenReply = function (reply, self) {
         // schedule a retry on this device (every 10 seconds up to 10 times)
         self.matron.emit("devState", self.dev.attr.port, "error", "VAH cannot open device");
         if (++self.numOpenRetries < 3) {
-            setTimeout (self.this_init, 10000);
+            if (!self.cancelled) setTimeout(self.this_init, 10000);
         } else {
             self.matron.emit("bad", "Unable to open VAH device: " + self.dev.path, reply.error);
             self.hw_stalled();
@@ -205,7 +212,7 @@ Sensor.prototype.grOpenReply = function (reply, self) {
         console.log(`sensor GnuRadio open reply port ${self.dev.attr?.port} got ${JSON.stringify(reply)}\n`);
         self.matron.emit("devState", self.dev.attr.port, "error", "GnuRadio cannot open device");
         if (++self.numOpenRetries < 3) {
-            setTimeout (self.this_init, 10000);
+            if (!self.cancelled) setTimeout(self.this_init, 10000);
         } else {
             self.matron.emit("bad", "Unable to open GnuRadio device: " + self.dev.path, reply.error);
             self.hw_stalled();

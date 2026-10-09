@@ -466,8 +466,11 @@ class FlexDash {
                     res.status(401).end()
                 } else {
                     req.session.rooms = "*"
-                    res.status(200).end()
-                    this.matron.emit("dash_login", req.body?.user, req.body?.password)
+                    req.session.save((saveErr) => {
+                        if (saveErr) console.log("Session save error:", saveErr)
+                        res.status(200).end()
+                        this.matron.emit("dash_login", req.body?.user, req.body?.password)
+                    })
                 }
             }, {serviceName: 'login', remoteHost: 'localhost'})
         } else {

@@ -2734,46 +2734,36 @@
       "output": null
     },
     "w06592": {
-      "kind": "Gauge",
+      "kind": "Stat",
       "rows": 1,
       "cols": 2,
       "static": {
         "title": "Signal Strength",
-        "value": 90,
-        "unit": "dBm",
-        "stretch": false,
-        "low_threshold": -110,
-        "high_threshold": -90,
-        "low_color": "#C62828",
-        "high_color": "#2E7D32",
-        "color": "#FF8F00",
-        "min": -120,
-        "max": -50
+        "high_regexp": "Good|Excellent",
+        "high_color": "#4CAF50",
+        "low_regexp": "Poor",
+        "low_color": "#F44336",
+        "color": "#000000"
       },
       "dynamic": {
-        "value": "cellular/signal/dbm",
-        "color": "cellular/signal/color"
+        "value": "cellular/signal/quality"
       },
       "id": "w06592"
     },
     "w05306": {
-      "kind": "Gauge",
+      "kind": "Stat",
       "rows": 2,
       "cols": 2,
       "static": {
         "title": "Signal Strength",
-        "low_color": "#C62828",
-        "low_threshold": -75,
-        "high_threshold": -55,
-        "high_color": "#2E7D32",
-        "color": "#FF8F00",
-        "unit": "dBm",
-        "max": -30,
-        "min": -90
+        "high_regexp": "Good|Excellent",
+        "high_color": "#4CAF50",
+        "low_regexp": "Poor",
+        "low_color": "#F44336",
+        "color": "#000000"
       },
       "dynamic": {
-        "value": "net_wifi_signal/dbm",
-        "color": "net_wifi_signal/color"
+        "value": "net_wifi_signal/quality"
       },
       "id": "w05306"
     },
@@ -2857,7 +2847,8 @@
       "cols": 4,
       "static": {
         "title": "",
-        "value": ""
+        "value": "",
+        "color": "white"
       },
       "dynamic": {
         "value": "wifi/ssid",
@@ -3057,12 +3048,53 @@
       "rows": 6,
       "cols": 3,
       "static": {
-        "title": "Device Status"
+        "title": "Device Status",
+        "background_color": "rgba(0,0,0,0)"
       },
       "dynamic": {
         "widgets": "device_panel_widgets"
       },
       "id": "w00042"
+    },
+    "w04103": {
+      "kind": "UsbPortMap",
+      "rows": 3,
+      "cols": 3,
+      "static": {
+        "title": "UsbPortMap",
+        "model_image": "/rpi3-usb-ports.png"
+      },
+      "dynamic": {
+        "devices": "devices",
+        "portmap": "portmap_file"
+      },
+      "id": "w04103"
+    },
+    "w02216": {
+      "kind": "TextView",
+      "rows": 5,
+      "cols": 3,
+      "static": {
+        "title": "Detection log"
+      },
+      "dynamic": {
+        "text": "detection_log"
+      },
+      "id": "w02216",
+      "output": null
+    },
+    "w09262": {
+      "kind": "TextView",
+      "rows": 3,
+      "cols": 3,
+      "static": {
+        "title": "Live Tags and Pulses"
+      },
+      "dynamic": {
+        "text": "detection_log"
+      },
+      "id": "w09262",
+      "output": null
     }
   },
   "grids": {
@@ -3099,10 +3131,12 @@
         "w00042",
         "w06015",
         "w02087",
-        "w00699"
+        "w00699",
+        "w04103"
       ],
       "id": "g03145",
-      "max_cols": 6
+      "max_cols": 6,
+      "min_cols": 4
     },
     "g07380": {
       "kind": "StdGrid",
@@ -3134,6 +3168,7 @@
       "title": "",
       "widgets": [
         "w08212",
+        "w09262",
         "w09712",
         "w09240",
         "w07135",
@@ -3182,6 +3217,7 @@
       "t00001",
       "t01980",
       "t06560",
+      "t00791",
       "t06959",
       "t08355",
       "t10000",
@@ -3209,8 +3245,7 @@
       "title": "radios",
       "id": "t06560",
       "grids": [
-        "g03145",
-        "g08970"
+        "g03145"
       ]
     },
     "t06959": {
@@ -3243,6 +3278,14 @@
       "id": "t10000",
       "grids": [
         "g10000"
+      ]
+    },
+    "t00791": {
+      "icon": "mdi-pulse",
+      "title": "live data",
+      "id": "t00791",
+      "grids": [
+        "g08970"
       ]
     }
   },
