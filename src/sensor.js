@@ -1,6 +1,6 @@
 /*
   implement a plan for a sensor; this can be a radio source
-  (funcubedongle, rtlsdr) or an audio source (usbaudio).
+  (funcubedongle, rtlsdr, airspy) or an audio source (usbaudio).
 
   This object represents a plugged-in sensor and associated plan.
   As soon as it is created, it begins applying the plan.  This means:
@@ -29,6 +29,7 @@ Sensor = function(matron, dev, devPlan) {
     this.rawFiling = false;  // are we supposed to be recording raw files?
     this.restartTimeout = null; // timeout event for restarting device, e.g. after a stall
 
+    console.log("[sensor.js] Binding init fn: ", this.init)
     // callback closures
     this.this_init                   = this.init.bind(this);
     this.this_initDone               = this.initDone.bind(this);
@@ -38,6 +39,7 @@ Sensor = function(matron, dev, devPlan) {
     this.this_requestSetParam        = this.requestSetParam.bind(this);
     this.this_rawFileDone            = this.rawFileDone.bind(this);
 
+    console.log("[sensor.js] Binding matron fns...")
     this.matron.on("devRemoved", this.this_devRemoved);
     this.matron.on("quit", this.this_devRemoved);
     this.matron.on("devStalled", this.this_devStalled);
@@ -50,22 +52,41 @@ getSensor = function(matron, dev, devPlan) {
 // factory method
 
     var rv;
+    
+    // console.log("Device plan: ", JSON.stringify(devPlan?.plan))
 
-    switch(dev.attr.type) {
-    case "funcubePro":
-    case "funcubeProPlus":
-    case "usbAudio":
-        rv = new USBAudio.USBAudio(matron, dev, devPlan);
-        break;
-    case "rtlsdr":
-        rv = new RTLSDR.RTLSDR(matron, dev, devPlan);
-        break;
-    default:
-        rv = null;
+    if (devPlan?.plan?.pulseFinder == "gnuradio" && Acquisition.gnuradio_enabled) {
+        rv = new GR_SDR.GR_SDR(matron, dev, devPlan);
+    } else if (devPlan?.plan?.pulseFinder == "gnuradio") {
+        // GnuRadio disabled: only USB audio devices have a working VAMP fallback
+        if (dev.attr.type === "funcubePro" || dev.attr.type === "funcubeProPlus" || dev.attr.type === "usbAudio") {
+            rv = new USBAudio.USBAudio(matron, dev, devPlan);
+        } else {
+            console.log(`GnuRadio disabled — no VAMP fallback for ${dev.attr.type} on port ${dev.attr.port}, skipping`);
+            rv = null;
+        }
+    } else {
+        switch(dev.attr.type) {
+            case "funcubePro":
+            case "funcubeProPlus":
+            case "usbAudio":
+                rv = new USBAudio.USBAudio(matron, dev, devPlan);
+                break;
+            case "rtlsdr":
+                rv = new RTLSDR.RTLSDR(matron, dev, devPlan);
+                break;
+            case "airspy":
+                rv = new AIRSPY.AIRSPY(matron, dev, devPlan);
+                break;
+            default:
+                rv = null;
+        }
     }
+
     if (rv)
-        setTimeout(rv.this_init, 250);
-    return(rv);
+        setTimeout(rv.this_init, 250); // Trigger initialization after 250 ms
+    
+    return(rv); // the matron doesn't actually do anything with this
 };
 
 Sensor.prototype.devRemoved = function(dev) {
@@ -85,6 +106,10 @@ Sensor.prototype.devRemoved = function(dev) {
 }
 
 Sensor.prototype.close = function() {
+    if (this.plan.pulseFinder === "gnuradio") {
+        this.matron.emit("grhSubmit", "close " + this.dev.attr.port);
+        return;
+    }
     var plugins = this.plan.plugins;
     for (var i in plugins) {
         var plugin = plugins[i];
@@ -93,7 +118,7 @@ Sensor.prototype.close = function() {
     this.matron.emit("vahSubmit", "close " + this.dev.attr.port);
 };
 
-// devSDtalled event handler, triggered by VAH when rate is out of bounds
+// devStalled event handler, triggered by VAH/GRH when rate is out of bounds or subprocess dies
 Sensor.prototype.devStalled = function(vahDevLabel, message) {
     if (vahDevLabel == 'p'+this.dev.attr.port) {
         console.log("Got devStalled for " + vahDevLabel);
@@ -119,9 +144,17 @@ Sensor.prototype.init = function() {
 };
 
 Sensor.prototype.initDone = function() {
-    var cmd = "open " + this.dev.attr.port + " " + this.hw_devPath() + " " + this.plan.rate + " " + this.plan.channels;
-    console.log("Opening VAH: " + cmd);
-    this.matron.emit("vahSubmit", cmd, this.vahOpenReply, this);
+    if (this instanceof GR_SDR.GR_SDR) {
+        // Expects commands in this order: dev_type port device samp_rate target_rate freq gain additional_args
+        var cmd = `open ${this.dev.attr.type} ${this.dev.attr.port} ${this.getDeviceID()} ${this.plan.samp_rate} ${this.plan.rate} ${this.plan.frequency*1e6} ${this.plan.gain} ${this.plan.additional_args}`
+        //"open " + this.dev.attr.port + " " + this.hw_devPath() + " " + this.plan.rate + " " + this.plan.channels;
+        console.log("Opening GRH: " + cmd);
+        this.matron.emit("grhSubmit", cmd, this.grOpenReply, this);
+    } else {
+        var cmd = "open " + this.dev.attr.port + " " + this.hw_devPath() + " " + this.plan.rate + " " + this.plan.channels;
+        console.log("Opening VAH: " + cmd);
+        this.matron.emit("vahSubmit", cmd, this.vahOpenReply, this);
+    }
 };
 
 Sensor.prototype.vahOpenReply = function (reply, self) {
@@ -167,6 +200,34 @@ Sensor.prototype.vahOpenReply = function (reply, self) {
     }
 };
 
+Sensor.prototype.grOpenReply = function (reply, self) {
+    if (reply.error) {
+        console.log(`sensor GnuRadio open reply port ${self.dev.attr?.port} got ${JSON.stringify(reply)}\n`);
+        self.matron.emit("devState", self.dev.attr.port, "error", "GnuRadio cannot open device");
+        if (++self.numOpenRetries < 3) {
+            setTimeout (self.this_init, 10000);
+        } else {
+            self.matron.emit("bad", "Unable to open GnuRadio device: " + self.dev.path, reply.error);
+            self.hw_stalled();
+        }
+        return;
+    }
+    self.isOpen = true;
+
+    // register with GRH for alive monitoring
+    self.matron.emit("grhAccept", "p" + self.dev.attr.port);
+
+    // if any schedules exist (because device was restarted, e.g.),
+    // don't set them up again.
+    if (self.schedules === undefined) {
+        self.schedules = [];
+        var dp = self.plan.devParams;
+        for (var i in dp) {
+            self.schedules.push(Schedule.Make(dp[i].schedule, self.setParam, {self: self, par: dp[i].name}));
+        };
+        self.setupDevSchedule(self);
+    }
+};
 Sensor.prototype.getPluginLabel = function(letter) {
     // for now, we assume only one plugin per port and just label
     // everything with the devLabel, which is "pX" (X = USB hub port
@@ -183,6 +244,15 @@ Sensor.prototype.vahAttachReply = function (reply, pars) {
         self.matron.emit("devState", self.dev.attr.port, "error", reply.error);
     } else {
         self.matron.emit("vahAccept", self.getPluginLabel(plugin.letter));
+    }
+};
+Sensor.prototype.grAttachReply = function (reply, pars) {
+    var self = pars.self, pno=pars.i, plugin = self.plan.plugins[pno];
+    if (reply.error) {
+        console.log(`Cannot attach plugin ${plugin.library}:${plugin.name}:${plugin.outputID} to ${JSON.stringify(self.dev)}: ${reply.error}`)
+        self.matron.emit("devState", self.dev.attr.port, "error", reply.error);
+    } else {
+        self.matron.emit("grhAccept", self.getPluginLabel(plugin.letter));
     }
 };
 
@@ -236,9 +306,10 @@ Sensor.prototype.startStop = function(newState, oldState, self) {
     }
     self.startStopRawFiler(self.on);
     self.hw_startStop(self.on);
-    var cmd = self.on ? "start" : "stop";
-    self.matron.emit("vahStartStop", cmd, self.dev.attr.port, self.startStopReply, self);
-    // self.matron.emit("vahSubmit", cmd, self.startStopReply, self);
+    if (self.plan.pulseFinder !== "gnuradio") {
+        var cmd = self.on ? "start" : "stop";
+        self.matron.emit("vahStartStop", cmd, self.dev.attr.port, self.startStopReply, self);
+    }
     if (self.dev) self.matron.emit("devState", self.dev.attr.port, self.on ? "running" : "stopped");
 };
 

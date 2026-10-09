@@ -4,7 +4,7 @@ var Fs = require("fs")
 var Fsp = require("fs").promises
 
 // fields that can be updated
-const UPDATABLE = [ 'label', 'memo', 'lotek_freq', 'agc', 'burstfinder', 'rtlsdr']
+const UPDATABLE = [ 'label', 'memo', 'lotek_freq', 'agc', 'burstfinder', 'rtlsdr', 'gnuradio_enabled']
 
 // Acquisition settings for receivers and other sensors, including operating plans
 class Acquisition {
@@ -21,6 +21,8 @@ class Acquisition {
             }
             // ensure AGC enable is defined
             d.agc = !!d.agc
+            // ensure gnuradio_enabled is defined, default off
+            if (d.gnuradio_enabled === undefined) d.gnuradio_enabled = false
             // insert default burstfinder output settings
             const bf_def = {
                 filter_file: false,
@@ -29,7 +31,7 @@ class Acquisition {
                 both_ui: false,
             }
             d.burstfinder = {...bf_def, ...d.burstfinder}
-    
+
             // log some info
             for (let j in d) this[j] = d[j]
             console.log(`lotek freq: ${this.lotek_freq}`)
@@ -41,12 +43,13 @@ class Acquisition {
             console.log("Error loading acquisition.txt:", e)
             throw e
         }
-    }
+    }    
     
     // lookup returns the first plan matching the given device type and port
     lookup(port, devType) {
         const plans = this.plans
         for (let i in plans) {
+            console.log("Checking plan", i, plans[i].key.port, plans[i].key.devType)
             if (port.match(new RegExp(plans[i].key.port)) &&
                 devType.match(new RegExp(plans[i].key.devType)))
             {
@@ -65,13 +68,13 @@ class Acquisition {
         for (let plan of this.plans) {
             for (let dp of plan.devParams || []) {
                 if (dp.name == "frequency") {
-                    const freq = f-0.004
+                    const freq = f-0.004 // Why is the offset frequency hard-coded like this??
                     console.log(`setting ${plan.key.devType} frequency to ${freq}`)
                     dp.schedule.value = freq
                 }
             }
         }
-        console.log(`setting module_options.find_tags.params[1] to ${f}`)
+        console.log(`setting module_options.find_tags.params[1] to ${f}`) // Omg this is flaky
         this.module_options.find_tags.params[1] = f
     }
 

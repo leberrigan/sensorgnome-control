@@ -8,6 +8,7 @@ class Enpi {
         this.child = null
         this.quitting = false
         this.provisioned = false
+        this.inetOK = false
 
         this.lat = null
         this.lon = null
@@ -45,7 +46,10 @@ class Enpi {
         this.matron.emit(`enpi_upload_config_status`, false)
         //setTimeout(()=>this.provision(),1000)
         this.matron.on("netInet", (status)=>{
-            if (status == "OK") this.provision()
+            this.inetOK = status === "OK"
+            const anySensorActive = Object.entries(this.sensors)
+                .some(([name, s]) => name !== "upload" && s.active)
+            if (this.inetOK && anySensorActive) this.provision()
         })
 
         this.getSoftwareVersion()
@@ -219,6 +223,7 @@ class Enpi {
 
         if (s.intervalSecs > 0) {
             console.log(`enpi-${sensorName}: Waiting for ${s.intervalSecs} seconds before running again.`)
+            if (s.interval) clearInterval(s.interval)
             s.interval = setInterval(()=>{
                 this.start(sensorName)
             }, s.intervalSecs * 1e3)
@@ -362,8 +367,10 @@ class Enpi {
             if (!this.sensors.upload.configured) this.configure('upload')
             this.sensors.upload.active = true
         }
-        if (value === "on") this.start(sensor)
-        else this.stop(sensor)
+        if (value === "on") {
+            this.start(sensor)
+            if (this.inetOK) this.provision()
+        } else this.stop(sensor)
         if (this.sensors.upload.active && !Object.values(this.sensors).some( values => values.active )) this.stop('upload')
         this.saveConfig()
     }   

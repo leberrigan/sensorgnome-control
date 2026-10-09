@@ -50,11 +50,11 @@ class Dashboard {
         for (const ev of [
             // normal events funneled through matron (i.e. from app)
             'gotGPSFix', 'chrony', 'gotTag', 'setParam', 'setParamError', 'devAdded', 'devRemoved',
-            'df', 'sdcardUse', 'vahData', 'netDefaultRoute', 'netInet', 'netMotus', 'netWifiState',
+            'df', 'sdcardUse', 'vahData', 'grhData', 'netDefaultRoute', 'netInet', 'netMotus', 'netWifiState',
             'netHotspotState', 'netWifiConfig', 'portmapFile', 'tagDBInfo', 'motusRecv',
             'motusUploadResult', 'netDefaultGw', 'netDNS', 'lotekFreq', 'netCellState', 'netCellReason', "netScanStatus",
             'netCellInfo', 'netCellConfig', 'cttRadioVersion', 'digibabelRadioVersion', 'nanobabelIdentified', 'vahRate', 'vahFrames', 'devState',
-            'rtlInfo',
+            'rtlInfo', 'acquisition', 'gotBurst','airspyInfo',
             "enpi_light_status", "enpi_air_status", "enpi_light_toggle", "enpi_air_toggle","enpi_air_gotData","enpi_light_gotData",
             'enpi_status', 'enpi_sample_rate','enpi_sample_schedule','enpi_aws_buket_name', 'enpi_upload_status',
             'enpi_upload_log','enpi_upload_gotData','enpi_update_log', 'enpi_version',
@@ -72,6 +72,7 @@ class Dashboard {
             'dash_remote_cmds', 'dash_detection_range', 'dash_alter_bootCount', 'dash_enable_agc',
             "dash_enpi_air_toggle", "dash_enpi_light_toggle", "dash_enpi_detection_range", "dash_enpi_secrets_file",
             'dash_enpi_update',
+            'dash_gnuradio_enabled',
             'dash_show_pulses', 'dash_cellular_priority', 'dash_burstfinder_burst',
             'dash_burstfinder_filter_file', 'dash_burstfinder_filter_ui',
             'dash_burstfinder_method', 'dash_cell_debug', 'dash_cell_scan',
@@ -118,7 +119,7 @@ class Dashboard {
         setInterval(() => this.tsSave(), 60000)
 
         this.pulse_ts = [] // timestamp of last pulse per port
-        
+
         // prime some data
         setTimeout(() => {
             this.handle_motusRecv({})
@@ -148,6 +149,7 @@ class Dashboard {
         // some static machine info
         FlexDash.set('machineinfo', Machine)
         setTimeout(()=>FlexDash.set('machineinfo', Machine), 15000) // sdCardSize comes delayed
+        FlexDash.set('portmap/refimage', this.portmapRefImage())
         FlexDash.set('software/enable', false)
         FlexDash.set('software/enable_upgrade', false)
         FlexDash.set('software/enable_shutdown', false)
@@ -163,6 +165,7 @@ class Dashboard {
         FlexDash.set('df_tags', this.df_tags)
         FlexDash.set('df_log', "")
         FlexDash.set('rtl_sdr_gain', {})
+        FlexDash.set('airspy_gain', {})
         FlexDash.set('lotek_show_pulses', "on")
         this.show_pulses = true
         FlexDash.set('cellular/iccid', '**********************')
@@ -207,6 +210,11 @@ class Dashboard {
         }
     }
 
+    handle_airspyInfo(port, info) {
+        if (port && info?.tuner_type) {
+            FlexDash.set(`devices/${port}/type`, 'airspy/'+info.tuner_type)
+        }
+    }
     handle_dash_alter_bootCount(obj) {
         if (!obj?.bootCount) return
         const bc = parseInt(obj.bootCount)
@@ -221,7 +229,8 @@ class Dashboard {
     updateNumRadios() {
         return {
             ctt: Object.values(HubMan.devs).filter(d => d.attr?.radio.startsWith("CTT") || d.attr?.radio == "DigiBabel").length,
-            vah: Object.values(HubMan.devs).filter(d => d.attr?.radio == "VAH").length,
+            vah: Object.values(HubMan.devs).filter(d => ["VAH", "GRH"].includes( d.attr?.radio) ).length,
+        //    grh: Object.values(HubMan.devs).filter(d => d.attr?.radio == "GRH").length,
             sensors: Object.values(HubMan.devs).filter(d => d.attr?.radio == "none").length,
             all: Object.values(HubMan.devs).filter(d => d.attr?.radio && d.attr?.radio != "none" ).length,
             // bad: radios with invalid port
@@ -298,6 +307,12 @@ class Dashboard {
         FlexDash.set(`devices/${info.port}/type`, 'CTTv' + v)
     }
     handle_portmapFile(txt) { FlexDash.set('portmap_file', txt) }
+
+    portmapRefImage() {
+        const m = Machine.machineType.match(/Raspberry Pi (\d+)/)
+        const gen = m?.[1]
+        return ['3', '4', '5'].includes(gen) ? `/rpi${gen}-port-numbering.png` : null
+    }
     handle_dash_update_portmap(portmap) { HubMan.setPortmap(portmap) }
     handle_tagDBInfo(data) { FlexDash.set('tagdb', data) }
     handle_motusUploadResult(data) { FlexDash.set('motus_upload', data) }
@@ -314,6 +329,14 @@ class Dashboard {
                 [k,v]) => [k, v==true?"on":v==false?"off":v]
         ))
         )
+        // sync gnuradio toggle state
+        FlexDash.set('gnuradio/enabled', config.gnuradio_enabled)
+    }
+
+    handle_dash_gnuradio_enabled(enabled) {
+        Acquisition.update({ gnuradio_enabled: enabled })
+        this.matron.emit("gnuradioEnabled", enabled)
+        HubMan.resetDevices()
     }
     handle_dash_burstfinder_method(v) { 
         if (['burstfinder','pulsefilter'].includes(v)) this.updateBFConfig("method", v)
@@ -724,7 +747,7 @@ class Dashboard {
             this.ts[port] = {
                 tags: new TimeSeries(ts_dir, "ctt-tags-"+dev.attr.port),
             }
-        } else if (dev.attr.type == "funcubeProPlus" || dev.attr.type == "funcubePro" || dev.attr.type == "rtlsdr") {
+        } else if (dev.attr.type == "funcubeProPlus" || dev.attr.type == "funcubePro" || dev.attr.type == "rtlsdr" || dev.attr.type == "airspy") {
             // Lotek devices produce tag detections, pulses and noise figures
             this.ts[port] = {
                 tags: new TimeSeries(ts_dir, "lotek-tags-"+dev.attr.port),
@@ -1111,6 +1134,10 @@ class Dashboard {
         FlexDash.set('detections_5min', this.detections)
     }
 
+    handle_grhData(line) {
+        this.handle_vahData(line);
+    }
+
     handle_vahRate(port, now, rate) { this.tsGotRate(port, now, rate)}
 
     // capture VAH number of frames (samples) received for reporting via this.monitoring
@@ -1289,7 +1316,7 @@ class Dashboard {
     handle_dash_software_reboot() { Upgrader.reboot() }
     handle_dash_software_shutdown() {
         if (this.allow_poweroff) Upgrader.shutdown()
-            }
+    }
     handle_dash_software_check() { Upgrader.check() }
     handle_dash_software_upgrade(what) { Upgrader.upgrade(what) }
 

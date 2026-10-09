@@ -4,6 +4,7 @@
         },
         "label": "changeMe",
         "memo": "memo for you about this SensorGnome",
+        "gnuradio_enabled": true,
         "lotek_freq": 166.38,
         "module_options": {
             "find_tags": {
@@ -19,6 +20,7 @@
                 },
                 "rate": 48000,
                 "channels": 2,
+                "pulseFinder": "gnuradio",
                 "schedule": {
                     "type": "AlwaysOn"
                 },
@@ -42,6 +44,20 @@
                         "schedule": {
                             "type": "Constant",
                             "value": 40.2
+                        }
+                    },
+                    {
+                        "name": "rf_gain",
+                        "schedule": {
+                            "type": "Constant",
+                            "value": 49.6
+                        }
+                    },
+                    {
+                        "name": "if_gain",
+                        "schedule": {
+                            "type": "Constant",
+                            "value": 20
                         }
                     },
                     {
@@ -114,37 +130,218 @@
                 },
                 "plugins": [
                     {
-                        "library": "lotek-plugins.so",
-                        "name": "findpulsefdbatch",
+                        "library": "detect_pulses.py",
+                        "name": "grPulseDetect",
                         "outputID": "pulses",
                         "params": [
                             {
-                                "name": "plen",
+                                "name": "pulse_len",
                                 "value": 2.5
                             },
                             {
-                                "name": "minfreq",
-                                "value": 2
+                                "name": "target_rate",
+                                "value": 15e4
                             },
                             {
-                                "name": "maxfreq",
-                                "value": 8
+                                "name": "samp_rate",
+                                "value": 24e4
                             },
                             {
-                                "name": "fftsize",
-                                "value": 24
+                                "name": "additional_args",
+                                "value": "sensitivity=21"
                             },
                             {
-                                "name": "minsnr",
+                                "name": "gain",
+                                "value": "{\"rf\":49.6,\"if\":20}"
+                            },
+                            {
+                                "name": "cutoff_freq",
+                                "value": 15e3
+                            },
+                            {
+                                "name": "transition_width",
+                                "value": 1e4
+                            },
+                            {
+                                "name": "min_fft_size",
+                                "value": 64
+                            },
+                            {
+                                "name": "min_snr",
                                 "value": 6
                             },
                             {
-                                "name": "noisesize",
+                                "name": "debounce_samples",
                                 "value": 5
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": {
+                    "port": ".*",
+                    "devType": "airspy$"
+                },
+                "rate": 50000,
+                "channels": 2,
+                "pulseFinder":"gnuradio",
+                "schedule": {
+                    "type": "AlwaysOn"
+                },
+                "devParams": [
+                    {
+                        "name": "frequency",
+                        "schedule": {
+                            "type": "Constant",
+                            "value": 0
+                        }
+                    },
+                    {
+                        "name": "sensitivity_gain",
+                        "schedule": {
+                            "type": "Constant",
+                            "value": 20
+                        }
+                    },
+                    {
+                        "name": "agc",
+                        "schedule": {
+                            "type": "Constant",
+                            "value": 0
+                        }
+                    },
+                    {
+                        "name": "bias_tee",
+                        "schedule": {
+                            "type": "Constant",
+                            "value": 0
+                        }
+                    }              
+                ],
+                "raw": {
+                    "enabled": false,
+                    "chunkMinutes": 0.5
+                },
+                "plugins": [
+                    {
+                        "library": "detect_pulses.py",
+                        "name": "grPulseDetect",
+                        "outputID": "pulses",
+                        "params": [
+                            {
+                                "name": "pulse_len",
+                                "value": 2.5
                             },
                             {
-                                "name": "pulsesep",
-                                "value": 1
+                                "name": "target_rate",
+                                "value": 100e3
+                            },
+                            {
+                                "name": "samp_rate",
+                                "value": 3e6
+                            },
+                            {
+                                "name": "additional_args",
+                                "value": "sensitivity=21"
+                            },
+                            {
+                                "name": "gain",
+                                "value": "{}"
+                            },
+                            {
+                                "name": "cutoff_freq",
+                                "value": 8e3
+                            },
+                            {
+                                "name": "transition_width",
+                                "value": 2e3
+                            },
+                            {
+                                "name": "min_fft_size",
+                                "value": 64
+                            },
+                            {
+                                "name": "min_snr",
+                                "value": 6
+                            },
+                            {
+                                "name": "debounce_samples",
+                                "value": 10
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": {
+                    "port": ".*",
+                    "devType": "airspyhf"
+                },
+                "rate": 48000,
+                "channels": 2,
+                "pulseFinder":"gnuradio",
+                "schedule": {
+                    "type": "AlwaysOn"
+                },
+                "devParams": [
+                    {
+                        "name": "frequency",
+                        "schedule": {
+                            "type": "Constant",
+                            "value": 0
+                        }
+                    }       
+                ],
+                "raw": {
+                    "enabled": false,
+                    "chunkMinutes": 0.5
+                },
+                "plugins": [
+                    {
+                        "library": "detect_pulses.py",
+                        "name": "grPulseDetect",
+                        "outputID": "pulses",
+                        "params": [
+                            {
+                                "name": "pulse_len",
+                                "value": 2.5
+                            },
+                            {
+                                "name": "target_rate",
+                                "value": 48000
+                            },
+                            {
+                                "name": "samp_rate",
+                                "value": 192000
+                            },
+                            {
+                                "name": "additional_args",
+                                "value": ""
+                            },
+                            {
+                                "name": "gain",
+                                "value": "{\"rf\":0,\"lna\":6}"
+                            },
+                            {
+                                "name": "cutoff_freq",
+                                "value": 8e3
+                            },
+                            {
+                                "name": "transition_width",
+                                "value": 2e3
+                            },
+                            {
+                                "name": "min_fft_size",
+                                "value": 64
+                            },
+                            {
+                                "name": "min_snr",
+                                "value": 6
+                            },
+                            {
+                                "name": "debounce_samples",
+                                "value": 10
                             }
                         ]
                     }
@@ -157,6 +354,7 @@
                 },
                 "rate": 48000,
                 "channels": 2,
+                "pulseFinder": "gnuradio",
                 "schedule": {
                     "type": "AlwaysOn"
                 },
@@ -172,35 +370,7 @@
                         "name": "lna_gain",
                         "schedule": {
                             "type": "Constant",
-                            "value": 1
-                        }
-                    },
-                    {
-                        "name": "rf_filter",
-                        "schedule": {
-                            "type": "Constant",
-                            "value": 6
-                        }
-                    },
-                    {
-                        "name": "mixer_gain",
-                        "schedule": {
-                            "type": "Constant",
-                            "value": 1
-                        }
-                    },
-                    {
-                        "name": "if_filter",
-                        "schedule": {
-                            "type": "Constant",
-                            "value": 0
-                        }
-                    },
-                    {
-                        "name": "if_gain",
-                        "schedule": {
-                            "type": "Constant",
-                            "value": 0
+                            "value": 20
                         }
                     }
                 ],
@@ -210,37 +380,49 @@
                 },
                 "plugins": [
                     {
-                        "library": "lotek-plugins.so",
-                        "name": "findpulsefdbatch",
+                        "library": "detect_pulses.py",
+                        "name": "grPulseDetect",
                         "outputID": "pulses",
                         "params": [
                             {
-                                "name": "plen",
+                                "name": "pulse_len",
                                 "value": 2.5
                             },
                             {
-                                "name": "minfreq",
-                                "value": 2
+                                "name": "target_rate",
+                                "value": 48000
                             },
                             {
-                                "name": "maxfreq",
-                                "value": 8
+                                "name": "samp_rate",
+                                "value": 48000
                             },
                             {
-                                "name": "fftsize",
-                                "value": 24
+                                "name": "additional_args",
+                                "value": ""
                             },
                             {
-                                "name": "minsnr",
+                                "name": "gain",
+                                "value": "{\"lna\":20,\"if\":20}"
+                            },
+                            {
+                                "name": "cutoff_freq",
+                                "value": 12000.0
+                            },
+                            {
+                                "name": "transition_width",
+                                "value": 8000.0
+                            },
+                            {
+                                "name": "min_fft_size",
+                                "value": 64
+                            },
+                            {
+                                "name": "min_snr",
                                 "value": 6
                             },
                             {
-                                "name": "noisesize",
-                                "value": 5
-                            },
-                            {
-                                "name": "pulsesep",
-                                "value": 1
+                                "name": "debounce_samples",
+                                "value": 10
                             }
                         ]
                     }

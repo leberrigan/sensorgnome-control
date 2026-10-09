@@ -283,6 +283,14 @@ class PulseFilter {
       this.bf[pulse.port].addPulse(pulse)
       this.incrStats(pulse.port, 'pulses')
     })
+    this.matron.on("grhData", line => {
+      if (! line.startsWith('p')) { console.log(`*** HUH? ${line}`); return }
+      const pulse = parsePulse(line) // {port, ts, freq, sig}
+      if (!this.bf[pulse.port]) this.bf[pulse.port] = new FindBursts()
+      // console.log("Matching", pulse, this.bf[pulse.port].history)
+      this.bf[pulse.port].addPulse(pulse)
+      this.incrStats(pulse.port, 'pulses')
+    })
 
     setInterval(()=>{
       // prune history as of 2 seconds ago (this leaves a bit of slop for events to propagate)
