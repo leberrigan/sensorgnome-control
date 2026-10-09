@@ -239,7 +239,7 @@ class Dashboard {
         const showFreq  = true; //isNanoBabel || isAirSpy || isFunCube || isRTL
         const showGRH   = isNanoBabel || isAirSpy || isFunCube || isRTL
         const grhFixed  = isAirSpy   // AirSpy/AirSpyHF GRH is always on; cannot switch to VAH
-        const showGain  = isNanoBabel || isAirSpy || isFunCube || isRTL
+        const showGain  = isAirSpy || isFunCube || isRTL  // NanoBabel has no gain control
 
         // Row 1: port[1] port_path[1] type[2] status/sensor[2]
         const innerWidgets = [
@@ -259,12 +259,6 @@ class Dashboard {
             dynamic: { value: `devices/${port}/state` },
         })
 
-        if (isDigiBabel) {
-            // Row 2: payload[2] encoding[2]
-            innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: false, enabled: false, show_value: true, off_value: "No payload", on_value: "Payload" } })
-            innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: false, enabled: false, show_value: true, off_value: "CTT encoding", on_value: "Lotek encoding" } })
-            return { kind: "DynamicPanel", cols: 6, static: { card: true, widgets: innerWidgets } }
-        }
 
         // Row 2: spacer[1] freq[1] GRH[2] gain[2]
         if (showFreq) {
@@ -275,8 +269,18 @@ class Dashboard {
             })
         }
 
+        if (isDigiBabel) {
+            // Row 2: payload[2] encoding[2]
+            innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: "No payload", enabled: false, show_value: true, off_value: "No payload", on_value: "Payload" } })
+            innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: "CTT encoding", enabled: false, show_value: true, off_value: "CTT encoding", on_value: "Lotek encoding" } })
+            return { kind: "DynamicPanel", cols: 6, static: { card: true, widgets: innerWidgets } }
+        }
+
         if (showGRH) {
-            if (grhFixed) {
+            if (isNanoBabel) {
+                // NanoBabel has no VAMP pulse-detect plan and no GRH support; show fixed "NB" label
+                innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: "NB", enabled: false, show_value: true, on_value: "NB", off_value: "NB" } })
+            } else if (grhFixed) {
                 innerWidgets.push({ kind: "Toggle", cols: 2, static: { value: "GRH", enabled: false, show_value: true, on_value: "GRH", off_value: "VAH" } })
             } else {
                 innerWidgets.push({
@@ -291,18 +295,22 @@ class Dashboard {
         if (showGain) {
             let choices, labels, defaultVal
             if (isAirSpyHF) {
-                choices = ["0","6","12","18","24"]; labels = ["0 dB","6 dB","12 dB","18 dB","24 dB"]; defaultVal = "0"
+                // RF gain in dB: 0 = max sensitivity (no attenuation), -48 = max attenuation.
+                choices = ["0","-6","-12","-18","-24","-30","-36","-42","-48"]
+                labels  = ["0 dB","-6 dB","-12 dB","-18 dB","-24 dB","-30 dB","-36 dB","-42 dB","-48 dB"]
+                defaultVal = String(getAcqParam('airspyhf', 'sensitivity_gain') ?? 0)
             } else if (isAirSpy) {
                 choices = Array.from({length: 22}, (_, i) => String(i)); labels = choices
                 defaultVal = String(getAcqParam('airspy', 'sensitivity_gain') ?? 12)
             } else if (isFunCube) {
                 choices = ["0","1"]; labels = ["LNA off","LNA on"]; defaultVal = "1"
             } else {
-                // RTL-SDR / NanoBabel: gain in tenths of dB (R820T/R820T2 steps)
-                choices = ["0","77","144","207","297","386","402","439","496"]
+                // RTL-SDR / NanoBabel: gain in dB. hw_setParam multiplies by 10 for rtl_tcp.
+                // rtlInfo also reports in dB (gotCmdReply divides rtl_tcp's 0.1 dB units by 10).
+                choices = ["0","7.7","14.4","20.7","29.7","38.6","40.2","43.9","49.6"]
                 labels  = ["0 dB","7.7 dB","14.4 dB","20.7 dB","29.7 dB","38.6 dB","40.2 dB","43.9 dB","49.6 dB"]
                 const rawGain = getAcqParam(isNanoBabel ? 'rtlsdr' : typeLow, 'tuner_gain') ?? 29.7
-                defaultVal = String(Math.round(rawGain * 10))
+                defaultVal = String(rawGain)
             }
             innerWidgets.push({
                 kind: "DropdownSelect", cols: 2,
@@ -341,6 +349,20 @@ class Dashboard {
 
         const typeLowG = (HubMan.devs[port]?.attr?.type || '').toLowerCase()
 
+        // Block VAH switch when the plan has only GnuRadio plugins: VAH crashes trying to
+        // load a Python plugin via VAMP (exit code 11), triggering a re-enumeration loop.
+        if (!grh) {
+            const devType = HubMan.devs[port]?.attr?.type || ''
+            const acqPlan = (Acquisition.plans || []).find(p => {
+                try { return new RegExp(p.key.devType).test(devType) } catch { return false }
+            })
+            if (acqPlan?.pulseFinder === 'gnuradio') {
+                FlexDash.set(`devices/${port}/grh`, 'GRH')
+                this.devicesLogPush(`Port ${port}: VAH unavailable — plan has only GnuRadio plugins`)
+                return
+            }
+        }
+
         FlexDash.set(`devices/${port}/grh`, modeStr)
         FlexDash.set(`devices/${port}/gain_enabled`, !(typeLowG === 'funcubepro' && grh))
 
@@ -366,11 +388,11 @@ class Dashboard {
         this.matron.emit('devRemoved', devCopy)
         delete HubMan.devs[port]
 
-        // Audio devices (funcubePro/funcubeProPlus) share their ALSA handle between the
-        // GRH subprocess and VAH. Give GRH's subprocess extra time to die and release the
-        // ALSA device before VAH tries to open it.
-        const isAudioDev = typeLowG === 'funcubepro' || typeLowG === 'funcubeproplus'
-        const delay = isAudioDev ? 2000 : 500
+        // Audio devices share their ALSA handle; RTL-SDR/USB devices also need time for
+        // the GnuRadio subprocess to release the USB device before rtl_tcp can open it.
+        const isAudioDev  = typeLowG === 'funcubepro' || typeLowG === 'funcubeproplus'
+        const isFromGRH   = !grh && (dev.attr?.radio === 'GRH')
+        const delay = isAudioDev ? 2000 : (isFromGRH ? 3000 : 500)
 
         setTimeout(() => {
             HubMan.devs[port] = devCopy
@@ -401,6 +423,7 @@ class Dashboard {
         if (!par) { console.log(`Device port ${port}: no gain param for type ${typeLow}`); return }
 
         this.matron.emit('requestSetParam', { port, par, val: v })
+        Acquisition.updateDevParam(dev.attr.type, par, parseFloat(v))
         this.devicesLogPush(`Port ${port}: ${par} → ${v}`)
     }
 
@@ -521,7 +544,18 @@ class Dashboard {
         const port = info.attr.port
         FlexDash.set(`devices/${port}`, this.genDevInfo(info))
         FlexDash.set(`devices/${port}/state`, info.state || 'init')
-        FlexDash.set(`devices/${port}/grh`, info.attr?.radio === 'GRH' ? "GRH" : "VAH")
+        // Determine actual mode from plan.pulseFinder + per-port override, mirroring getSensor.
+        // Cannot rely on info.attr?.radio — hubman stamps rtlsdr/funcubeProPlus as 'GRH' from the
+        // filesystem regardless of whether the plan defaults to VAH.
+        {
+            const portOvr = Acquisition.devModeOverrides?.[port]
+            const devTypeFP = info.attr?.type || ''
+            const acqPlanFP = (Acquisition.plans || []).find(p => {
+                try { return new RegExp(p.key.devType).test(devTypeFP) } catch { return false }
+            })
+            const useGRH_FP = portOvr === 'GRH' || (portOvr !== 'VAH' && acqPlanFP?.pulseFinder === 'gnuradio')
+            FlexDash.set(`devices/${port}/grh`, useGRH_FP ? 'GRH' : 'VAH')
+        }
         const tDA = (info.attr?.type || '').toLowerCase()
         const devFreq = ['VAH', 'GRH'].includes(info.attr?.radio) && Acquisition.lotek_freq != null
             ? `${Acquisition.lotek_freq} MHz`
@@ -547,7 +581,7 @@ class Dashboard {
                 initialAttn = String(getAcqParam('airspy', 'sensitivity_gain') ?? 12)
             } else if (adIsRTL || adIsNB) {
                 const rawGain = getAcqParam(adIsNB ? 'rtlsdr' : adType, 'tuner_gain') ?? 29.7
-                initialAttn = String(Math.round(rawGain * 10))
+                initialAttn = String(rawGain)  // dB; hw_setParam multiplies ×10 for rtl_tcp
             } else if (adIsFC) {
                 initialAttn = "1"  // LNA on by default
             }
@@ -557,10 +591,15 @@ class Dashboard {
 
         // Gain available for all devices except funcubePro in GRH mode
         const typeLowDA = (info.attr?.type || '').toLowerCase()
-        const isGRHMode = info.attr?.radio === 'GRH'
-        FlexDash.set(`devices/${port}/gain_enabled`, !(typeLowDA === 'funcubepro' && isGRHMode))
-
-        this.devicesLogPush(`Port ${port}: connected (${info.attr?.type || 'unknown'}, ${isGRHMode ? 'GRH' : 'VAH'})`)
+        {
+            const portOvr2 = Acquisition.devModeOverrides?.[port]
+            const acqPlanGE = (Acquisition.plans || []).find(p => {
+                try { return new RegExp(p.key.devType).test(info.attr?.type || '') } catch { return false }
+            })
+            const isGRHMode = portOvr2 === 'GRH' || (portOvr2 !== 'VAH' && acqPlanGE?.pulseFinder === 'gnuradio')
+            FlexDash.set(`devices/${port}/gain_enabled`, !(typeLowDA === 'funcubepro' && isGRHMode))
+            this.devicesLogPush(`Port ${port}: connected (${info.attr?.type || 'unknown'}, ${isGRHMode ? 'GRH' : 'VAH'})`)
+        }
         FlexDash.set(`radios`, this.updateNumRadios())
         this.tsAddDevice(info)
         this.handle_devState()
@@ -1083,7 +1122,7 @@ class Dashboard {
             this.ts[port] = {
                 tags: new TimeSeries(ts_dir, "ctt-tags-"+dev.attr.port),
             }
-        } else if (dev.attr.type == "funcubeProPlus" || dev.attr.type == "funcubePro" || dev.attr.type == "rtlsdr" || dev.attr.type == "airspy" || dev.attr.type == "NanoBabel") {
+        } else if (dev.attr.type == "funcubeProPlus" || dev.attr.type == "funcubePro" || dev.attr.type == "rtlsdr" || dev.attr.type == "airspy" || dev.attr.type == "airspyhf" || dev.attr.type == "NanoBabel") {
             // Lotek devices produce tag detections, pulses and noise figures
             this.ts[port] = {
                 tags: new TimeSeries(ts_dir, "lotek-tags-"+dev.attr.port),
@@ -1109,7 +1148,7 @@ class Dashboard {
         try {
             const f = tag.split(',')
             if (f.length < 2) return
-            const mm = f[0].match(/^([A-Z])(\d+)/)
+            const mm = f[0].match(/^([A-z])(\d+)/)
             if (!mm) return
             const port = mm[2]
             const time = Math.round(parseFloat(f[1])*1000)
@@ -1131,6 +1170,7 @@ class Dashboard {
     // process a pulse from a lotek radio
     tsGotPulse(info) {
         // p6,1681004979.0929,3.785,-29.66,-54.81,25.6
+        // port, ts, dfreq, sig, noise, snr
         try {
             const f = info.split(',')
             if (f.length < 6) return

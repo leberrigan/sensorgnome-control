@@ -98,26 +98,61 @@ class Acquisition {
                 }
             }
         }
-        // save to file
         if (changed) {
-            console.log("Saving ", this.path)
-            const data = {}
-            for (let k of [...UPDATABLE, 'gps', 'plans', 'module_options'])
-                data[k] = this[k]
-            try {
-                Fs.writeFileSync(this.path + "~", JSON.stringify(data, null, 2))
-                try {
-                    Fs.renameSync(this.path, this.path + ".bak")
-                } catch (e) {
-                    if (e.code != "ENOENT") throw e
-                }
-                Fs.renameSync(this.path + "~", this.path)
-            } catch (e) {
-                console.log("ERROR: failed to save acquisition config: ", e)
-            }
-            // update (restart) radios
+            this._saveToFile()
             if ('lotek_freq' in new_values) this.fix_freq(new_values.lotek_freq)
             this.emitAll()
+        }
+    }
+
+    _saveToFile() {
+        console.log("Saving ", this.path)
+        const data = {}
+        for (let k of [...UPDATABLE, 'gps', 'plans', 'module_options'])
+            data[k] = this[k]
+        try {
+            Fs.writeFileSync(this.path + "~", JSON.stringify(data, null, 2))
+            try {
+                Fs.renameSync(this.path, this.path + ".bak")
+            } catch (e) {
+                if (e.code != "ENOENT") throw e
+            }
+            Fs.renameSync(this.path + "~", this.path)
+        } catch (e) {
+            console.log("ERROR: failed to save acquisition config: ", e)
+        }
+    }
+
+    // Persist a devParam value change (e.g. gain slider) for a given device type.
+    // Updates the in-memory plan and writes acquisition.json atomically.
+    updateDevParam(devType, paramName, value) {
+        let changed = false
+        for (let plan of this.plans) {
+            let regex
+            try { regex = new RegExp(plan.key.devType) } catch { continue }
+            if (!String(devType).match(regex)) continue
+
+            for (let dp of plan.devParams || []) {
+                if (dp.name === paramName) {
+                    dp.schedule.value = value
+                    changed = true
+                }
+            }
+
+            // For VAH-default plans with a gnuradio sub-object: also sync tuner_gain
+            // to gnuradio.gain.rf so the next GRH session starts with the updated value.
+            if (plan.gnuradio && paramName === 'tuner_gain') {
+                try {
+                    const gain = JSON.parse(plan.gnuradio.gain)
+                    gain.rf = value
+                    plan.gnuradio.gain = JSON.stringify(gain)
+                    changed = true
+                } catch (e) { /* ignore malformed gain string */ }
+            }
+        }
+        if (changed) {
+            console.log(`Acquisition: persisting ${paramName}=${value} for ${devType}`)
+            this._saveToFile()
         }
     }
 

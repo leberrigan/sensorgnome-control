@@ -91,8 +91,9 @@ class BurstFinder {
         if (!this.child) return
         if (typeof x != 'string' || !x.startsWith('p')) return
         try {
-            this.child.stdin.write(x.trimStart('p') + '\n')
-            console.log("TO BF: " + x.trimStart('p'))
+            var toBF = x.trimStart().split(",").slice(0,6).join(",")
+            this.child.stdin.write(toBF + '\n')
+            console.log("TO BF: " + toBF)
         } catch(e) {
             console.log("Error writing to burstfinder:", e)
         }

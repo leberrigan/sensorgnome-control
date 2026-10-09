@@ -113,7 +113,7 @@ Sensor.prototype.devRemoved = function(dev) {
 }
 
 Sensor.prototype.close = function() {
-    if (this.plan.pulseFinder === "gnuradio") {
+    if (this instanceof GR_SDR.GR_SDR) {
         this.matron.emit("grhSubmit", "close " + this.dev.attr.port);
         return;
     }
@@ -153,7 +153,12 @@ Sensor.prototype.init = function() {
 Sensor.prototype.initDone = function() {
     if (this instanceof GR_SDR.GR_SDR) {
         // Expects commands in this order: dev_type port device samp_rate target_rate freq gain additional_args
-        var cmd = `open ${this.dev.attr.type} ${this.dev.attr.port} ${this.getDeviceID()} ${this.plan.samp_rate} ${this.plan.rate} ${this.plan.frequency*1e6} ${this.plan.gain} ${this.plan.additional_args}`
+        // samp_rate/gain/additional_args come from plan.gnuradio (set by extractPluginParams);
+        // fall back to safe defaults if plan.gnuradio is missing from acquisition.json.
+        const samp_rate = this.plan.samp_rate ?? this.plan.rate;
+        const gain = this.plan.gain ?? '{}';
+        const additional_args = this.plan.additional_args ?? '';
+        var cmd = `open ${this.dev.attr.type} ${this.dev.attr.port} ${this.getDeviceID()} ${samp_rate} ${this.plan.rate} ${this.plan.frequency*1e6} ${gain} ${additional_args}`
         //"open " + this.dev.attr.port + " " + this.hw_devPath() + " " + this.plan.rate + " " + this.plan.channels;
         console.log("Opening GRH: " + cmd);
         this.matron.emit("grhSubmit", cmd, this.grOpenReply, this);
@@ -165,6 +170,7 @@ Sensor.prototype.initDone = function() {
 };
 
 Sensor.prototype.vahOpenReply = function (reply, self) {
+    if (self.cancelled) return;
     if (reply.error) {
         console.log(`sensor VAH open reply port ${self.dev.attr?.port} got ${JSON.stringify(reply)}\n`);
         // schedule a retry on this device (every 10 seconds up to 10 times)
@@ -246,6 +252,7 @@ Sensor.prototype.getPluginLabel = function(letter) {
 
 Sensor.prototype.vahAttachReply = function (reply, pars) {
     var self = pars.self, pno=pars.i, plugin = self.plan.plugins[pno];
+    if (self.cancelled) return;
     if (reply.error) {
         console.log(`Cannot attach plugin ${plugin.library}:${plugin.name}:${plugin.outputID} to ${JSON.stringify(self.dev)}: ${reply.error}`)
         self.matron.emit("devState", self.dev.attr.port, "error", reply.error);
@@ -313,7 +320,7 @@ Sensor.prototype.startStop = function(newState, oldState, self) {
     }
     self.startStopRawFiler(self.on);
     self.hw_startStop(self.on);
-    if (self.plan.pulseFinder !== "gnuradio") {
+    if (!(self instanceof GR_SDR.GR_SDR)) {
         var cmd = self.on ? "start" : "stop";
         self.matron.emit("vahStartStop", cmd, self.dev.attr.port, self.startStopReply, self);
     }

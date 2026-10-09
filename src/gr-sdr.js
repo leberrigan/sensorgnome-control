@@ -75,8 +75,17 @@ GR_SDR.prototype.getDeviceID = function() {
 
 
 GR_SDR.prototype.extractPluginParams = function() {
-    for (let param of this.plan.plugins[0].params) {
-        this.plan[param.name] = param.value;
+    if (this.plan.gnuradio) {
+        // VAH-default plan: GnuRadio params (samp_rate, gain, additional_args) are in a
+        // dedicated sub-object so they don't pollute the VAMP plugin config used by VAH.
+        for (const [k, v] of Object.entries(this.plan.gnuradio)) {
+            this.plan[k] = v;
+        }
+    } else {
+        // GnuRadio-only plan: params are embedded in plugins[0].params (legacy layout).
+        for (let param of this.plan.plugins[0].params) {
+            this.plan[param.name] = param.value;
+        }
     }
     for (let param of this.plan.devParams) {
         this.plan[param.name] = param.schedule.value;
