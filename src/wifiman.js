@@ -68,6 +68,8 @@ class WifiMan {
         this.check_timer = null
         this.hotspot_has_pass = false
         this._wifiSignalTimer = null
+        this.hotspot_desired = "on" // hotspot policy is "always on" unless the user disables it
+        this._hotspotRecoverAt = 0  // rate-limit guard for undervoltage-triggered recovery
     }
 
     start() {
@@ -76,8 +78,23 @@ class WifiMan {
         //setTimeout(() => this.getDefaultRoute(), 3000) // for debugging
         this.getWifiConfig()
         this.matron.on('dash_login', (user, pass) => this.checkHotspotPassword(user,pass))
+        this.matron.on('undervoltageEdge', (ev) => this.onUndervoltageEdge(ev))
         // One scan at startup to populate the table
         setTimeout(() => this.scanWifiNetworks(), 5000)
+    }
+
+    // after a brownout clears, re-assert the hotspot if it's supposed to be on but the
+    // radio dropped it (the Pi itself usually recovers fine, the wifi chip sometimes doesn't)
+    onUndervoltageEdge(ev) {
+        if (ev.state != 'end') return
+        setTimeout(() => {
+            if (this.hotspot_desired != "on" || this.hotspot_state == "ON") return
+            const now = Date.now()
+            if (now - this._hotspotRecoverAt < 120000) return // at most once per 2 minutes
+            this._hotspotRecoverAt = now
+            console.log("Hotspot found down after undervoltage, re-enabling")
+            this.enableHotspot(true)
+        }, 30000)
     }
 
     // ===== monitoring default route
@@ -415,6 +432,7 @@ class WifiMan {
     }
     
     enableHotspot(enable) {
+        this.hotspot_desired = enable ? "on" : "off"
         this.matron.emit("netHotspotState", enable ? "enabling" : "disabling")
         ChildProcess.execFile(HOTSPOT_SCRIPT, [enable ? "on" : "off"], (code, stdout, stderr) => {
             console.log(`Hotspot control script code=${code} stdout=${stdout} stderr=${stderr}`)

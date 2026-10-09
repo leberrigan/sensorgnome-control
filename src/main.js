@@ -70,6 +70,7 @@ FlexDash      = new (require('./flexdash.js'))(TheMatron);
 Dashboard     = new (require('./dashboard.js'))(TheMatron);
 WifiMan       = new (require('./wifiman.js').WifiMan)(TheMatron);
 CellMan       = new (require('./cellular.js').CellMan)(TheMatron);
+PowerMon      = new (require('./powermon.js'))(TheMatron);
 
 Schedule      = require('./schedule.js');
 Sensor        = require('./sensor.js');
@@ -182,3 +183,4 @@ SysMonitor.start()
 MotusUp.start()
 WifiMan.start()
 CellMan.start(CELLCONFIG)
+PowerMon.start()
